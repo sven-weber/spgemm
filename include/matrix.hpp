@@ -32,6 +32,8 @@ public:
   ~CSRMatrix();
 
   double get(size_t i, size_t j);
+
+  void save(std::string file_path);
 };
 
 } // namespace matrix

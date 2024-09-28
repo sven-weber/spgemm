@@ -26,6 +26,7 @@ void visualize(matrix::CSRMatrix &csr) {
 }
 
 int main() {
-  matrix::CSRMatrix mm("matrices/small2/A.mtx");
-  visualize(mm);
+  matrix::CSRMatrix mm("matrices/huge/A.mtx");
+  // visualize(mm);
+  mm.save("matrices/huge/B.mtx");
 }
