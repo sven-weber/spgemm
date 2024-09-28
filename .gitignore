@@ -39,3 +39,6 @@ compile_commands.json
 
 # Project specific
 dphpc
+
+# Python scripts .venv
+dphpc_pyenv
