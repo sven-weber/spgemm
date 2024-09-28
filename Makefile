@@ -1,6 +1,6 @@
 SRC_DIR  = src
 INT_DIR  = build
-TARGET   = dphpc
+TARGET   = spgemm
 
 CXX = g++
 ## -MMD creates dependency list, but ignores system includes

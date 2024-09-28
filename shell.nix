@@ -5,5 +5,6 @@ pkgs.mkShell {
   buildInputs = with pkgs; [
     boost
     gnumake
+    openmpi
   ];
 }
