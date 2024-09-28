@@ -1,12 +1,11 @@
+#include "matrix.hpp"
+
 #include <algorithm>
 #include <cassert>
-#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <vector>
-
-#include "matrix.hpp"
 
 namespace matrix {
 
@@ -21,14 +20,14 @@ struct line {
 
 Matrix::Matrix() {}
 
-CSRMatrix::CSRMatrix(std::string file_path, size_t start_i, size_t *,
-                     size_t start_j, size_t *)
-    : start_i(start_i), start_j(start_j) {
+CSRMatrix::CSRMatrix(std::string file_path, bool transposed, size_t start_i,
+                     size_t *, size_t start_j, size_t *)
+    : transposed(transposed), start_i(start_i), start_j(start_j) {
   // TODO: use {start,end}_{i,j}
   std::ifstream stream(file_path);
   if (!stream.is_open()) {
     std::cout << "could not open file (reading): " << file_path << std::endl;
-    exit(1);
+    assert(false);
   }
 
   std::string line;
@@ -39,8 +38,13 @@ CSRMatrix::CSRMatrix(std::string file_path, size_t start_i, size_t *,
 
   // first non-comment line is going to be:
   // <height> <width> <non_zero>
-  line_stream >> height;
-  line_stream >> width;
+  if (!transposed) {
+    line_stream >> height;
+    line_stream >> width;
+  } else {
+    line_stream >> width;
+    line_stream >> height;
+  }
   line_stream >> non_zero;
 
   values = (double *)malloc(non_zero * sizeof(double));
@@ -56,8 +60,13 @@ CSRMatrix::CSRMatrix(std::string file_path, size_t start_i, size_t *,
   while (l--) {
     size_t row, col;
     double val;
-    stream >> row;
-    stream >> col;
+    if (!transposed) {
+      stream >> row;
+      stream >> col;
+    } else {
+      stream >> col;
+      stream >> row;
+    }
     stream >> val;
 
     auto i = row - 1;
@@ -99,16 +108,23 @@ CSRMatrix::~CSRMatrix() {
   values = nullptr;
 }
 
-double CSRMatrix::get(size_t, size_t) {
-  // TODO
-  return 0;
+SmallVec CSRMatrix::row(size_t i) {
+  assert(!transposed);
+  auto offst = row_ptr[i];
+  return {values + offst, col_idx + offst, row_ptr[i + 1] - offst};
+}
+
+SmallVec CSRMatrix::col(size_t j) {
+  assert(transposed);
+  auto offst = row_ptr[j];
+  return {values + offst, col_idx + offst, row_ptr[j + 1] - offst};
 }
 
 void CSRMatrix::save(std::string file_path) {
   std::ofstream stream(file_path);
   if (!stream.is_open()) {
     std::cout << "could not open file (writing): " << file_path << std::endl;
-    exit(2);
+    assert(false);
   }
 
   stream << height << " " << width << " " << non_zero << std::endl;
@@ -118,7 +134,10 @@ void CSRMatrix::save(std::string file_path) {
   for (size_t row = 0; row < height; ++row) {
     for (size_t j = row_ptr[row]; j < row_ptr[row + 1]; ++j) {
       auto col = col_idx[j];
-      lines[l] = {row, col, values[j]};
+      if (!transposed)
+        lines[l] = {row, col, values[j]};
+      else
+        lines[l] = {col, row, values[j]};
       ++l;
     }
   }

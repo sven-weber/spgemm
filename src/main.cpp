@@ -17,7 +17,7 @@ void visualize(matrix::CSRMatrix &csr) {
   }
 
   for (size_t i = 0; i < csr.height; i++) {
-    std::cout << i + 1 << ":\t";
+    std::cout << i << ":\t";
     for (size_t j = 0; j < csr.width; j++) {
       std::cout << matrix[(i * csr.width) + j] << "\t";
     }
@@ -26,7 +26,13 @@ void visualize(matrix::CSRMatrix &csr) {
 }
 
 int main() {
-  matrix::CSRMatrix mm("matrices/huge/A.mtx");
-  // visualize(mm);
-  mm.save("matrices/huge/B.mtx");
+  matrix::CSRMatrix mm("matrices/small2/A.mtx", false);
+  for (size_t i = 0; i < mm.height; ++i) {
+    auto [data, pos, len] = mm.row(i);
+    for (size_t j = 0; j < len; ++j) {
+      std::cout << "(" << i << "," << pos[j] << "): " << data[j] << std::endl;
+    }
+  }
+  visualize(mm);
+  mm.save("matrices/small2/B.mtx");
 }
