@@ -10,13 +10,9 @@ namespace matrix {
 class Matrix {
 public:
   size_t start_i;
-  size_t height;
   size_t start_j;
-  size_t width;
-  size_t non_zero;
 
-  Matrix(size_t start_i, size_t height, size_t start_j, size_t width,
-         size_t non_zero);
+  Matrix(size_t start_i, size_t start_j);
 
   virtual void set(size_t i, size_t j, double val);
   virtual double get(size_t i, size_t j);
@@ -24,13 +20,16 @@ public:
 
 class CSRMatrix : Matrix {
 private:
+  size_t height;
+  size_t width;
+  size_t non_zero;
+
   size_t *row_start;
   size_t *col_idx;
   double *values;
 
 public:
-  CSRMatrix(size_t start_i, size_t height, size_t start_j, size_t width,
-            size_t non_zero);
+  CSRMatrix(size_t start_i, size_t start_j, std::string file_path);
   ~CSRMatrix();
 
   void set(size_t i, size_t j, double val);
