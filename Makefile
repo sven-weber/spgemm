@@ -1,8 +1,9 @@
-SRC_DIR  = src
-INT_DIR  = build
-TARGET   = dphpc
+SRC_DIR  		= src
+INT_DIR  		= build
+TARGET   		= dphpc
+TEST_MACHINES 	= 2
 
-CXX = g++
+CXX = mpic++
 ## -MMD creates dependency list, but ignores system includes
 ## -MF specifies where to create the dependency file name
 ## -MP creates phony targets for headers (deals with deleted headers after
@@ -31,8 +32,8 @@ optimize: OPTFLAGS += -DINLINE -DNDEBUG
 optimize: compile
 
 run: $(TARGET)
-	@echo -e "RUN\t$(TARGET)"
-	@./$(TARGET)
+	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
+	@mpirun -n $(TEST_MACHINES) ./$(TARGET)
 
 debug: CXXFLAGS += -ggdb -fsanitize=address,leak,undefined -fno-omit-frame-pointer
 debug: LDFLAGS += -fsanitize=address,leak,undefined
