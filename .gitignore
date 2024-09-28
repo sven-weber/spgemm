@@ -38,7 +38,7 @@ build*
 compile_commands.json
 
 # Project specific
-dphpc
+spgemm
 
 # Python scripts .venv
 dphpc_pyenv

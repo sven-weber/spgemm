@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <string>
 
 namespace matrix {
 
@@ -9,30 +10,27 @@ namespace matrix {
 // - BCSRMatrix
 class Matrix {
 public:
-  size_t start_i;
-  size_t start_j;
+  Matrix();
 
-  Matrix(size_t start_i, size_t start_j);
-
-  virtual void set(size_t i, size_t j, double val);
-  virtual double get(size_t i, size_t j);
+  virtual double get(size_t i, size_t j) = 0;
 };
 
 class CSRMatrix : Matrix {
-private:
+public:
+  size_t *row_ptr = nullptr;
+  size_t *col_idx = nullptr;
+  double *values = nullptr;
+
+  size_t start_i;
   size_t height;
+  size_t start_j;
   size_t width;
   size_t non_zero;
 
-  size_t *row_start;
-  size_t *col_idx;
-  double *values;
-
-public:
-  CSRMatrix(size_t start_i, size_t start_j, std::string file_path);
+  CSRMatrix(std::string file_path, size_t start_i = 0, size_t *end_i = nullptr,
+            size_t start_j = 0, size_t *end_j = nullptr);
   ~CSRMatrix();
 
-  void set(size_t i, size_t j, double val);
   double get(size_t i, size_t j);
 };
 
