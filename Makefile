@@ -13,7 +13,10 @@ CXX ?= gcc
 OPTFLAGS = -march=native -O3 -std=c++20 -Wno-uninitialized
 WARNFLAGS = -Wall -Wextra -Werror
 OPENMP_FLAGS = -fopenmp
-CXXFLAGS = -Iinclude -MT $@ -MMD -MP -MF $(@:.o=.d) $(WARNFLAGS) $(OPTFLAGS) $(OPENMP_FLAGS)
+MPI_CFLAGS := $(shell pkg-config --cflags ompi-c)
+MPI_LIB_FLAGS := $(shell pkg-config --libs ompi-c)
+CXXFLAGS = -Iinclude -MT $@ -MMD -MP -MF $(@:.o=.d) $(WARNFLAGS) $(OPTFLAGS) $(OPENMP_FLAGS) $(MPI_CFLAGS)
+LDFLAGS += $(MPI_LIB_FLAGS)
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
 CPP_HEADER_FILES := $(wildcard $(SRC_DIR)/**/**/*.hpp) $(wildcard $(SRC_DIR)/**/*.hpp) $(wildcard $(SRC_DIR)/*.hpp)
@@ -48,7 +51,7 @@ format:
 	clang-format -i $(CPP_FILES) $(CPP_HEADER_FILES)
 
 $(CPP_OBJ_FILES): $(INT_DIR)/%.o: $(SRC_DIR)/%.cpp $(INT_DIR)/%.d | $(OBJ_DIRS)
-	@echo -e "CC\t$<"
+	@echo -e "CC\t $(CXXFLAGS) $<"
 	@$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 $(TARGET): $(CPP_OBJ_FILES)
