@@ -16,7 +16,7 @@ OPENMP_FLAGS = -fopenmp
 MPI_CFLAGS := $(shell pkg-config --cflags ompi-c)
 MPI_LIB_FLAGS := $(shell pkg-config --libs ompi-c)
 CXXFLAGS = -Iinclude -MT $@ -MMD -MP -MF $(@:.o=.d) $(WARNFLAGS) $(OPTFLAGS) $(OPENMP_FLAGS) $(MPI_CFLAGS)
-LDFLAGS += $(MPI_LIB_FLAGS)
+LDFLAGS += $(MPI_LIB_FLAGS) -openmp
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
 CPP_HEADER_FILES := $(wildcard $(SRC_DIR)/**/**/*.hpp) $(wildcard $(SRC_DIR)/**/*.hpp) $(wildcard $(SRC_DIR)/*.hpp)
