@@ -1,6 +1,7 @@
 #include <iostream>
 #include "mpi.h"
 #include <unistd.h>
+#include <cstring>
 
 #define ROOT 0
 #define N 4
