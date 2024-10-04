@@ -3,7 +3,7 @@ INT_DIR  		= build
 TARGET   		= dphpc
 TEST_MACHINES 	= 2
 
-CXX = mpic++
+CXX ?= gcc
 ## -MMD creates dependency list, but ignores system includes
 ## -MF specifies where to create the dependency file name
 ## -MP creates phony targets for headers (deals with deleted headers after
@@ -12,7 +12,8 @@ CXX = mpic++
 ## If you don't have an avx512 machine, please comment out all flags related to avx512
 OPTFLAGS = -march=native -O3 -std=c++20 -Wno-uninitialized
 WARNFLAGS = -Wall -Wextra -Werror
-CXXFLAGS = -Iinclude -MT $@ -MMD -MP -MF $(@:.o=.d) $(WARNFLAGS) $(OPTFLAGS)
+OPENMP_FLAGS = -fopenmp
+CXXFLAGS = -Iinclude -MT $@ -MMD -MP -MF $(@:.o=.d) $(WARNFLAGS) $(OPTFLAGS) $(OPENMP_FLAGS)
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
 CPP_HEADER_FILES := $(wildcard $(SRC_DIR)/**/**/*.hpp) $(wildcard $(SRC_DIR)/**/*.hpp) $(wildcard $(SRC_DIR)/*.hpp)
