@@ -13,6 +13,9 @@ build*
 *.a
 *.o
 
+# ENV files
+.envrc
+
 # IDE files:
 *.swp
 .idea
