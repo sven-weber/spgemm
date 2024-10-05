@@ -4,29 +4,61 @@
 #include <cassert>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <sstream>
 #include <vector>
 
 namespace matrix {
 
-struct line {
-  size_t row;
-  size_t col;
-  double val;
+Matrix::Matrix(bool transposed)
+    : transposed(transposed), height(0), width(0), non_zeros(0) {}
 
-  // sort by column
-  bool operator<(const line &l) const { return (col < l.col); }
+struct fields {
+  bool transposed;
+  size_t height;
+  size_t width;
+  size_t non_zero;
 };
 
-Matrix::Matrix(std::string, bool transposed, size_t start_i, size_t *,
-               size_t start_j, size_t *)
-    : transposed(transposed), start_i(0), height(0), start_j(0), width(0),
-      non_zero(0) {}
+Cells::Cells(size_t rows, size_t non_zeros)
+    : min_i(std::numeric_limits<int64_t>::max()),
+      max_i(std::numeric_limits<int64_t>::min()),
+      min_j(std::numeric_limits<int64_t>::max()),
+      max_j(std::numeric_limits<int64_t>::min()), rows(rows),
+      non_zero_per_row(std::vector<size_t>(rows, 0)),
+      _cells(std::vector<Cell>(non_zeros)) {}
 
-CSRMatrix::CSRMatrix(std::string file_path, bool transposed, size_t start_i,
-                     size_t *end_i, size_t start_j, size_t *end_j)
-    : Matrix(file_path, transposed, start_i, end_i, start_j, end_j) {
-  // TODO: use {start,end}_{i,j}
+void Cells::add(Cell &c) {
+  assert(c.row < non_zero_per_row.size());
+
+  _cells.push_back(c);
+  ++non_zero_per_row[c.row];
+
+  min_i = std::min(min_i, (int64_t)c.row);
+  max_i = std::max(max_i, (int64_t)c.row);
+  min_j = std::min(min_j, (int64_t)c.col);
+  max_j = std::max(max_j, (int64_t)c.col);
+}
+
+size_t Cells::cells_in_row(size_t row) {
+  assert(row < non_zero_per_row.size());
+  return non_zero_per_row[row];
+}
+
+size_t Cells::size() { return _cells.size(); }
+
+size_t Cells::height() { return (size_t)(max_i - min_i + 1); }
+
+size_t Cells::width() { return (size_t)(max_j - min_j + 1); }
+
+// prt = malloc(actual_size_i_nedd + sizeof(fields))
+//
+// actual_data =  ptr + sizeof(fields);
+// fields_ptr =  (fields *) ptr + sizeof(fields);
+// fields_ptr->height =
+
+Cells get_cells(std::string file_path, bool transposed,
+                std::unordered_set<size_t> *keep) {
   std::ifstream stream(file_path);
   if (!stream.is_open()) {
     std::cout << "could not open file (reading): " << file_path << std::endl;
@@ -41,25 +73,21 @@ CSRMatrix::CSRMatrix(std::string file_path, bool transposed, size_t start_i,
 
   // first non-comment line is going to be:
   // <height> <width> <non_zero>
-  if (!transposed) {
+  size_t useless, height, non_zeros;
+  if (transposed) {
+    line_stream >> useless;
     line_stream >> height;
-    line_stream >> width;
   } else {
-    line_stream >> width;
+    line_stream >> useless;
     line_stream >> height;
   }
-  line_stream >> non_zero;
+  // This is going to be overwritten later if we're partially loading the matrix
+  line_stream >> non_zeros;
 
-  values = (double *)malloc(non_zero * sizeof(double));
-  col_idx = (size_t *)malloc(non_zero * sizeof(size_t));
-  row_ptr = (size_t *)malloc((height + 1) *
-                             sizeof(size_t)); // +1 for the extra element
-
-  auto non_zero_per_row = std::vector<size_t>(height, 0);
-  auto lines = std::vector<struct line>(non_zero);
+  Cells cells = keep == nullptr ? Cells(height) : Cells(height, non_zeros);
 
   // read non-zeros
-  auto l = non_zero;
+  auto l = non_zeros;
   while (l--) {
     size_t row, col;
     double val;
@@ -74,29 +102,45 @@ CSRMatrix::CSRMatrix(std::string file_path, bool transposed, size_t start_i,
 
     auto i = row - 1;
     auto j = col - 1;
-    lines[l] = {i, j, val};
-
-    // number of elements per row
-    ++non_zero_per_row[i];
+    Cell c = {.row = transposed ? col - 1 : row - 1,
+              .col = transposed ? row - 1 : col - 1,
+              .val = val};
+    if (keep == nullptr) {
+      cells.add(c);
+    } else if (keep->contains(transposed ? j : i)) {
+      cells.add(c);
+    }
   }
+  stream.close();
+  return cells;
+}
 
+CSRMatrix::CSRMatrix(std::string file_path, bool transposed,
+                     std::unordered_set<size_t> *keep)
+    : CSRMatrix(get_cells(file_path, transposed, keep), transposed) {}
+
+CSRMatrix::CSRMatrix(Cells cells, bool transposed) : Matrix(transposed) {
+  height = transposed ? cells.width() : cells.height();
+  width = transposed ? cells.height() : cells.width();
+  non_zeros = cells.size();
+
+  values = (double *)malloc(non_zeros * sizeof(double));
+  col_idx = (size_t *)malloc(non_zeros * sizeof(size_t));
+  row_ptr = (size_t *)malloc((height + 1) *
+                             sizeof(size_t)); // +1 for the extra element
   row_ptr[0] = 0;
   for (size_t i = 1; i <= height; ++i) {
-    row_ptr[i] = row_ptr[i - 1] + non_zero_per_row[i - 1];
+    row_ptr[i] = row_ptr[i - 1] + cells.cells_in_row(i - 1);
   }
 
   // Fill values and col_index arrays using row_ptr
   auto next_pos_in_row = std::vector<size_t>(height, 0);
-  l = non_zero;
-  while (l--) {
-    auto [row, col, val] = lines[l];
+  for (auto [row, col, val] : cells._cells) {
     auto index = row_ptr[row] + next_pos_in_row[row];
     col_idx[index] = col;
     values[index] = val;
     next_pos_in_row[row]++;
   }
-
-  stream.close();
 }
 
 CSRMatrix::~CSRMatrix() {
@@ -120,7 +164,7 @@ SmallVec CSRMatrix::row(size_t i) {
 
 SmallVec CSRMatrix::col(size_t j) {
   assert(transposed);
-  assert(j < width);
+  assert(j < height);
   auto offst = row_ptr[j];
   return {values + offst, col_idx + offst, row_ptr[j + 1] - offst};
 }
@@ -132,9 +176,9 @@ void CSRMatrix::save(std::string file_path) {
     assert(false);
   }
 
-  stream << height << " " << width << " " << non_zero << std::endl;
+  stream << height << " " << width << " " << non_zeros << std::endl;
 
-  auto lines = std::vector<struct line>(non_zero);
+  auto lines = std::vector<struct Cell>(non_zeros);
   size_t l = 0;
   for (size_t row = 0; row < height; ++row) {
     for (size_t j = row_ptr[row]; j < row_ptr[row + 1]; ++j) {
@@ -146,7 +190,7 @@ void CSRMatrix::save(std::string file_path) {
       ++l;
     }
   }
-  assert(l == non_zero);
+  assert(l == non_zeros);
 
   std::sort(lines.begin(), lines.end());
   for (auto line : lines) {

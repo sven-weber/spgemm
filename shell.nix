@@ -6,6 +6,7 @@ pkgs.mkShell {
     gcc14
     clang-tools
     bear
+    gdb
     boost
     gnumake
     openmpi
