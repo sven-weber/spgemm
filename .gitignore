@@ -12,6 +12,7 @@ Release
 build*
 *.a
 *.o
+dphpc
 
 # ENV files
 .envrc
