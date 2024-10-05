@@ -18,11 +18,14 @@ struct line {
   bool operator<(const line &l) const { return (col < l.col); }
 };
 
-Matrix::Matrix() {}
+Matrix::Matrix(std::string, bool transposed, size_t start_i, size_t *,
+               size_t start_j, size_t *)
+    : transposed(transposed), start_i(0), height(0), start_j(0), width(0),
+      non_zero(0) {}
 
 CSRMatrix::CSRMatrix(std::string file_path, bool transposed, size_t start_i,
-                     size_t *, size_t start_j, size_t *)
-    : transposed(transposed), start_i(start_i), start_j(start_j) {
+                     size_t *end_i, size_t start_j, size_t *end_j)
+    : Matrix(file_path, transposed, start_i, end_i, start_j, end_j) {
   // TODO: use {start,end}_{i,j}
   std::ifstream stream(file_path);
   if (!stream.is_open()) {
@@ -110,12 +113,14 @@ CSRMatrix::~CSRMatrix() {
 
 SmallVec CSRMatrix::row(size_t i) {
   assert(!transposed);
+  assert(i < height);
   auto offst = row_ptr[i];
   return {values + offst, col_idx + offst, row_ptr[i + 1] - offst};
 }
 
 SmallVec CSRMatrix::col(size_t j) {
   assert(transposed);
+  assert(j < width);
   auto offst = row_ptr[j];
   return {values + offst, col_idx + offst, row_ptr[j + 1] - offst};
 }
