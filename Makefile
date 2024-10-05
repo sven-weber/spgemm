@@ -2,7 +2,7 @@ SRC_DIR  				= src
 INCLUDE_DIR			= include
 INT_DIR  				= build
 TARGET   				= dphpc
-TEST_MACHINES 	= 2
+TEST_MACHINES 	= 1
 
 CXX ?= gcc
 ## -MMD creates dependency list, but ignores system includes

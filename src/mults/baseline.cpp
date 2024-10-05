@@ -4,23 +4,7 @@
 #include <iostream>
 #include <unistd.h>
 
-#define N 4
-#define M 4
-
-/*int main() {*/
-/*  matrix::CSRMatrix mm("matrices/small2/A.mtx", false);*/
-/*  for (size_t i = 0; i < mm.height; ++i) {*/
-/*    auto [data, pos, len] = mm.row(i);*/
-/*    for (size_t j = 0; j < len; ++j) {*/
-/*      std::cout << "(" << i << "," << pos[j] << "): " << data[j] <<
- * std::endl;*/
-/*    }*/
-/*  }*/
-/*  visualize(mm);*/
-/*  mm.save("matrices/small2/B.mtx");*/
-/*}*/
-
-void print_matrix(int *matrix, int rows, int cols) {
+void print_matrix(double *matrix, int rows, int cols) {
   std::string print = "";
   for (int i = 0; i < rows; i++) {
     for (int j = 0; j < cols; j++) {
@@ -35,29 +19,43 @@ namespace mults {
 namespace baseline {
 matrix::CSRMatrix spgemm(matrix::Matrix &part_A, matrix::Matrix &part_B,
                          int rank, int size, partition::Partitions partitions) {
+  // Define result matrix
+  // TODO: Partition with lucas serialization stuff
+  double *result = (double*) malloc(sizeof(double) * 2 * 4);
+
+  for (int row = 0; row < part_A.height; row++) {
+    // Note: B is transposed!
+    auto [row_data, row_pos, row_len] = part_A.row(row);
+    for(int col = 0; col < part_B.height; col++) {
+      auto [col_data, col_pos, col_len] = part_B.col(col);
+      double res = 0;
+      int col_elem = 0, row_elem = 0;
+      // inner loop for multiplication
+      while (col_elem < col_len && row_elem < row_len) {
+        if (col_pos[col_elem] < row_pos[row_elem]) {
+          col_elem++;
+        } else if (col_pos[col_elem] > row_pos[row_elem]) {
+          row_elem++;
+        } else {
+          res += row_data[row_elem] * col_data[col_elem];
+          row_elem++;
+          col_elem++;
+        }
+      }
+      result[row * 4 + col] = res;
+    }
+  }
+
+  std::cout << "Multiplication result:\n";
+  print_matrix(result, 2, 4);
+
+  //TODO: Return result
 }
 } // namespace baseline
 } // namespace mults
 
 /*
 int main(int argc, char **argv) {
-    int rank, size;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-
-    // Partition matrix: it specifies which rows and columns each rank will work
-on int partitioning[size * 4]; if (rank == ROOT) {
-        // Initialize partitions
-        for (int i = 0; i < size; i++) {
-            partitioning[i * 4] = i * N / size;
-            partitioning[i * 4 + 1] = (i + 1) * N / size;
-            partitioning[i * 4 + 2] = i * M / size;
-            partitioning[i * 4 + 3] = (i + 1) * M / size;
-        }
-    }
-
     // Broadcast partitioning
     MPI_Bcast(partitioning, size * 4, MPI_INT, ROOT, MPI_COMM_WORLD);
 

@@ -55,8 +55,9 @@ int main(int argc, char **argv) {
   utils::visualize(A);
   std::cout << "B:" << std::endl;
   utils::visualize(B);
-
+  
   // Do the multiplication!
+  // TODO: Benchmarking
   matrix::CSRMatrix partial_C = mults::baseline::spgemm(A, B, rank, size, p);
 
   // TODO: Revert any shuffling we applied
