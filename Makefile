@@ -1,4 +1,5 @@
 SRC_DIR  		= src
+INCLUDE_DIR	= include
 INT_DIR  		= build
 TARGET   		= dphpc
 TEST_MACHINES 	= 2
@@ -19,7 +20,7 @@ CXXFLAGS = -Iinclude -MT $@ -MMD -MP -MF $(@:.o=.d) $(WARNFLAGS) $(OPTFLAGS) $(O
 LDFLAGS += $(MPI_LIB_FLAGS) -openmp
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
-CPP_HEADER_FILES := $(wildcard $(SRC_DIR)/**/**/*.hpp) $(wildcard $(SRC_DIR)/**/*.hpp) $(wildcard $(SRC_DIR)/*.hpp)
+CPP_HEADER_FILES := $(wildcard $(INCLUDE_DIR)/**/**/*.hpp) $(wildcard $(INCLUDE_DIR)/**/*.hpp) $(wildcard $(INCLUDE_DIR)/*.hpp)
 
 CPP_OBJ_FILES := $(CPP_FILES:$(SRC_DIR)/%.cpp=$(INT_DIR)/%.o)
 AUX_OBJ_FILES := $(filter-out build/main.o, $(CPP_OBJ_FILES))
