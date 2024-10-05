@@ -8,5 +8,6 @@ pkgs.mkShell {
     boost
     gnumake
     openmpi
+    pkg-config
   ];
 }

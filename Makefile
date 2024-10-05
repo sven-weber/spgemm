@@ -51,7 +51,7 @@ format:
 	clang-format -i $(CPP_FILES) $(CPP_HEADER_FILES)
 
 $(CPP_OBJ_FILES): $(INT_DIR)/%.o: $(SRC_DIR)/%.cpp $(INT_DIR)/%.d | $(OBJ_DIRS)
-	@echo -e "CC\t $(CXXFLAGS) $<"
+	@echo -e "CC\t$<"
 	@$(CXX) $(CXXFLAGS) -c -o $@ $<
 
 $(TARGET): $(CPP_OBJ_FILES)
