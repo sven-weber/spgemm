@@ -10,16 +10,6 @@
 
 namespace matrix {
 
-Matrix::Matrix(bool transposed)
-    : transposed(transposed), height(0), width(0), non_zeros(0) {}
-
-struct fields {
-  bool transposed;
-  size_t height;
-  size_t width;
-  size_t non_zero;
-};
-
 Cells::Cells(size_t rows, size_t non_zeros)
     : min_i(std::numeric_limits<int64_t>::max()),
       max_i(std::numeric_limits<int64_t>::min()),
@@ -91,23 +81,16 @@ Cells get_cells(std::string file_path, bool transposed,
   while (l--) {
     size_t row, col;
     double val;
-    if (!transposed) {
-      stream >> row;
-      stream >> col;
-    } else {
-      stream >> col;
-      stream >> row;
-    }
+    stream >> row;
+    stream >> col;
     stream >> val;
 
-    auto i = row - 1;
-    auto j = col - 1;
     Cell c = {.row = transposed ? col - 1 : row - 1,
               .col = transposed ? row - 1 : col - 1,
               .val = val};
     if (keep == nullptr) {
       cells.add(c);
-    } else if (keep->contains(transposed ? j : i)) {
+    } else if (keep->contains(transposed ? col - 1 : row - 1)) {
       cells.add(c);
     }
   }
@@ -115,14 +98,29 @@ Cells get_cells(std::string file_path, bool transposed,
   return cells;
 }
 
+Matrix::Matrix(bool transposed)
+    : transposed(transposed), height(0), width(0), non_zeros(0) {}
+
 CSRMatrix::CSRMatrix(std::string file_path, bool transposed,
                      std::unordered_set<size_t> *keep)
     : CSRMatrix(get_cells(file_path, transposed, keep), transposed) {}
 
+struct fields {
+  bool transposed;
+  size_t height;
+  size_t width;
+  size_t non_zero;
+};
+
 CSRMatrix::CSRMatrix(Cells cells, bool transposed) : Matrix(transposed) {
-  height = transposed ? cells.width() : cells.height();
-  width = transposed ? cells.height() : cells.width();
+  // These values already take tranposed into account
+  height = cells.height();
+  width = cells.width();
   non_zeros = cells.size();
+
+  for (auto c : cells._cells) {
+    std::cout << c.row << " " << c.col << " " << c.val << std::endl;
+  }
 
   values = (double *)malloc(non_zeros * sizeof(double));
   col_idx = (size_t *)malloc(non_zeros * sizeof(size_t));
