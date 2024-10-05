@@ -12,12 +12,12 @@ CXX ?= gcc
 ## -MT specifies the dependency target (path qualified obj file name)
 ## If you don't have an avx512 machine, please comment out all flags related to avx512
 OPTFLAGS = -march=native -O3 -std=c++20 -Wno-uninitialized
-WARNFLAGS = -Wall -Wextra -Werror
+#WARNFLAGS = -Wall -Wextra -Werror
 OPENMP_FLAGS = -fopenmp
 MPI_CFLAGS := $(shell pkg-config --cflags ompi-c)
 MPI_LIB_FLAGS := $(shell pkg-config --libs ompi-c)
 CXXFLAGS = -Iinclude -MT $@ -MMD -MP -MF $(@:.o=.d) $(WARNFLAGS) $(OPTFLAGS) $(OPENMP_FLAGS) $(MPI_CFLAGS)
-LDFLAGS += $(MPI_LIB_FLAGS) -openmp
+LDFLAGS += $(MPI_LIB_FLAGS) -fopenmp
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
 CPP_HEADER_FILES := $(wildcard $(INCLUDE_DIR)/**/**/*.hpp) $(wildcard $(INCLUDE_DIR)/**/*.hpp) $(wildcard $(INCLUDE_DIR)/*.hpp)

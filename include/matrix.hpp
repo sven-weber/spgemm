@@ -22,7 +22,7 @@ public:
   virtual SmallVec col(size_t j) = 0;
 };
 
-class CSRMatrix : Matrix {
+class CSRMatrix : public Matrix {
 public:
   size_t *row_ptr = nullptr;
   size_t *col_idx = nullptr;
