@@ -4,18 +4,14 @@
 #include <cassert>
 #include <fstream>
 #include <iostream>
-#include <limits>
 #include <sstream>
 #include <vector>
 
 namespace matrix {
 
-Cells::Cells(size_t rows, size_t non_zeros)
-    : min_i(std::numeric_limits<int64_t>::max()),
-      max_i(std::numeric_limits<int64_t>::min()),
-      min_j(std::numeric_limits<int64_t>::max()),
-      max_j(std::numeric_limits<int64_t>::min()), rows(rows),
-      non_zero_per_row(std::vector<size_t>(rows, 0)),
+Cells::Cells(size_t height, size_t width, size_t non_zeros)
+    : height(height), width(width),
+      non_zero_per_row(std::vector<size_t>(height, 0)),
       _cells(std::vector<Cell>(non_zeros)) {}
 
 void Cells::add(Cell &c) {
@@ -23,11 +19,6 @@ void Cells::add(Cell &c) {
 
   _cells.push_back(c);
   ++non_zero_per_row[c.row];
-
-  min_i = std::min(min_i, (int64_t)c.row);
-  max_i = std::max(max_i, (int64_t)c.row);
-  min_j = std::min(min_j, (int64_t)c.col);
-  max_j = std::max(max_j, (int64_t)c.col);
 }
 
 size_t Cells::cells_in_row(size_t row) {
@@ -35,17 +26,7 @@ size_t Cells::cells_in_row(size_t row) {
   return non_zero_per_row[row];
 }
 
-size_t Cells::size() { return _cells.size(); }
-
-size_t Cells::height() { return (size_t)(max_i - min_i + 1); }
-
-size_t Cells::width() { return (size_t)(max_j - min_j + 1); }
-
-// prt = malloc(actual_size_i_nedd + sizeof(fields))
-//
-// actual_data =  ptr + sizeof(fields);
-// fields_ptr =  (fields *) ptr + sizeof(fields);
-// fields_ptr->height =
+size_t Cells::non_zeros() { return _cells.size(); }
 
 Cells get_cells(std::string file_path, bool transposed,
                 std::unordered_set<size_t> *keep) {
@@ -63,18 +44,19 @@ Cells get_cells(std::string file_path, bool transposed,
 
   // first non-comment line is going to be:
   // <height> <width> <non_zero>
-  size_t useless, height, non_zeros;
+  size_t width, height, non_zeros;
   if (transposed) {
-    line_stream >> useless;
+    line_stream >> width;
     line_stream >> height;
   } else {
-    line_stream >> useless;
     line_stream >> height;
+    line_stream >> width;
   }
   // This is going to be overwritten later if we're partially loading the matrix
   line_stream >> non_zeros;
 
-  Cells cells = keep == nullptr ? Cells(height) : Cells(height, non_zeros);
+  Cells cells =
+      keep == nullptr ? Cells(height, width) : Cells(height, width, non_zeros);
 
   // read non-zeros
   auto l = non_zeros;
@@ -98,26 +80,38 @@ Cells get_cells(std::string file_path, bool transposed,
   return cells;
 }
 
-Matrix::Matrix(bool transposed)
-    : transposed(transposed), height(0), width(0), non_zeros(0) {}
+Matrix::Matrix(size_t height, size_t width, size_t non_zeros, bool transposed)
+    : height(height), width(width), non_zeros(non_zeros),
+      transposed(transposed) {}
 
 CSRMatrix::CSRMatrix(std::string file_path, bool transposed,
                      std::unordered_set<size_t> *keep)
     : CSRMatrix(get_cells(file_path, transposed, keep), transposed) {}
 
-CSRMatrix::CSRMatrix(Cells cells, bool transposed) : Matrix(transposed) {
-  // These values already take tranposed into account
-  height = cells.height();
-  width = cells.width();
-  non_zeros = cells.size();
+CSRMatrix::CSRMatrix(Cells cells, bool transposed)
+    : Matrix(cells.height, cells.width, cells.non_zeros(), transposed) {
+#ifndef NDEBUG
+  for (auto c : cells._cells) {
+    assert(c.row < height);
+    assert(c.col < width);
+  }
+#endif
 
-  auto csr_size = (non_zeros * sizeof(double)) + (non_zeros * sizeof(size_t)) +
-                  (height + 1) * sizeof(size_t);
-  _ptr = malloc(sizeof(Fields) + csr_size);
+  auto csr_size = ((height + 1) * sizeof(size_t)) +
+                  (non_zeros * sizeof(size_t)) + (non_zeros * sizeof(double));
+  data = std::vector<char>(sizeof(Fields) + csr_size);
+  char *data_ptr = data.data();
 
-  col_idx = (size_t *)(((char *)_ptr) + sizeof(Fields));
-  row_ptr = (size_t *)(((char *)col_idx) + ((height + 1) * sizeof(size_t)));
-  values = (double *)(((char *)row_ptr) + (non_zeros * sizeof(size_t)));
+  // Make sure things that come after fields are memory-aligned
+  assert(sizeof(Fields) % sizeof(size_t) == 0);
+
+  row_ptr = (size_t *)(data_ptr + sizeof(Fields));
+  col_idx = (size_t *)(((char *)row_ptr) + ((height + 1) * sizeof(size_t)));
+  values = (double *)(((char *)col_idx) + (non_zeros * sizeof(size_t)));
+
+  assert(((char *)row_ptr - data_ptr) == sizeof(Fields));
+  assert(((char *)col_idx - (char *)row_ptr) == (height + 1) * sizeof(size_t));
+  assert(((char *)values - (char *)col_idx) == non_zeros * sizeof(size_t));
 
   row_ptr[0] = 0;
   for (size_t i = 1; i <= height; ++i) {
@@ -125,7 +119,7 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed) : Matrix(transposed) {
   }
 
   // Fill values and col_index arrays using row_ptr
-  auto next_pos_in_row = std::vector<size_t>(height, 0);
+  auto next_pos_in_row = std::vector<size_t>(height + 1, 0);
   for (auto [row, col, val] : cells._cells) {
     auto index = row_ptr[row] + next_pos_in_row[row];
     col_idx[index] = col;
@@ -135,9 +129,6 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed) : Matrix(transposed) {
 }
 
 CSRMatrix::~CSRMatrix() {
-  if (_ptr != nullptr)
-    free(_ptr);
-  _ptr = nullptr;
   row_ptr = nullptr;
   col_idx = nullptr;
   values = nullptr;

@@ -21,12 +21,12 @@ matrix::CSRMatrix spgemm(matrix::Matrix &part_A, matrix::Matrix &part_B,
                          int rank, int size, partition::Partitions partitions) {
   // Define result matrix
   // TODO: Partition with lucas serialization stuff
-  double *result = (double*) malloc(sizeof(double) * 2 * 4);
+  double *result = (double *)malloc(sizeof(double) * 2 * 4);
 
   for (int row = 0; row < part_A.height; row++) {
     // Note: B is transposed!
     auto [row_data, row_pos, row_len] = part_A.row(row);
-    for(int col = 0; col < part_B.height; col++) {
+    for (int col = 0; col < part_B.height; col++) {
       auto [col_data, col_pos, col_len] = part_B.col(col);
       double res = 0;
       int col_elem = 0, row_elem = 0;
@@ -49,7 +49,7 @@ matrix::CSRMatrix spgemm(matrix::Matrix &part_A, matrix::Matrix &part_B,
   std::cout << "Multiplication result:\n";
   print_matrix(result, 2, 4);
 
-  //TODO: Return result
+  // TODO: Return result
 }
 } // namespace baseline
 } // namespace mults

@@ -3,13 +3,13 @@
 #include <format>
 #include <iostream>
 #include <string>
+#include <vector>
 
 namespace utils {
 
 #ifndef NDEBUG
 void visualize(matrix::CSRMatrix &csr) {
-
-  auto matrix = (double *)calloc(csr.height * csr.width, sizeof(double));
+  auto matrix = std::vector<double>(csr.height * csr.width, 0);
 
   for (size_t i = 0; i < csr.height; i++) {
     auto pos = csr.row_ptr[i];
@@ -71,7 +71,8 @@ int PrependBuffer::overflow(int ch) {
 // with a custom buffer that prepends the MPI Rank
 CoutWithMPIRank::CoutWithMPIRank(int mpi_rank) {
   originalBuf_ = std::cout.rdbuf();
-  prependBuf_ = new PrependBuffer(originalBuf_, std::format("[{}]: ", mpi_rank));
+  prependBuf_ =
+      new PrependBuffer(originalBuf_, std::format("[{}]: ", mpi_rank));
   std::cout.rdbuf(prependBuf_);
 }
 

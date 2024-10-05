@@ -18,13 +18,14 @@ typedef struct SmallVec {
 // - BCSRMatrix
 class Matrix {
 public:
-  bool transposed;
-
   size_t height;
   size_t width;
   size_t non_zeros;
 
-  Matrix(bool transposed = false);
+  bool transposed;
+
+  Matrix(size_t height, size_t width, size_t non_zeros,
+         bool transposed = false);
 
   virtual SmallVec row(size_t i) = 0;
   virtual SmallVec col(size_t j) = 0;
@@ -41,16 +42,16 @@ typedef struct Cell {
 
 class Cells {
 private:
-  int64_t min_i, max_i, min_j, max_j;
-  size_t rows;
   std::vector<size_t> non_zero_per_row;
 
 public:
   // Don't use!
   std::vector<Cell> _cells;
+  size_t height;
+  size_t width;
 
   // Takes in the number of rows
-  Cells(size_t rows, size_t non_zeros = 0);
+  Cells(size_t height, size_t width, size_t non_zeros = 0);
   ~Cells() = default;
 
   // Add one cell to the list of Cells
@@ -59,13 +60,7 @@ public:
   void add(Cell &c);
 
   // Returns the amount of cells (i.e., non_zeros)
-  size_t size();
-
-  // Returns the height (i.e., max diff between row index)
-  size_t height();
-
-  // Returns the width (i.e., max diff between col index)
-  size_t width();
+  size_t non_zeros();
 
   // Returns the number of cells in a row
   size_t cells_in_row(size_t row);
@@ -80,7 +75,7 @@ typedef struct Fields {
 
 class CSRMatrix : public Matrix {
 private:
-  void *_ptr;
+  std::vector<char> data;
   Fields *fields;
 
 public:
