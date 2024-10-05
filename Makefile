@@ -14,10 +14,10 @@ CXX ?= gcc
 OPTFLAGS = -march=native -O3 -std=c++20 -Wno-uninitialized
 #WARNFLAGS = -Wall -Wextra -Werror
 OPENMP_FLAGS = -fopenmp
-MPI_CFLAGS := $(shell pkg-config --cflags ompi-c)
-MPI_LIB_FLAGS := $(shell pkg-config --libs ompi-c)
+MPI_CFLAGS := $(shell pkg-config --cflags ompi-c ompi-cxx)
+MPI_LDFLAGS := $(shell pkg-config --libs ompi-c ompi-cxx)
 CXXFLAGS = -Iinclude -MT $@ -MMD -MP -MF $(@:.o=.d) $(WARNFLAGS) $(OPTFLAGS) $(OPENMP_FLAGS) $(MPI_CFLAGS)
-LDFLAGS += $(MPI_LIB_FLAGS) -fopenmp
+LDFLAGS += $(MPI_LDFLAGS) -fopenmp
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
 CPP_HEADER_FILES := $(wildcard $(INCLUDE_DIR)/**/**/*.hpp) $(wildcard $(INCLUDE_DIR)/**/*.hpp) $(wildcard $(INCLUDE_DIR)/*.hpp)
