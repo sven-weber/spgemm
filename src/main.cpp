@@ -12,6 +12,10 @@ int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
+  
+#ifndef NDEBUG
+  std::cout << "Hello, world, I am " << rank << " of " << size << std::endl;
+#endif
 
   // Load sparsity
   // TODO: Add some sort of shuffling
@@ -42,4 +46,6 @@ int main(int argc, char **argv) {
   // TODO: Revert any shuffling we applied
 
   // TODO: Materialize the matrix to file with the rank in the name
+
+  MPI_Finalize();
 }

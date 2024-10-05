@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    std::cout << "Hello, world, I am " << rank << " of " << size << std::endl;
+
 
     // Partition matrix: it specifies which rows and columns each rank will work
 on int partitioning[size * 4]; if (rank == ROOT) {
@@ -186,6 +186,6 @@ cols_per_partition + j];
     free(received_B);
     free(temp_B);
 
-    MPI_Finalize();
+
 }
 */
