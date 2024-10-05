@@ -1,7 +1,7 @@
-SRC_DIR  		= src
-INCLUDE_DIR	= include
-INT_DIR  		= build
-TARGET   		= dphpc
+SRC_DIR  				= src
+INCLUDE_DIR			= include
+INT_DIR  				= build
+TARGET   				= dphpc
 TEST_MACHINES 	= 2
 
 CXX ?= gcc
@@ -38,7 +38,7 @@ optimize: compile
 
 run: $(TARGET)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
-	@mpirun -n $(TEST_MACHINES) ./$(TARGET)
+	@mpirun -n $(TEST_MACHINES) ./$(TARGET) "matrices/test/"
 
 debug: CXXFLAGS += -ggdb -fsanitize=address,leak,undefined -fno-omit-frame-pointer
 debug: LDFLAGS += -fsanitize=address,leak,undefined
