@@ -71,7 +71,18 @@ public:
   size_t cells_in_row(size_t row);
 };
 
+typedef struct Fields {
+  bool transposed;
+  size_t height;
+  size_t width;
+  size_t non_zero;
+} Fields;
+
 class CSRMatrix : public Matrix {
+private:
+  void *_ptr;
+  Fields *fields;
+
 public:
   size_t *row_ptr = nullptr;
   size_t *col_idx = nullptr;

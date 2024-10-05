@@ -105,27 +105,20 @@ CSRMatrix::CSRMatrix(std::string file_path, bool transposed,
                      std::unordered_set<size_t> *keep)
     : CSRMatrix(get_cells(file_path, transposed, keep), transposed) {}
 
-struct fields {
-  bool transposed;
-  size_t height;
-  size_t width;
-  size_t non_zero;
-};
-
 CSRMatrix::CSRMatrix(Cells cells, bool transposed) : Matrix(transposed) {
   // These values already take tranposed into account
   height = cells.height();
   width = cells.width();
   non_zeros = cells.size();
 
-  for (auto c : cells._cells) {
-    std::cout << c.row << " " << c.col << " " << c.val << std::endl;
-  }
+  auto csr_size = (non_zeros * sizeof(double)) + (non_zeros * sizeof(size_t)) +
+                  (height + 1) * sizeof(size_t);
+  _ptr = malloc(sizeof(Fields) + csr_size);
 
-  values = (double *)malloc(non_zeros * sizeof(double));
-  col_idx = (size_t *)malloc(non_zeros * sizeof(size_t));
-  row_ptr = (size_t *)malloc((height + 1) *
-                             sizeof(size_t)); // +1 for the extra element
+  col_idx = (size_t *)(((char *)_ptr) + sizeof(Fields));
+  row_ptr = (size_t *)(((char *)col_idx) + ((height + 1) * sizeof(size_t)));
+  values = (double *)(((char *)row_ptr) + (non_zeros * sizeof(size_t)));
+
   row_ptr[0] = 0;
   for (size_t i = 1; i <= height; ++i) {
     row_ptr[i] = row_ptr[i - 1] + cells.cells_in_row(i - 1);
@@ -142,14 +135,11 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed) : Matrix(transposed) {
 }
 
 CSRMatrix::~CSRMatrix() {
-  if (row_ptr != nullptr)
-    free(row_ptr);
+  if (_ptr != nullptr)
+    free(_ptr);
+  _ptr = nullptr;
   row_ptr = nullptr;
-  if (col_idx != nullptr)
-    free(col_idx);
   col_idx = nullptr;
-  if (values != nullptr)
-    free(values);
   values = nullptr;
 }
 
