@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 import os
 from scipy.io import mmread
@@ -58,7 +59,7 @@ def process_directory(directory):
                 C_real_file = os.path.join(root, file)
         
         if C_expected_file and C_real_file:
-            print(f"Comparing {C_expected_file} and {C_real_file}...")
+            print(f"\nComparing {C_expected_file} and {C_real_file}...")
             C_expected = load_matrix(C_expected_file)
             C_real = load_matrix(C_real_file)
             
@@ -69,7 +70,33 @@ def process_directory(directory):
             compare_matrices(C_expected, C_real)
 
 def main():
-    process_directory("matrices")
+    parser = argparse.ArgumentParser(description="Compare matrices from .mtx files.")
+    parser.add_argument(
+        "file1",
+        nargs="?",
+        help="Path to the first matrix file (C_expected.mtx).",
+        default=None
+    )
+    parser.add_argument(
+        "file2",
+        nargs="?",
+        help="Path to the second matrix file (C.mtx).",
+        default=None
+    )
+
+    args = parser.parse_args()
+
+    if args.file1 and args.file2:
+        print(f"Comparing {args.file1} and {args.file2}...")
+        C_expected = load_matrix(args.file1)
+        C_real = load_matrix(args.file2)
+
+        if C_expected is None or C_real is None:
+            print("Error loading matrices.")
+        else:
+            compare_matrices(C_expected, C_real)
+    else:
+        process_directory("matrices")
 
 if __name__ == "__main__":
     main()
