@@ -129,8 +129,9 @@ CSRMatrix::CSRMatrix(std::string file_path, bool transposed,
                      std::vector<size_t> *keep)
     : CSRMatrix(get_cells(file_path, transposed, keep), transposed) {}
 
-CSRMatrix::CSRMatrix(Cells cells, bool transposed)
-    : Matrix(cells.height, cells.width, cells.non_zeros(), transposed) {
+CSRMatrix::CSRMatrix(Cells cells, bool transposed, std::vector<size_t> *keep)
+    : Matrix(cells.height, cells.width, cells.non_zeros(), transposed),
+      keep(keep) {
 #ifndef NDEBUG
   for (auto c : cells._cells) {
     assert(c.row < height);
@@ -201,11 +202,14 @@ void CSRMatrix::save(std::string file_path) {
 
   stream << height << " " << width << " " << non_zeros << std::endl;
 
-  auto lines = std::vector<struct Cell>(non_zeros);
+  auto lines = std::vector<Cell>(non_zeros);
   size_t l = 0;
   for (size_t row = 0; row < height; ++row) {
     for (size_t j = row_ptr[row]; j < row_ptr[row + 1]; ++j) {
       auto col = col_idx[j];
+      if (keep != nullptr)
+        row = (*keep)[row];
+
       if (!transposed)
         lines[l] = {row, col, values[j]};
       else
