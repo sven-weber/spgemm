@@ -40,7 +40,6 @@ int main(int argc, char **argv) {
 #endif
 
   // Load sparsity
-  // TODO: Add some print statements with NDEBUG
   matrix::CSRMatrix C(C_sparsity_path, false);
 
   partition::Shuffle A_shuffle(C.height);
@@ -74,7 +73,7 @@ int main(int argc, char **argv) {
   MPI_Bcast(partitions.data(), sizeof(partition::Partition) * partitions.size(),
             MPI_BYTE, MPI_ROOT_ID, MPI_COMM_WORLD);
 
-  // TODO: Load the partial matrices for your rank!!
+  // Load the partial matrices for the rank of this process
   std::vector<size_t> keep_rows(&A_shuffle[partitions[rank].start_row],
                                 &A_shuffle[partitions[rank].end_row]);
   matrix::CSRMatrix A(A_path, false, &keep_rows);
