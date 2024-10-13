@@ -8,7 +8,7 @@
 namespace utils {
 
 #ifndef NDEBUG
-void visualize(matrix::CSRMatrix &csr) {
+void visualize(matrix::CSRMatrix &csr, const std::string &name) {
   auto matrix = std::vector<double>(csr.height * csr.width, 0);
 
   for (size_t i = 0; i < csr.height; i++) {
@@ -24,7 +24,7 @@ void visualize(matrix::CSRMatrix &csr) {
   }
 
   for (size_t i = 0; i < csr.height; i++) {
-    std::cout << i << ":\t";
+    std::cout << name << " " << i << ":\t";
     for (size_t j = 0; j < csr.width; j++) {
       std::cout << matrix[(i * csr.width) + j] << "\t";
     }
@@ -42,11 +42,10 @@ void print_partitions(partition::Partitions &parts, int size) {
 }
 
 void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size) {
-  std::cout << "Serialized sizes: ";
   for (int i = 0; i < sizes.size(); i++) {
-    std::cout << std::endl << i << ": " << sizes[i];
+    std::cout << "Serialized size " << i << ": " << sizes[i] << std::endl;
   }
-  std::cout << std::endl << "Max size: " << max_size << std::endl;
+  std::cout << "Max size: " << max_size << std::endl;
 }
 #else
 // We hope this get optimized away :)

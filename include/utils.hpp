@@ -11,7 +11,7 @@ namespace utils {
 /**
  * Visualizes the matrix for debugging
  */
-void visualize(matrix::CSRMatrix &csr);
+void visualize(matrix::CSRMatrix &csr, const std::string &name);
 
 /**
  * Prints the given partition to std out for debugging

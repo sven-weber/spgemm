@@ -9,6 +9,6 @@ partition::Partitions partition(matrix::Matrix &C, int size);
 }
 namespace shuffle {
 void set_seed(bool reproducible);
-int *shuffle(int size);
+std::vector<size_t> shuffle(int size);
 } // namespace shuffle
 } // namespace parts

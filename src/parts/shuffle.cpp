@@ -13,8 +13,8 @@ void set_seed(bool reproducible) {
   }
 }
 
-int *shuffle(int size) {
-  int *shuffled = new int[size];
+std::vector<size_t> shuffle(int size) {
+  std::vector<size_t> shuffled(size);
   for (int i = 0; i < size; i++) {
     shuffled[i] = i;
   }

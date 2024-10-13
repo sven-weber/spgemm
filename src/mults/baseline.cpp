@@ -40,7 +40,7 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A, matrix::CSRMatrix &part_B,
   MPI_Waitall(2, (MPI_Request[]){send, recv}, MPI_STATUSES_IGNORE);
 
   matrix::CSRMatrix revc_B = matrix::CSRMatrix(temp_B_buffer);
-  utils::visualize(revc_B);
+  utils::visualize(revc_B, "received B");
 
   return part_A;
 

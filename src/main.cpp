@@ -33,13 +33,21 @@ int main(int argc, char **argv) {
   // TODO: Add some print statements with NDEBUG
   matrix::CSRMatrix C(C_path, false);
 
+  std::vector<size_t> shuffled_rows(C.height);
+  std::vector<size_t> shuffled_cols(C.width);
   if (rank == MPI_ROOT_ID) {
     // Shuffle the rows and columns indices, for better partitioning
     // TODO: Send this around...
     parts::shuffle::set_seed(true);
-    int *shuffled_rows = parts::shuffle::shuffle(C.height);
-    int *shuffled_cols = parts::shuffle::shuffle(C.width);
+    shuffled_rows = parts::shuffle::shuffle(C.height);
+    shuffled_cols = parts::shuffle::shuffle(C.width);
   }
+
+  // Broadcast the shuffled rows and columns
+  MPI_Bcast(&shuffled_rows[0], sizeof(size_t) * C.height, MPI_BYTE, MPI_ROOT_ID,
+            MPI_COMM_WORLD);
+  MPI_Bcast(&shuffled_cols[0], sizeof(size_t) * C.width, MPI_BYTE, MPI_ROOT_ID,
+            MPI_COMM_WORLD);
 
   // TODO: Decide which implementation to use
 
@@ -55,11 +63,14 @@ int main(int argc, char **argv) {
             MPI_ROOT_ID, MPI_COMM_WORLD);
 
   // TODO: Load the partial matrices for your rank!!
-  if (rank == 0) {
-  }
-  matrix::CSRMatrix A(A_path, false);
+  std::vector<size_t> keep_rows(&shuffled_rows[p[rank].start_row], &shuffled_rows[p[rank].end_row]);
+  matrix::CSRMatrix A(A_path, false, &keep_rows);
 
-  matrix::CSRMatrix B(B_path, true);
+  std::vector<size_t> keep_cols(&shuffled_cols[p[rank].start_col], &shuffled_cols[p[rank].end_col]);
+  matrix::CSRMatrix B(B_path, true, &keep_cols);
+
+  utils::visualize(A, "A");
+  utils::visualize(B, "B");
 
   // Share serialization sizes
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
@@ -83,8 +94,8 @@ int main(int argc, char **argv) {
   // TODO: Benchmarking
 
   // Do the multiplication!
-  matrix::CSRMatrix partial_C = mults::baseline::spgemm(
-      A, B, rank, n_nodes, p, serialized_sizes_B_bytes, max_B_bytes_size);
+  /*matrix::CSRMatrix partial_C = mults::baseline::spgemm(
+      A, B, rank, n_nodes, p, serialized_sizes_B_bytes, max_B_bytes_size);*/
 
   // TODO: Revert any shuffling we applied
 
