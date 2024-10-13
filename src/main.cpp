@@ -33,6 +33,7 @@ int main(int argc, char **argv) {
   // TODO: Add some print statements with NDEBUG
   matrix::CSRMatrix C(C_path, false);
   // Shuffle the rows and columns indices, for better partitioning
+  parts::shuffle::set_seed(true);
   int *shuffled_rows = parts::shuffle::shuffle(C.height);
   int *shuffled_cols = parts::shuffle::shuffle(C.width);
 

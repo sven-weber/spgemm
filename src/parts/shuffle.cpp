@@ -4,11 +4,16 @@
 
 namespace parts {
 namespace shuffle {
-int *shuffle(int size) {
-  // Set seed to a constant value for reproducibility
-  srand(7);
-  // srand(time(NULL));
 
+void set_seed(bool reproducible) {
+  if (reproducible) {
+    srand(7);
+  } else {
+    srand(time(NULL));
+  }
+}
+
+int *shuffle(int size) {
   int *shuffled = new int[size];
   for (int i = 0; i < size; i++) {
     shuffled[i] = i;
