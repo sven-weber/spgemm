@@ -81,7 +81,6 @@ typedef struct Fields {
 
 class CSRMatrix : public Matrix {
 private:
-  std::vector<size_t> *keep;
   std::shared_ptr<std::vector<char>> data;
   Fields *fields;
 
@@ -95,9 +94,7 @@ public:
 
   CSRMatrix(std::string file_path, bool transposed = false,
             std::vector<size_t> *keep = nullptr);
-  CSRMatrix(Cells cells, bool tranposed = false,
-            // This is just for internal use. Should not be used!
-            std::vector<size_t> *keep = nullptr);
+  CSRMatrix(Cells cells, bool tranposed = false);
   CSRMatrix(std::shared_ptr<std::vector<char>> serialized_data);
 
   SmallVec row(size_t i);
