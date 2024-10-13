@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
   // Custom cout that prepends MPI rank
   utils::CoutWithMPIRank custom_cout(rank);
 #ifndef NDEBUG
-  std::cout << "Hello, world." << std::endl;
+  std::cout << "Started." << std::endl;
 #endif
 
   // Load sparsity
@@ -83,9 +83,6 @@ int main(int argc, char **argv) {
                                 &B_shuffle[partitions[rank].end_col]);
   matrix::CSRMatrix B(B_path, true, &keep_cols);
 
-  utils::visualize(A, "A");
-  utils::visualize(B, "B");
-
   // Share serialization sizes
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
 
@@ -108,11 +105,14 @@ int main(int argc, char **argv) {
   // TODO: Benchmarking
 
   // Do the multiplication!
-  /*auto partial_C = mults::baseline::spgemm(*/
-  /*    A, B, rank, n_nodes, p, serialized_sizes_B_bytes, max_B_bytes_size);*/
+  auto partial_C = mults::baseline::spgemm(A, B, rank, n_nodes, partitions, serialized_sizes_B_bytes, max_B_bytes_size);
 
-  A.save(C_path);
-  // TODO: This is what we should be actually doing
-  // artial_C.save(C_path);
+#ifndef NDEBUG
+  std::cout << "Finished computation.\n";
+#endif
+
+  // Store the result
+  partial_C.save(C_path);
+
   MPI_Finalize();
 }
