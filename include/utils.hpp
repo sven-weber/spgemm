@@ -18,6 +18,8 @@ void visualize(matrix::CSRMatrix &csr);
  */
 void print_partitions(partition::Partitions &part, int size);
 
+void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size);
+
 // Private class for prepending to buffers
 class PrependBuffer : public std::streambuf {
 public:

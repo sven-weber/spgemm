@@ -63,8 +63,7 @@ int main(int argc, char **argv) {
   matrix::CSRMatrix B(B_path, true);
 
   // Share serialization sizes
-  std::vector<size_t> serialized_sizes_B_bytes;
-  serialized_sizes_B_bytes.reserve(n_nodes);
+  std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
 
   size_t B_byte_size = B.serialize()->size();
   MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE, &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
@@ -74,16 +73,9 @@ int main(int argc, char **argv) {
   // Determine maximum size of elements
   size_t max_B_bytes_size = *std::max_element(serialized_sizes_B_bytes.begin(), serialized_sizes_B_bytes.end());
 
-#ifndef NDEBUG
   if (rank == MPI_ROOT_ID) {
-    for (int i = 0; i < n_nodes; i++) {
-      std::cout << "Rank " << i
-                << " serialized size: " << serialized_sizes_B_bytes[i]
-                << std::endl;
-    }
-    std::cout << "Max serialized size: " << max_B_bytes_size << std::endl;
+    utils::print_serialized_sizes(serialized_sizes_B_bytes, max_B_bytes_size);
   }
-#endif
 
   MPI_Barrier(MPI_COMM_WORLD);
   // TODO: Benchmarking
