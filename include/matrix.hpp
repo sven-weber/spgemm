@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cstddef>
+#include <memory>
 #include <string>
-#include <unordered_set>
 #include <vector>
 
 namespace matrix {
@@ -75,9 +75,11 @@ typedef struct Fields {
 
 class CSRMatrix : public Matrix {
 private:
-  size_t expected_data_size();
-  std::vector<char> data;
+  std::vector<size_t> keep;
+  std::shared_ptr<std::vector<char>> data;
   Fields *fields;
+
+  size_t expected_data_size();
   std::tuple<size_t *, size_t *, double *> get_offsets();
 
 public:
@@ -86,15 +88,15 @@ public:
   double *values = nullptr;
 
   CSRMatrix(std::string file_path, bool transposed = false,
-            std::unordered_set<size_t> *keep = nullptr);
+            std::vector<size_t> *keep = nullptr);
   CSRMatrix(Cells cells, bool tranposed = false);
-  CSRMatrix(std::vector<char> serialized_data);
+  CSRMatrix(std::shared_ptr<std::vector<char>> serialized_data);
 
   SmallVec row(size_t i);
   SmallVec col(size_t j);
 
   void save(std::string file_path);
-  std::vector<char> &serialize();
+  std::shared_ptr<std::vector<char>> serialize();
 };
 
 } // namespace matrix

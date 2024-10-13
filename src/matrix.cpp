@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <unordered_map>
 #include <vector>
 
 namespace matrix {
@@ -29,7 +30,13 @@ size_t Cells::cells_in_row(size_t row) {
 size_t Cells::non_zeros() { return _cells.size(); }
 
 Cells get_cells(std::string file_path, bool transposed,
-                std::unordered_set<size_t> *keep) {
+                std::vector<size_t> *keep) {
+  auto keep_map = std::unordered_map<size_t, size_t>();
+  if (keep != nullptr)
+    for (size_t i = 0; i < keep->size(); ++i) {
+      keep_map.insert({(*keep)[i], i});
+    }
+
   std::ifstream stream(file_path);
   if (!stream.is_open()) {
     std::cout << "could not open file (reading): " << file_path << std::endl;
@@ -70,9 +77,11 @@ Cells get_cells(std::string file_path, bool transposed,
     Cell c = {.row = transposed ? col - 1 : row - 1,
               .col = transposed ? row - 1 : col - 1,
               .val = val};
-    if (keep == nullptr) {
+
+    if (keep == nullptr)
       cells.add(c);
-    } else if (keep->contains(transposed ? col - 1 : row - 1)) {
+    else if (keep_map.contains(c.row)) {
+      c.row = keep_map[c.row];
       cells.add(c);
     }
   }
@@ -80,8 +89,8 @@ Cells get_cells(std::string file_path, bool transposed,
   return cells;
 }
 
-Fields *get_fields(std::vector<char> &serialized_data) {
-  return (Fields *)((void *)serialized_data.data());
+Fields *get_fields(std::shared_ptr<std::vector<char>> serialized_data) {
+  return (Fields *)((void *)serialized_data->data());
 }
 
 // Returns the expected size of data in bytes
@@ -91,8 +100,8 @@ size_t CSRMatrix::expected_data_size() {
 }
 
 std::tuple<size_t *, size_t *, double *> CSRMatrix::get_offsets() {
-  assert(data.size() == expected_data_size());
-  char *data_ptr = data.data();
+  assert(data->size() == expected_data_size());
+  char *data_ptr = data->data();
 
   // Make sure things that come after fields are memory-aligned
   assert(sizeof(Fields) % sizeof(size_t) == 0);
@@ -114,7 +123,7 @@ Matrix::Matrix(size_t height, size_t width, size_t non_zeros, bool transposed)
       transposed(transposed) {}
 
 CSRMatrix::CSRMatrix(std::string file_path, bool transposed,
-                     std::unordered_set<size_t> *keep)
+                     std::vector<size_t> *keep)
     : CSRMatrix(get_cells(file_path, transposed, keep), transposed) {}
 
 CSRMatrix::CSRMatrix(Cells cells, bool transposed)
@@ -126,7 +135,7 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed)
   }
 #endif
 
-  data = std::vector<char>(expected_data_size());
+  data = std::make_shared<std::vector<char>>(expected_data_size());
 
   fields = get_fields(data);
   fields->transposed = transposed;
@@ -154,7 +163,7 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed)
   }
 }
 
-CSRMatrix::CSRMatrix(std::vector<char> serialized_data)
+CSRMatrix::CSRMatrix(std::shared_ptr<std::vector<char>> serialized_data)
     : Matrix(get_fields(serialized_data)->height,
              get_fields(serialized_data)->width,
              get_fields(serialized_data)->non_zeros,
@@ -213,6 +222,6 @@ void CSRMatrix::save(std::string file_path) {
 }
 
 // DO NOT WRITE TO THE OUTPUT OF THIS
-std::vector<char> &CSRMatrix::serialize() { return data; }
+std::shared_ptr<std::vector<char>> CSRMatrix::serialize() { return data; }
 
 } // namespace matrix
