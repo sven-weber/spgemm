@@ -8,7 +8,7 @@
 
 namespace partition {
 
-std::vector<size_t> shuffle(int size) {
+Shuffle shuffle(size_t size) {
   auto shuffled = std::vector<size_t>(size);
 
   for (size_t i = 0; i < size; i++) {

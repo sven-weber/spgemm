@@ -63,7 +63,7 @@ public:
   // Add one cell to the list of Cells
   // usage: add([row, col, val])
   // indexes are 0-based
-  void add(Cell &c);
+  void add(Cell c);
 
   // Returns the amount of cells (i.e., non_zeros)
   size_t non_zeros();
@@ -96,6 +96,7 @@ public:
             std::vector<size_t> *keep = nullptr);
   CSRMatrix(Cells cells, bool tranposed = false);
   CSRMatrix(std::shared_ptr<std::vector<char>> serialized_data);
+  ~CSRMatrix() = default;
 
   SmallVec row(size_t i);
   SmallVec col(size_t j);

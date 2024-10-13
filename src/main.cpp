@@ -1,27 +1,37 @@
 #include "matrix.hpp"
-#include "mpi.h"
 #include "mults.hpp"
 #include "partition.hpp"
 #include "parts.hpp"
 #include "utils.hpp"
+
+#include <algorithm>
 #include <format>
 #include <iostream>
+#include <mpi.h>
 
 int main(int argc, char **argv) {
-  if (argc < 2) {
-    std::cerr << "Did not get enough arguments. Expected <matrix_path>";
+  if (argc < 3) {
+    std::cerr
+        << "Did not get enough arguments. Expected <matrix_path> <run_path>"
+        << std::endl;
   }
 
   std::string matrix_path = argv[1];
   std::string A_path = std::format("{}/A.mtx", matrix_path);
   std::string B_path = std::format("{}/B.mtx", matrix_path);
-  std::string C_path = std::format("{}/C_sparsity.mtx", matrix_path);
+  std::string C_sparsity_path = std::format("{}/C_sparsity.mtx", matrix_path);
+
+  std::string run_path = argv[2];
+  std::string partitions_path = std::format("{}/partitions.csv", run_path);
+  std::string A_shuffle_path = std::format("{}/A_shuffle", run_path);
+  std::string B_shuffle_path = std::format("{}/B_shuffle", run_path);
 
   // Init MPI
   int rank, n_nodes;
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_nodes);
+  std::string C_path = std::format("{}/C_{}.mtx", run_path, rank);
 
   // Custom cout that prepends MPI rank
   utils::CoutWithMPIRank custom_cout(rank);
@@ -31,42 +41,46 @@ int main(int argc, char **argv) {
 
   // Load sparsity
   // TODO: Add some print statements with NDEBUG
-  matrix::CSRMatrix C(C_path, false);
+  matrix::CSRMatrix C(C_sparsity_path, false);
 
-  std::vector<size_t> shuffled_rows(C.height);
-  std::vector<size_t> shuffled_cols(C.width);
+  partition::Shuffle A_shuffle(C.height);
+  partition::Shuffle B_shuffle(C.width);
   if (rank == MPI_ROOT_ID) {
-    // Shuffle the rows and columns indices, for better partitioning
-    // TODO: Send this around...
-    parts::shuffle::set_seed(true);
-    shuffled_rows = parts::shuffle::shuffle(C.height);
-    shuffled_cols = parts::shuffle::shuffle(C.width);
+    A_shuffle = std::move(partition::shuffle(C.height));
+    B_shuffle = std::move(partition::shuffle(C.width));
+
+    partition::save_shuffle(A_shuffle, A_shuffle_path);
+    partition::save_shuffle(B_shuffle, B_shuffle_path);
   }
 
   // Broadcast the shuffled rows and columns
-  MPI_Bcast(&shuffled_rows[0], sizeof(size_t) * C.height, MPI_BYTE, MPI_ROOT_ID,
-            MPI_COMM_WORLD);
-  MPI_Bcast(&shuffled_cols[0], sizeof(size_t) * C.width, MPI_BYTE, MPI_ROOT_ID,
-            MPI_COMM_WORLD);
+  MPI_Bcast(A_shuffle.data(), sizeof(size_t) * A_shuffle.size(), MPI_BYTE,
+            MPI_ROOT_ID, MPI_COMM_WORLD);
+  MPI_Bcast(B_shuffle.data(), sizeof(size_t) * B_shuffle.size(), MPI_BYTE,
+            MPI_ROOT_ID, MPI_COMM_WORLD);
 
   // TODO: Decide which implementation to use
 
   // Do the partitioning
-  partition::Partitions p(n_nodes);
+  partition::Partitions partitions(n_nodes);
   if (rank == MPI_ROOT_ID) {
-    p = parts::baseline::partition(C, n_nodes);
-    utils::print_partitions(p, n_nodes);
+    partitions = parts::baseline::partition(C, n_nodes);
+    utils::print_partitions(partitions, n_nodes);
+
+    partition::save_partitions(partitions, partitions_path);
   }
 
   // Distribute the partitioning to all machines
-  MPI_Bcast(&p[0], sizeof(partition::Partition) * n_nodes, MPI_BYTE,
-            MPI_ROOT_ID, MPI_COMM_WORLD);
+  MPI_Bcast(partitions.data(), sizeof(partition::Partition) * partitions.size(),
+            MPI_BYTE, MPI_ROOT_ID, MPI_COMM_WORLD);
 
   // TODO: Load the partial matrices for your rank!!
-  std::vector<size_t> keep_rows(&shuffled_rows[p[rank].start_row], &shuffled_rows[p[rank].end_row]);
+  std::vector<size_t> keep_rows(&A_shuffle[partitions[rank].start_row],
+                                &A_shuffle[partitions[rank].end_row]);
   matrix::CSRMatrix A(A_path, false, &keep_rows);
 
-  std::vector<size_t> keep_cols(&shuffled_cols[p[rank].start_col], &shuffled_cols[p[rank].end_col]);
+  std::vector<size_t> keep_cols(&B_shuffle[partitions[rank].start_col],
+                                &B_shuffle[partitions[rank].end_col]);
   matrix::CSRMatrix B(B_path, true, &keep_cols);
 
   utils::visualize(A, "A");
@@ -94,11 +108,11 @@ int main(int argc, char **argv) {
   // TODO: Benchmarking
 
   // Do the multiplication!
-  /*matrix::CSRMatrix partial_C = mults::baseline::spgemm(
-      A, B, rank, n_nodes, p, serialized_sizes_B_bytes, max_B_bytes_size);*/
+  /*auto partial_C = mults::baseline::spgemm(*/
+  /*    A, B, rank, n_nodes, p, serialized_sizes_B_bytes, max_B_bytes_size);*/
 
-  // TODO: Revert any shuffling we applied
-
-  // TODO: Materialize the matrix to file with the rank in the name
+  A.save(C_path);
+  // TODO: This is what we should be actually doing
+  // artial_C.save(C_path);
   MPI_Finalize();
 }

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+id=$(uuid)
+run_path="runs/$id"
+mkdir -p "$run_path"
+
+mpirun -n "$1" "$2" "$3" "$run_path" | sort -s -t '[' -k2,2n

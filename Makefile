@@ -38,7 +38,7 @@ optimize: compile
 
 run: $(TARGET)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
-	@mpirun -n $(TEST_MACHINES) ./$(TARGET) "matrices/test/" | sort -s -t '[' -k2,2n
+	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "matrices/test"
 
 debug: CXXFLAGS += -ggdb -fsanitize=address,leak,undefined -fno-omit-frame-pointer
 debug: LDFLAGS += -fsanitize=address,leak,undefined

@@ -43,6 +43,7 @@ compile_commands.json
 
 # Project specific
 spgemm
+runs
 
 # Python scripts .venv
 .venv

@@ -16,7 +16,7 @@ Cells::Cells(size_t height, size_t width, size_t non_zeros)
   _cells.reserve(non_zeros);
 }
 
-void Cells::add(Cell &c) {
+void Cells::add(Cell c) {
   assert(c.row < non_zero_per_row.size());
 
   _cells.push_back(c);

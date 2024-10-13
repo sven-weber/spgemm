@@ -1,9 +1,9 @@
 with import <nixpkgs> { };
 
-pkgs.mkShell {
+stdenvNoCC.mkDerivation {
   name = "netsec-project";
   buildInputs = with pkgs; [
-    gcc14
+    gnat14
     clang-tools
     bear
     gdb
@@ -11,5 +11,8 @@ pkgs.mkShell {
     gnumake
     openmpi
     pkg-config
+    libossp_uuid
   ];
+
+  MAKEFLAGS = "-j16";
 }
