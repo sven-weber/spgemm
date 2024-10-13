@@ -17,8 +17,9 @@ void print_matrix(double *matrix, int rows, int cols) {
 
 namespace mults {
 namespace baseline {
-matrix::CSRMatrix spgemm(matrix::Matrix &part_A, matrix::Matrix &part_B,
-                         int rank, int size, partition::Partitions partitions) {
+matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A, matrix::CSRMatrix &part_B,
+                         int rank, int size, partition::Partitions partitions,
+                         int *serialized_sizes_B_bytes, int max_size_B_bytes) {
   // Define result matrix
   // TODO: Partition with lucas serialization stuff
   double *result = (double *)malloc(sizeof(double) * 2 * 4);

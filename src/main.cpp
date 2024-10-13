@@ -59,9 +59,43 @@ int main(int argc, char **argv) {
   std::cout << "B:" << std::endl;
   utils::visualize(B);
 
+  // Share serialization sizes
+  int *serialized_sizes_B_bytes;
+  if (rank == MPI_ROOT_ID) {
+    serialized_sizes_B_bytes = (int *)malloc(sizeof(int) * size);
+  }
+
+  int B_byte_size = B.serialize().size();
+  MPI_Gather(&B_byte_size, 1, MPI_INT, serialized_sizes_B_bytes, 1, MPI_INT,
+             MPI_ROOT_ID, MPI_COMM_WORLD);
+
+  int max_B_bytes_size = 0;
+  if (rank == MPI_ROOT_ID) {
+    max_B_bytes_size = *std::max_element(serialized_sizes_B_bytes,
+                                         serialized_sizes_B_bytes + size);
+  }
+
+  MPI_Bcast(&serialized_sizes_B_bytes[0], size, MPI_INT, MPI_ROOT_ID,
+            MPI_COMM_WORLD);
+  MPI_Bcast(&max_B_bytes_size, 1, MPI_INT, MPI_ROOT_ID, MPI_COMM_WORLD);
+
+#ifndef NDEBUG
+  if (rank == MPI_ROOT_ID) {
+    for (int i = 0; i < size; i++) {
+      std::cout << "Rank " << i
+                << " serialized size: " << serialized_sizes_B_bytes[i]
+                << std::endl;
+    }
+    std::cout << "Max serialized size: " << max_B_bytes_size << std::endl;
+  }
+#endif
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
   // Do the multiplication!
   // TODO: Benchmarking
-  matrix::CSRMatrix partial_C = mults::baseline::spgemm(A, B, rank, size, p);
+  matrix::CSRMatrix partial_C = mults::baseline::spgemm(
+      A, B, rank, size, p, serialized_sizes_B_bytes, max_B_bytes_size);
 
   // TODO: Revert any shuffling we applied
 
