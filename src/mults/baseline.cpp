@@ -1,5 +1,6 @@
 #include "mpi.h"
 #include "mults.hpp"
+#include "utils.hpp"
 #include <cstring>
 #include <iostream>
 #include <unistd.h>
@@ -19,11 +20,28 @@ namespace mults {
 namespace baseline {
 matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A, matrix::CSRMatrix &part_B,
                          int rank, int size, partition::Partitions partitions,
-                         int *serialized_sizes_B_bytes, int max_size_B_bytes) {
+                         std::vector<size_t>serialized_sizes_B_bytes, size_t max_size_B_bytes) {
   // Define result matrix
   // TODO: Partition with lucas serialization stuff
   double *result = (double *)malloc(sizeof(double) * 2 * 4);
+  // Buffer where the receiving partitions will be stored
+  auto temp_B_buffer = std::make_shared<std::vector<char>>(max_size_B_bytes);
+  // Zero-copy serialized representation of B to send around
+  auto serialized = part_B.serialize();
 
+  // Async send and receive B partitions
+  int target = rank == 0 ? 1 : 0;
+  MPI_Request send, recv;
+  MPI_Isend(serialized->data(), max_size_B_bytes, MPI_BYTE, target, 0, MPI_COMM_WORLD, &send);
+  MPI_Irecv(temp_B_buffer->data(), max_size_B_bytes, MPI_BYTE, target, 0, MPI_COMM_WORLD, &recv);
+  MPI_Waitall(2, (MPI_Request[]) {send, recv}, MPI_STATUSES_IGNORE);
+
+  matrix::CSRMatrix revc_B = matrix::CSRMatrix(temp_B_buffer);
+  utils::visualize(revc_B);
+  
+  return part_A;
+  
+  /*
   for (int row = 0; row < part_A.height; row++) {
     // Note: B is transposed!
     auto [row_data, row_pos, row_len] = part_A.row(row);
@@ -49,8 +67,7 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A, matrix::CSRMatrix &part_B,
 
   std::cout << "Multiplication result:\n";
   print_matrix(result, 2, 4);
-
-  // TODO: Return result
+*/
 }
 } // namespace baseline
 } // namespace mults

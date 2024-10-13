@@ -7,6 +7,6 @@ namespace mults {
 namespace baseline {
 matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A, matrix::CSRMatrix &part_B,
                          int rank, int size, partition::Partitions partitions,
-                         int *serialized_sizes_B_bytes, int max_size_B_bytes);
+                         std::vector<size_t> serialized_sizes_B_bytes, size_t max_size_B_bytes);
 }
 } // namespace mults
