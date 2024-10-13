@@ -11,7 +11,6 @@ stdenvNoCC.mkDerivation {
     gnumake
     openmpi
     pkg-config
-    libossp_uuid
   ];
 
   MAKEFLAGS = "-j16";

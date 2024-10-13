@@ -1,6 +1,6 @@
 #!/bin/sh
 
-id=$(uuid)
+id=$(date +"%Y-%m-%d-%T")
 run_path="runs/$id"
 mkdir -p "$run_path"
 

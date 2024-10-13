@@ -46,7 +46,7 @@ debug: compile
 
 clean:
 	@echo -e "RMRF\tbuild $(TARGET)"
-	@rm -rf build $(TARGET)
+	@rm -rf build runs $(TARGET)
 
 format:
 	clang-format -i $(CPP_FILES) $(CPP_HEADER_FILES)
