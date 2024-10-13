@@ -61,6 +61,7 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A,
             col_elem++;
           }
         }
+        //TODO: Why are we producing nulls?
         if(res != 0)
             cells.add({row, partitions[current_rank_B].start_col +col, res});
       }
