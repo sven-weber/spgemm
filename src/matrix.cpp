@@ -80,6 +80,35 @@ Cells get_cells(std::string file_path, bool transposed,
   return cells;
 }
 
+Fields *get_fields(std::vector<char> &serialized_data) {
+  return (Fields *)((void *)serialized_data.data());
+}
+
+// Returns the expected size of data in bytes
+size_t CSRMatrix::expected_data_size() {
+  return sizeof(Fields) + ((height + 1) * sizeof(size_t)) +
+         (non_zeros * sizeof(size_t)) + (non_zeros * sizeof(double));
+}
+
+std::tuple<size_t *, size_t *, double *> CSRMatrix::get_offsets() {
+  assert(data.size() == expected_data_size());
+  char *data_ptr = data.data();
+
+  // Make sure things that come after fields are memory-aligned
+  assert(sizeof(Fields) % sizeof(size_t) == 0);
+
+  size_t *row_ptr = (size_t *)(data_ptr + sizeof(Fields));
+  size_t *col_idx =
+      (size_t *)(((char *)row_ptr) + ((height + 1) * sizeof(size_t)));
+  double *values = (double *)(((char *)col_idx) + (non_zeros * sizeof(size_t)));
+
+  assert(((char *)row_ptr - data_ptr) == sizeof(Fields));
+  assert(((char *)col_idx - (char *)row_ptr) == (height + 1) * sizeof(size_t));
+  assert(((char *)values - (char *)col_idx) == non_zeros * sizeof(size_t));
+
+  return {row_ptr, col_idx, values};
+}
+
 Matrix::Matrix(size_t height, size_t width, size_t non_zeros, bool transposed)
     : height(height), width(width), non_zeros(non_zeros),
       transposed(transposed) {}
@@ -97,21 +126,18 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed)
   }
 #endif
 
-  auto csr_size = ((height + 1) * sizeof(size_t)) +
-                  (non_zeros * sizeof(size_t)) + (non_zeros * sizeof(double));
-  data = std::vector<char>(sizeof(Fields) + csr_size);
-  char *data_ptr = data.data();
+  data = std::vector<char>(expected_data_size());
 
-  // Make sure things that come after fields are memory-aligned
-  assert(sizeof(Fields) % sizeof(size_t) == 0);
+  fields = get_fields(data);
+  fields->transposed = transposed;
+  fields->height = height;
+  fields->width = width;
+  fields->non_zeros = non_zeros;
 
-  row_ptr = (size_t *)(data_ptr + sizeof(Fields));
-  col_idx = (size_t *)(((char *)row_ptr) + ((height + 1) * sizeof(size_t)));
-  values = (double *)(((char *)col_idx) + (non_zeros * sizeof(size_t)));
-
-  assert(((char *)row_ptr - data_ptr) == sizeof(Fields));
-  assert(((char *)col_idx - (char *)row_ptr) == (height + 1) * sizeof(size_t));
-  assert(((char *)values - (char *)col_idx) == non_zeros * sizeof(size_t));
+  auto [_row_ptr, _col_idx, _values] = get_offsets();
+  row_ptr = _row_ptr;
+  col_idx = _col_idx;
+  values = _values;
 
   row_ptr[0] = 0;
   for (size_t i = 1; i <= height; ++i) {
@@ -128,10 +154,16 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed)
   }
 }
 
-CSRMatrix::~CSRMatrix() {
-  row_ptr = nullptr;
-  col_idx = nullptr;
-  values = nullptr;
+CSRMatrix::CSRMatrix(std::vector<char> serialized_data)
+    : Matrix(get_fields(serialized_data)->height,
+             get_fields(serialized_data)->width,
+             get_fields(serialized_data)->non_zeros,
+             get_fields(serialized_data)->transposed),
+      fields(get_fields(serialized_data)), data(serialized_data) {
+  auto [_row_ptr, _col_idx, _values] = get_offsets();
+  row_ptr = _row_ptr;
+  col_idx = _col_idx;
+  values = _values;
 }
 
 SmallVec CSRMatrix::row(size_t i) {
@@ -179,5 +211,8 @@ void CSRMatrix::save(std::string file_path) {
 
   stream.close();
 }
+
+// DO NOT WRITE TO THE OUTPUT OF THIS
+std::vector<char> &CSRMatrix::serialize() { return data; }
 
 } // namespace matrix

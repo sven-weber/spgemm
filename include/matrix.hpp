@@ -70,13 +70,15 @@ typedef struct Fields {
   bool transposed;
   size_t height;
   size_t width;
-  size_t non_zero;
+  size_t non_zeros;
 } Fields;
 
 class CSRMatrix : public Matrix {
 private:
+  size_t expected_data_size();
   std::vector<char> data;
   Fields *fields;
+  std::tuple<size_t *, size_t *, double *> get_offsets();
 
 public:
   size_t *row_ptr = nullptr;
@@ -86,14 +88,13 @@ public:
   CSRMatrix(std::string file_path, bool transposed = false,
             std::unordered_set<size_t> *keep = nullptr);
   CSRMatrix(Cells cells, bool tranposed = false);
-  CSRMatrix(std::vector<char> &serialized_data);
-  ~CSRMatrix();
+  CSRMatrix(std::vector<char> serialized_data);
 
   SmallVec row(size_t i);
   SmallVec col(size_t j);
 
   void save(std::string file_path);
-  std::vector<char> *serialize();
+  std::vector<char> &serialize();
 };
 
 } // namespace matrix
