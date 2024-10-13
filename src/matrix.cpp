@@ -12,8 +12,9 @@ namespace matrix {
 
 Cells::Cells(size_t height, size_t width, size_t non_zeros)
     : height(height), width(width),
-      non_zero_per_row(std::vector<size_t>(height, 0)),
-      _cells(std::vector<Cell>(non_zeros)) {}
+      non_zero_per_row(std::vector<size_t>(height, 0)) {
+  _cells.reserve(non_zeros);
+}
 
 void Cells::add(Cell &c) {
   assert(c.row < non_zero_per_row.size());
@@ -59,11 +60,13 @@ Cells get_cells(std::string file_path, bool transposed,
     line_stream >> height;
     line_stream >> width;
   }
+  if (keep != nullptr)
+    height = keep->size();
   // This is going to be overwritten later if we're partially loading the matrix
   line_stream >> non_zeros;
 
   Cells cells =
-      keep == nullptr ? Cells(height, width) : Cells(height, width, non_zeros);
+      keep == nullptr ? Cells(height, width, non_zeros) : Cells(height, width);
 
   // read non-zeros
   auto l = non_zeros;

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <vector>
 
@@ -38,6 +39,11 @@ typedef struct Cell {
 
   // sort by column
   bool operator<(const Cell &l) const { return (col < l.col); }
+
+  // pretty printing of cell
+  friend std::ostream &operator<<(std::ostream &os, Cell const &c) {
+    return os << "(" << c.row << "," << c.row << "," << c.val << ")";
+  }
 } Cell;
 
 class Cells {
