@@ -11,7 +11,7 @@
 #include <mpi.h>
 
 void write_matrix_name(std::string name, std::string path) {
-  std::fstream f(path);
+  std::ofstream f(path);
   f << name << std::endl;
   f.close();
 }
@@ -34,9 +34,6 @@ int main(int argc, char **argv) {
   std::string A_shuffle_path = std::format("{}/A_shuffle", run_path);
   std::string B_shuffle_path = std::format("{}/B_shuffle", run_path);
 
-  std::string matrix_name_path = std::format("{}/matrix", run_path);
-  write_matrix_name(matrix_name, matrix_name);
-
   // Init MPI
   int rank, n_nodes;
   MPI_Init(&argc, &argv);
@@ -49,6 +46,11 @@ int main(int argc, char **argv) {
 #ifndef NDEBUG
   std::cout << "Started." << std::endl;
 #endif
+
+  if (rank == MPI_ROOT_ID) {
+    std::string matrix_name_path = std::format("{}/matrix", run_path);
+    write_matrix_name(matrix_name, matrix_name_path);
+  }
 
   // Load sparsity
   matrix::CSRMatrix C(C_sparsity_path, false);
@@ -115,7 +117,9 @@ int main(int argc, char **argv) {
   // TODO: Benchmarking
 
   // Do the multiplication!
-  auto partial_C = mults::baseline::spgemm(A, B, rank, n_nodes, partitions, serialized_sizes_B_bytes, max_B_bytes_size);
+  auto partial_C =
+      mults::baseline::spgemm(A, B, rank, n_nodes, partitions,
+                              serialized_sizes_B_bytes, max_B_bytes_size);
 
 #ifndef NDEBUG
   std::cout << "Finished computation.\n";
