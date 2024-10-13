@@ -4,14 +4,14 @@
 #include "partition.hpp"
 #include "parts.hpp"
 #include "utils.hpp"
-#include <iostream>
 #include <format>
+#include <iostream>
 
 int main(int argc, char **argv) {
   if (argc < 2) {
     std::cerr << "Did not get enough arguments. Expected <matrix_path>";
   }
-  
+
   std::string matrix_path = argv[1];
   std::string A_path = std::format("{}/A.mtx", matrix_path);
   std::string B_path = std::format("{}/B.mtx", matrix_path);
@@ -30,9 +30,11 @@ int main(int argc, char **argv) {
 #endif
 
   // Load sparsity
-  // TODO: Add some sort of shuffling
   // TODO: Add some print statements with NDEBUG
   matrix::CSRMatrix C(C_path, false);
+  // Shuffle the rows and columns indices, for better partitioning
+  int *shuffled_rows = parts::shuffle::shuffle(C.height);
+  int *shuffled_cols = parts::shuffle::shuffle(C.width);
 
   // TODO: Decide which implementation to use
 
@@ -55,7 +57,7 @@ int main(int argc, char **argv) {
   utils::visualize(A);
   std::cout << "B:" << std::endl;
   utils::visualize(B);
-  
+
   // Do the multiplication!
   // TODO: Benchmarking
   matrix::CSRMatrix partial_C = mults::baseline::spgemm(A, B, rank, size, p);
