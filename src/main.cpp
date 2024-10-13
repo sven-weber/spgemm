@@ -65,7 +65,7 @@ int main(int argc, char **argv) {
     serialized_sizes_B_bytes = (int *)malloc(sizeof(int) * size);
   }
 
-  int B_byte_size = B.serialize().size();
+  int B_byte_size = B.serialize()->size();
   MPI_Gather(&B_byte_size, 1, MPI_INT, serialized_sizes_B_bytes, 1, MPI_INT,
              MPI_ROOT_ID, MPI_COMM_WORLD);
 
