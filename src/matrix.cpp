@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <format>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -199,6 +200,8 @@ void CSRMatrix::save(std::string file_path) {
     assert(false);
   }
 
+  // Why the heck do we have to add this?!
+  stream << "%%MatrixMarket matrix coordinate integer general" << std::endl;
   stream << height << " " << width << " " << non_zeros << std::endl;
 
   auto lines = std::vector<Cell>(non_zeros);
