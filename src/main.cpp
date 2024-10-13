@@ -51,12 +51,11 @@ int main(int argc, char **argv) {
   }
 
   // Distribute the partitioning to all machines
-  MPI_Bcast(&p[0], sizeof(partition::Partition) * n_nodes, MPI_BYTE, MPI_ROOT_ID,
-            MPI_COMM_WORLD);
+  MPI_Bcast(&p[0], sizeof(partition::Partition) * n_nodes, MPI_BYTE,
+            MPI_ROOT_ID, MPI_COMM_WORLD);
 
   // TODO: Load the partial matrices for your rank!!
   if (rank == 0) {
-    
   }
   matrix::CSRMatrix A(A_path, false);
 
@@ -66,12 +65,15 @@ int main(int argc, char **argv) {
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
 
   size_t B_byte_size = B.serialize()->size();
-  MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE, &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
+  MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE,
+             &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
              MPI_ROOT_ID, MPI_COMM_WORLD);
-  MPI_Bcast(&serialized_sizes_B_bytes[0], sizeof(size_t) * n_nodes, MPI_BYTE, MPI_ROOT_ID, MPI_COMM_WORLD);
+  MPI_Bcast(&serialized_sizes_B_bytes[0], sizeof(size_t) * n_nodes, MPI_BYTE,
+            MPI_ROOT_ID, MPI_COMM_WORLD);
 
   // Determine maximum size of elements
-  size_t max_B_bytes_size = *std::max_element(serialized_sizes_B_bytes.begin(), serialized_sizes_B_bytes.end());
+  size_t max_B_bytes_size = *std::max_element(serialized_sizes_B_bytes.begin(),
+                                              serialized_sizes_B_bytes.end());
 
   if (rank == MPI_ROOT_ID) {
     utils::print_serialized_sizes(serialized_sizes_B_bytes, max_B_bytes_size);

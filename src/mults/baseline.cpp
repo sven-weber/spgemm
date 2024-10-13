@@ -20,7 +20,8 @@ namespace mults {
 namespace baseline {
 matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A, matrix::CSRMatrix &part_B,
                          int rank, int size, partition::Partitions partitions,
-                         std::vector<size_t>serialized_sizes_B_bytes, size_t max_size_B_bytes) {
+                         std::vector<size_t> serialized_sizes_B_bytes,
+                         size_t max_size_B_bytes) {
   // Define result matrix
   // TODO: Partition with lucas serialization stuff
   double *result = (double *)malloc(sizeof(double) * 2 * 4);
@@ -32,15 +33,17 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A, matrix::CSRMatrix &part_B,
   // Async send and receive B partitions
   int target = rank == 0 ? 1 : 0;
   MPI_Request send, recv;
-  MPI_Isend(serialized->data(), max_size_B_bytes, MPI_BYTE, target, 0, MPI_COMM_WORLD, &send);
-  MPI_Irecv(temp_B_buffer->data(), max_size_B_bytes, MPI_BYTE, target, 0, MPI_COMM_WORLD, &recv);
-  MPI_Waitall(2, (MPI_Request[]) {send, recv}, MPI_STATUSES_IGNORE);
+  MPI_Isend(serialized->data(), max_size_B_bytes, MPI_BYTE, target, 0,
+            MPI_COMM_WORLD, &send);
+  MPI_Irecv(temp_B_buffer->data(), max_size_B_bytes, MPI_BYTE, target, 0,
+            MPI_COMM_WORLD, &recv);
+  MPI_Waitall(2, (MPI_Request[]){send, recv}, MPI_STATUSES_IGNORE);
 
   matrix::CSRMatrix revc_B = matrix::CSRMatrix(temp_B_buffer);
   utils::visualize(revc_B);
-  
+
   return part_A;
-  
+
   /*
   for (int row = 0; row < part_A.height; row++) {
     // Note: B is transposed!

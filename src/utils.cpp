@@ -34,12 +34,10 @@ void visualize(matrix::CSRMatrix &csr) {
 
 void print_partitions(partition::Partitions &parts, int size) {
   for (int i = 0; i < size; i++) {
-    std::cout << "Partition for machine " << i;
-    std::cout << ". Rows: [" << parts[i].start_row;
-    std::cout << ", " << parts[i].end_row;
-    std::cout << "). Columns: [" << parts[i].start_col;
-    std::cout << ", " << parts[i].end_row;
-    std::cout << ").\n";
+    std::cout << "Partition for machine " << i << ". Rows: ["
+              << parts[i].start_row << ", " << parts[i].end_row
+              << "). Columns: [" << parts[i].start_col << ", "
+              << parts[i].end_col << ").\n";
   }
 }
 
