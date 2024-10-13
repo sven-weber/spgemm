@@ -61,7 +61,8 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A,
             col_elem++;
           }
         }
-        cells.add({row, partitions[current_rank_B].start_col +col, res});
+        if(res != 0)
+            cells.add({row, partitions[current_rank_B].start_col +col, res});
       }
     }
 

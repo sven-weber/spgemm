@@ -19,6 +19,7 @@ Cells::Cells(size_t height, size_t width, size_t non_zeros)
 
 void Cells::add(Cell c) {
   assert(c.row < non_zero_per_row.size());
+  assert(c.val != 0);
 
   _cells.push_back(c);
   ++non_zero_per_row[c.row];
