@@ -38,7 +38,7 @@ optimize: compile
 
 run: $(TARGET)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
-	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "matrices/test"
+	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "test"
 
 debug: CXXFLAGS += -ggdb -fsanitize=address,leak,undefined -fno-omit-frame-pointer
 debug: LDFLAGS += -fsanitize=address,leak,undefined

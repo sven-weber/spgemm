@@ -6,8 +6,15 @@
 
 #include <algorithm>
 #include <format>
+#include <fstream>
 #include <iostream>
 #include <mpi.h>
+
+void write_matrix_name(std::string name, std::string path) {
+  std::fstream f(path);
+  f << name << std::endl;
+  f.close();
+}
 
 int main(int argc, char **argv) {
   if (argc < 3) {
@@ -16,15 +23,19 @@ int main(int argc, char **argv) {
         << std::endl;
   }
 
-  std::string matrix_path = argv[1];
-  std::string A_path = std::format("{}/A.mtx", matrix_path);
-  std::string B_path = std::format("{}/B.mtx", matrix_path);
-  std::string C_sparsity_path = std::format("{}/C_sparsity.mtx", matrix_path);
+  std::string matrix_name = argv[1];
+  std::string A_path = std::format("matrices/{}/A.mtx", matrix_name);
+  std::string B_path = std::format("matrices/{}/B.mtx", matrix_name);
+  std::string C_sparsity_path =
+      std::format("matrices/{}/C_sparsity.mtx", matrix_name);
 
   std::string run_path = argv[2];
   std::string partitions_path = std::format("{}/partitions.csv", run_path);
   std::string A_shuffle_path = std::format("{}/A_shuffle", run_path);
   std::string B_shuffle_path = std::format("{}/B_shuffle", run_path);
+
+  std::string matrix_name_path = std::format("{}/matrix", run_path);
+  write_matrix_name(matrix_name, matrix_name);
 
   // Init MPI
   int rank, n_nodes;
