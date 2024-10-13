@@ -3,6 +3,7 @@ INCLUDE_DIR			= include
 INT_DIR  				= build
 TARGET   				= dphpc
 TEST_MACHINES 	= 2
+MATRIX_TARGET		= first
 
 CXX ?= gcc
 ## -MMD creates dependency list, but ignores system includes
@@ -36,9 +37,15 @@ compile: $(TARGET)
 optimize: OPTFLAGS += -DNDEBUG
 optimize: compile
 
+run_optimize: OPTFLAGS += -DNDEBUG
+run_optimize: compile
+run_optimize: $(TARGET)
+	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
+	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)"
+
 run: $(TARGET)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
-	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "test"
+	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)"
 
 debug: CXXFLAGS += -ggdb -fsanitize=address,leak,undefined -fno-omit-frame-pointer
 debug: LDFLAGS += -fsanitize=address,leak,undefined
