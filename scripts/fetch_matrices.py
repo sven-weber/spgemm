@@ -5,6 +5,8 @@ import tempfile
 import sys
 import shutil
 import subprocess
+from scipy.io import mmread, mmwrite
+from scipy.sparse import csc_matrix
 
 formats_that_support_conversion = [
   "%%MatrixMarket matrix coordinate real general",
@@ -37,11 +39,10 @@ matrices = {
 }
 
 def copy_one_matrix_to_A_and_B(folder, source_name):
-  
   try:
     # Rename or move the file
     source = os.path.join("matrices", folder, source_name)
-    fix_file_header(source)
+    fix_file(source)
     target_A = os.path.join("matrices", folder, "A.mtx")
     target_B = os.path.join("matrices", folder, "B.mtx")
     os.rename(source, target_A)
@@ -49,20 +50,28 @@ def copy_one_matrix_to_A_and_B(folder, source_name):
   except Exception as e:
     print(f"Renaming {source_name} failed: {e}")
 
-def fix_file_header(target):
-    # Check and correct the file header
-    target_format = "%%MatrixMarket matrix coordinate real general"
-    try:
-      with open(target, 'r+') as file:
-        first_line = file.readline()
-        assert first_line.strip() in formats_that_support_conversion, f"Downloaded matrix has unsupported format {first_line}"
-        # Replace first line
-        file.seek(0)
-        file.write(target_format)
-        file.write(' ' * (len(first_line) - len(target_format) - 1))
-        file.write("\n")
-    except Exception as e:
-      print(f"Error loading {target}: {e}")
+def fix_file(target):
+  # Check and correct the file header
+  target_format = "%%MatrixMarket matrix coordinate real general"
+  try:
+    with open(target, 'r+') as file:
+      first_line = file.readline()
+      assert first_line.strip() in formats_that_support_conversion, f"Downloaded matrix has unsupported format {first_line}"
+      # Replace first line
+      file.seek(0)
+      file.write(target_format)
+      file.write(' ' * (len(first_line) - len(target_format) - 1))
+      file.write("\n")
+  except Exception as e:
+    print(f"Error loading {target}: {e}")
+
+  # Read & Write the file to ensure
+  # it does not have zero values... (some do for some STUPID reason)
+  matrix = mmread(target)
+  # CSC to have sorting by column
+  new_matrix = csc_matrix(matrix)
+  new_matrix.eliminate_zeros()
+  mmwrite(target, new_matrix)
 
 def download_and_extract_tar_gz(info_dict, target_folder):
   url = info_dict["target-url"]

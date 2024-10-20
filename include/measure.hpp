@@ -6,15 +6,8 @@
 #include <string>
 #include <vector>
 
-#ifndef NDEBUG
 #define measure_point(measurement_func, measurement_type)                      \
   measure::Measure::get_instance()->track(measurement_func, measurement_type)
-#else
-// This is equivalent to a NOOP
-#define measure_point(measurement_func, measurement_type)                      \
-  do {                                                                         \
-  } while (0);
-#endif
 
 namespace measure {
 

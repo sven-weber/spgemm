@@ -37,10 +37,11 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A,
     MPI_Request send, recv;
     // Resize buffer to the correct size (should not free/alloc memory)
     receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
-    communication::send(serialized->data(), serialized_sizes_B_bytes[rank], MPI_BYTE,
-              send_rank, 0, MPI_COMM_WORLD, &send);
-    communication::recv(receiving_B_buffer->data(), serialized_sizes_B_bytes[recv_rank],
-              MPI_BYTE, recv_rank, 0, MPI_COMM_WORLD, &recv);
+    communication::send(serialized->data(), serialized_sizes_B_bytes[rank],
+                        MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &send);
+    communication::recv(receiving_B_buffer->data(),
+                        serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
+                        recv_rank, 0, MPI_COMM_WORLD, &recv);
 
     // Matrix multiplication
     for (size_t row = 0; row < part_A.height; row++) {
@@ -62,9 +63,9 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A,
             col_elem++;
           }
         }
-        //TODO: Why are we producing nulls?
-        if(res != 0)
-            cells.add({row, partitions[current_rank_B].start_col +col, res});
+        // TODO: Why are we producing nulls?
+        if (res != 0)
+          cells.add({row, partitions[current_rank_B].start_col + col, res});
       }
     }
 

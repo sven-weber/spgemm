@@ -1,9 +1,9 @@
 #include "matrix.hpp"
+#include "measure.hpp"
 #include "mults.hpp"
 #include "partition.hpp"
 #include "parts.hpp"
 #include "utils.hpp"
-#include "measure.hpp"
 
 #include <algorithm>
 #include <format>
@@ -41,7 +41,8 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_nodes);
   std::string C_path = std::format("{}/C_{}.mtx", run_path, rank);
-  std::string measurements_path = std::format("{}/measurements_{}.csv", run_path, rank);
+  std::string measurements_path =
+      std::format("{}/measurements_{}.csv", run_path, rank);
 
   // Custom cout that prepends MPI rank
   utils::CoutWithMPIRank custom_cout(rank);
