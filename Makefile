@@ -47,9 +47,10 @@ run: $(TARGET)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
 	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)"
 
-debug: CXXFLAGS += -ggdb -fsanitize=address,leak,undefined -fno-omit-frame-pointer
-debug: LDFLAGS += -fsanitize=address,leak,undefined
+debug: CXXFLAGS += -ggdb -fno-omit-frame-pointer
 debug: compile
+	@echo -e "GDB\t$(TARGET) with $(TEST_MACHINES) machines."
+	@./scripts/gdb $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)"
 
 clean:
 	@echo -e "RMRF\tbuild $(TARGET)"

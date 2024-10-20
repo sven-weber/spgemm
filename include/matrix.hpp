@@ -14,24 +14,6 @@ typedef struct SmallVec {
   const size_t len;
 } SmallVec;
 
-// This is an abstract base class. Use either:
-// - CSRMatrix
-// - BCSRMatrix
-class Matrix {
-public:
-  size_t height;
-  size_t width;
-  size_t non_zeros;
-
-  bool transposed;
-
-  Matrix(size_t height, size_t width, size_t non_zeros,
-         bool transposed = false);
-
-  virtual SmallVec row(size_t i) = 0;
-  virtual SmallVec col(size_t j) = 0;
-};
-
 typedef struct Cell {
   size_t row;
   size_t col;
@@ -79,7 +61,7 @@ typedef struct Fields {
   size_t non_zeros;
 } Fields;
 
-class CSRMatrix : public Matrix {
+class CSRMatrix {
 private:
   std::shared_ptr<std::vector<char>> data;
   Fields *fields;
@@ -88,6 +70,11 @@ private:
   std::tuple<size_t *, size_t *, double *> get_offsets();
 
 public:
+  size_t height;
+  size_t width;
+  size_t non_zeros;
+  bool transposed;
+
   size_t *row_ptr = nullptr;
   size_t *col_idx = nullptr;
   double *values = nullptr;
@@ -100,6 +87,35 @@ public:
 
   SmallVec row(size_t i);
   SmallVec col(size_t j);
+
+  void save(std::string file_path);
+  // DO NOT WRITE TO THE OUTPUT OF THIS
+  std::shared_ptr<std::vector<char>> serialize();
+};
+
+// This is an barebones Matrix class
+class Matrix {
+private:
+  std::shared_ptr<std::vector<char>> raw_data;
+  Fields *fields;
+
+  size_t expected_data_size();
+  double *get_offset();
+
+  Matrix(Fields fields);
+
+public:
+  size_t height;
+  size_t width;
+  bool transposed;
+
+  double *data = nullptr;
+
+  Matrix(size_t height, size_t width, bool transposed = false);
+  Matrix(std::string file_path, bool transposed = false,
+         std::vector<size_t> *keep = nullptr);
+  Matrix(std::shared_ptr<std::vector<char>> serialized_data);
+  ~Matrix() = default;
 
   void save(std::string file_path);
   // DO NOT WRITE TO THE OUTPUT OF THIS

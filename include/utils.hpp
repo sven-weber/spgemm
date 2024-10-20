@@ -9,6 +9,12 @@
 namespace utils {
 
 /**
+ * Visualizes a raw matrix data
+ */
+void visualize_raw(double *data, size_t height, size_t width,
+                   const std::string &name);
+
+/**
  * Visualizes the matrix for debugging
  */
 void visualize(matrix::CSRMatrix &csr, const std::string &name);

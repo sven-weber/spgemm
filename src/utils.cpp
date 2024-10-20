@@ -8,6 +8,22 @@
 namespace utils {
 
 #ifndef NDEBUG
+void visualize_raw(double *data, size_t height, size_t width,
+                   const std::string &name) {
+  for (size_t i = 0; i < height; i++) {
+    std::cout << name << " " << i << ":\t";
+    for (size_t j = 0; j < width; j++) {
+      std::cout << data[(i * width) + j] << "\t";
+    }
+    std::cout << "\n";
+  }
+}
+#else
+void visualize_raw(double *data, size_t height, size_t width,
+                   const std::string &name) {}
+#endif
+
+#ifndef NDEBUG
 void visualize(matrix::CSRMatrix &csr, const std::string &name) {
   auto matrix = std::vector<double>(csr.height * csr.width, 0);
 
@@ -23,13 +39,7 @@ void visualize(matrix::CSRMatrix &csr, const std::string &name) {
     }
   }
 
-  for (size_t i = 0; i < csr.height; i++) {
-    std::cout << name << " " << i << ":\t";
-    for (size_t j = 0; j < csr.width; j++) {
-      std::cout << matrix[(i * csr.width) + j] << "\t";
-    }
-    std::cout << "\n";
-  }
+  visualize_raw(matrix.data(), csr.height, csr.width, name);
 }
 
 void print_partitions(partition::Partitions &parts, int size) {

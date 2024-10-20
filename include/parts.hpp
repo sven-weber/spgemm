@@ -5,6 +5,6 @@
 
 namespace parts {
 namespace baseline {
-partition::Partitions partition(matrix::Matrix &C, int size);
+partition::Partitions partition(matrix::CSRMatrix &C, int size);
 } // namespace baseline
 } // namespace parts
