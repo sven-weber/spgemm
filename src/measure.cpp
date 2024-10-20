@@ -93,11 +93,13 @@ void Measure::save(std::string path) {
   auto csv = std::ofstream(path);
   assert(!csv.fail());
 
-  csv << "func,duration" << std::endl;
-
+  csv << "func,duration,bytes" << std::endl;
+  
+  csv << "bytes,0," << _bytes << std::endl;
+  
   auto data = Measure::get_instance()->intervals();
   for (auto i : data)
-    csv << i.func << "," << i.duration << std::endl;
+    csv << i.func << "," << i.duration << ",0" << std::endl;
 }
 
 void Measure::reset() {

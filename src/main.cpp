@@ -3,6 +3,7 @@
 #include "partition.hpp"
 #include "parts.hpp"
 #include "utils.hpp"
+#include "measure.hpp"
 
 #include <algorithm>
 #include <format>
@@ -40,12 +41,15 @@ int main(int argc, char **argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_nodes);
   std::string C_path = std::format("{}/C_{}.mtx", run_path, rank);
+  std::string measurements_path = std::format("{}/measurements_{}.csv", run_path, rank);
 
   // Custom cout that prepends MPI rank
   utils::CoutWithMPIRank custom_cout(rank);
 #ifndef NDEBUG
   std::cout << "Started." << std::endl;
 #endif
+
+  measure_point(measure::global, measure::MeasurementEvent::START);
 
   if (rank == MPI_ROOT_ID) {
     std::string matrix_name_path = std::format("{}/matrix", run_path);
@@ -116,17 +120,21 @@ int main(int argc, char **argv) {
   MPI_Barrier(MPI_COMM_WORLD);
   // TODO: Benchmarking
 
+  measure_point(measure::gemm, measure::MeasurementEvent::START);
   // Do the multiplication!
   auto partial_C =
       mults::baseline::spgemm(A, B, rank, n_nodes, partitions,
                               serialized_sizes_B_bytes, max_B_bytes_size);
 
+  measure_point(measure::gemm, measure::MeasurementEvent::END);
+  measure_point(measure::global, measure::MeasurementEvent::END);
 #ifndef NDEBUG
   std::cout << "Finished computation.\n";
 #endif
 
   // Store the result
   partial_C.save(C_path);
+  measure::Measure::get_instance()->save(measurements_path);
 
   MPI_Finalize();
 }
