@@ -23,7 +23,6 @@ def load_matrix(filename):
     """
     try:
         matrix = mmread(filename)
-        print(matrix)
         return csr_matrix(matrix)
     except Exception as e:
         print(f"Error loading {filename}: {e}")

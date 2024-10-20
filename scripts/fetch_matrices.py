@@ -6,34 +6,63 @@ import sys
 import shutil
 import subprocess
 
+formats_that_support_conversion = [
+  "%%MatrixMarket matrix coordinate real general",
+  "%%MatrixMarket matrix coordinate real symmetric",
+  "%%MatrixMarket matrix coordinate integer symmetric",
+  "%%MatrixMarket matrix coordinate integer general"
+]
+
 matrices = {
   "cont-300" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/GHS_indef/cont-300.tar.gz",
     "extract_files": ["cont-300.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cont-300", "cont-300.mtx")
   },
-  "gr_30_30" : {
-    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/HB/gr_30_30.tar.gz",
-    "extract_files": ["gr_30_30.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("gr_30_30", "gr_30_30.mtx")
+  "cell1" : {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Lucifora/cell1.tar.gz",
+    "extract_files": ["cell1.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cell1", "cell1.mtx")
   },
-  "stranke94": {
-    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Pajek/Stranke94.tar.gz",
-    "extract_files": ["Stranke94.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stranke94", "Stranke94.mtx")
-  }
+  "jan99jac060sc" : {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Hollinger/jan99jac060sc.tar.gz",
+    "extract_files": ["jan99jac060sc.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("jan99jac060sc", "jan99jac060sc.mtx")
+  },
+  "viscoplastic2" : {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Quaglino/viscoplastic2.tar.gz",
+    "extract_files": ["viscoplastic2.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("viscoplastic2", "viscoplastic2.mtx")
+  },
 }
 
 def copy_one_matrix_to_A_and_B(folder, source_name):
+  
   try:
     # Rename or move the file
     source = os.path.join("matrices", folder, source_name)
+    fix_file_header(source)
     target_A = os.path.join("matrices", folder, "A.mtx")
     target_B = os.path.join("matrices", folder, "B.mtx")
     os.rename(source, target_A)
     shutil.copyfile(target_A, target_B)
   except Exception as e:
     print(f"Renaming {source_name} failed: {e}")
+
+def fix_file_header(target):
+    # Check and correct the file header
+    target_format = "%%MatrixMarket matrix coordinate real general"
+    try:
+      with open(target, 'r+') as file:
+        first_line = file.readline()
+        assert first_line.strip() in formats_that_support_conversion, f"Downloaded matrix has unsupported format {first_line}"
+        # Replace first line
+        file.seek(0)
+        file.write(target_format)
+        file.write(' ' * (len(first_line) - len(target_format) - 1))
+        file.write("\n")
+    except Exception as e:
+      print(f"Error loading {target}: {e}")
 
 def download_and_extract_tar_gz(info_dict, target_folder):
   url = info_dict["target-url"]
@@ -85,22 +114,18 @@ def download_and_extract_tar_gz(info_dict, target_folder):
         print(f"Error extracting tar.gz file: {e}")
    
 def compute_expected(folder):
-  try:
-    result = subprocess.run(
-        ["python", "scripts/generate_expected.py", folder],
-        capture_output=True,
-        text=True
-    )
+  result = subprocess.run(
+    ["python", "scripts/generate_expected.py", folder],
+    capture_output=True,
+    text=True
+  )
 
-    # Print the script output
-    output = result.stdout.strip()
-    print(output)
-    
-    return_code = result.returncode
-    assert return_code == 0, "Failed to generate expected values"
-
-  except Exception as e:
-    print(f"An error occurred: {e}")
+  # Print the script output
+  output = result.stdout.strip()
+  print(output)
+  
+  return_code = result.returncode
+  assert return_code == 0, "Failed to generate expected values"
 
 def add_to_gitignore(target, gitignore_path=".gitignore"):
   # Read the existing .gitignore file if it exists
