@@ -1,7 +1,11 @@
-#!/bin/sh
+#!/bin/sh -ex
+
+nodes=$1
+cmd=$2
+matrix=$3
 
 id=$(date +"%Y-%m-%d-%T")
-run_path="runs/$id"
+run_path="runs/$id-$nodes"
 mkdir -p "$run_path"
 
-mpirun -n "$1" "$2" "$3" "$run_path" | sort -s -t '[' -k2,2n
+mpirun -n "$nodes" "$cmd" "$matrix" "$run_path" | sort -s -t '[' -k2,2n

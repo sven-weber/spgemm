@@ -1,7 +1,7 @@
 with import <nixpkgs> { };
 
 stdenvNoCC.mkDerivation {
-  name = "netsec-project";
+  name = "dphpc-project";
   buildInputs = with pkgs; [
     gnat14
     clang-tools
@@ -11,6 +11,11 @@ stdenvNoCC.mkDerivation {
     gnumake
     openmpi
     pkg-config
+
+    python3
+    python3Packages.pandas
+    python3Packages.requests
+    python3Packages.scipy
   ];
 
   MAKEFLAGS = "-j16";

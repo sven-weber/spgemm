@@ -1,12 +1,12 @@
 #!/bin/sh
 
-id=$(date +"%Y-%m-%d-%T")
-run_path="runs/$id"
-mkdir -p "$run_path"
-
 nodes=$1
 cmd=$2
 matrix=$3
+
+id=$(date +"%Y-%m-%d-%T")
+run_path="runs/$id"
+mkdir -p "$run_path"
 
 # I expect $TERM to also be the name of the executable for your terminal emulator
 mpirun -n "$nodes" $TERM -e gdb -ex run --args "$cmd" "$matrix" "$run_path"

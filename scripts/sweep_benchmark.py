@@ -1,0 +1,106 @@
+from datetime import datetime
+from typing import Dict, List
+from os.path import join
+import pandas as pd
+import subprocess
+import pathlib
+import argparse
+import os
+
+CMD = "./dphpc"
+RUNS_DIR = "runs"
+
+# Does a run of the CMD with mpi using `nodes` nodes and returns
+# the run folder.
+def run_mpi(matrix: str, nodes: int) -> str:
+    print(f"Running with {nodes} nodes")
+    date = datetime.now().strftime("%Y-%m-%d-%T")
+    id = f"{date}-{nodes}"
+    folder = join(RUNS_DIR, id)
+    pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
+
+    cmd = ["mpirun", "-n", str(nodes), CMD, matrix, folder]
+    result = subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True
+    )
+
+    output = result.stdout.strip()
+    error = result.stderr.strip()
+    if output != "":
+        print(output)
+    if error != "":
+        print(error)
+
+    return_code = result.returncode
+    assert return_code == 0, f"Running {CMD} with {nodes} nodes failed"
+    return folder
+
+FILE_NAME = "measurements"
+
+DataFrames = Dict[int, pd.DataFrame]
+
+def load_timings(folder_path: str) -> DataFrames:
+    dataframes = dict()
+    for file in os.listdir(folder_path):
+        if file.startswith(FILE_NAME) and file.endswith(".csv"):
+            node_id = int(file.split("_")[1].split(".")[0])
+            df = pd.read_csv(join(folder_path, file))
+            dataframes[node_id] = df
+    return dataframes
+
+# Because there may be multiple function names in the same file
+def aggregate_vertically(dataframes: DataFrames):
+    for node_id, df in dataframes.items():
+        df["duration"] = pd.to_numeric(df["duration"], errors="coerce")
+        df = df.groupby("func").mean().reset_index()
+        dataframes[node_id] = df
+
+# To have the average, min and max for each function across the different files (each file is one node)
+def aggregate_horizontally(dataframes: DataFrames) -> pd.DataFrame:
+    all_func_names = pd.concat([df["func"] for df in dataframes.values()]).unique()
+    aggregated_data = []
+    for func_name in all_func_names:
+        func_dfs = [df[df["func"] == func_name] for df in dataframes.values()]
+        concatenated = pd.concat(func_dfs)
+        avg_time = concatenated["duration"].mean()
+        min_time = concatenated["duration"].min()
+        max_time = concatenated["duration"].max()
+        aggregated_data.append({
+            "func": func_name,
+            "avg_time": avg_time,
+            "min_time": min_time,
+            "max_time": max_time
+        })
+    aggregated_df = pd.DataFrame(aggregated_data)
+    return aggregated_df
+
+def graph_multiple_runs(folders: List[str]):
+    timings = pd.DataFrame()
+    for folder_path in folders:
+        dataframes = load_timings(folder_path)
+        aggregate_vertically(dataframes)
+
+        # Aggregate horizontally timings related to same function
+        aggregated_df = aggregate_horizontally(dataframes)
+        aggregated_df['nodes'] = len(dataframes)
+        timings = pd.concat([timings, aggregated_df], axis=0)
+
+    print(timings)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+                    prog='benchmark_time',
+                    description='Generate graphs from benchmarks')
+    parser.add_argument('--matrix', type=str, required=False, default='test')
+    parser.add_argument('--min', type=int, required=False, default=2)
+    parser.add_argument('--max', type=int, required=False, default=8)
+    parser.add_argument('--stride', type=int, required=False, default=1)
+    args = parser.parse_args()
+
+    folders = []
+    for n in range(args.min, args.max+1, args.stride):
+        folders.append(run_mpi(args.matrix, n))
+
+    graph_multiple_runs(folders)
