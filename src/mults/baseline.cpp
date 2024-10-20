@@ -1,3 +1,4 @@
+#include "communication.hpp"
 #include "mpi.h"
 #include "mults.hpp"
 #include "utils.hpp"
@@ -36,9 +37,9 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A,
     MPI_Request send, recv;
     // Resize buffer to the correct size (should not free/alloc memory)
     receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
-    MPI_Isend(serialized->data(), serialized_sizes_B_bytes[rank], MPI_BYTE,
+    communication::send(serialized->data(), serialized_sizes_B_bytes[rank], MPI_BYTE,
               send_rank, 0, MPI_COMM_WORLD, &send);
-    MPI_Irecv(receiving_B_buffer->data(), serialized_sizes_B_bytes[recv_rank],
+    communication::recv(receiving_B_buffer->data(), serialized_sizes_B_bytes[recv_rank],
               MPI_BYTE, recv_rank, 0, MPI_COMM_WORLD, &recv);
 
     // Matrix multiplication

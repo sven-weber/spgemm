@@ -32,7 +32,7 @@ Measure::Measure() : measurements({}) {
   measurements.reserve(25 * measurement_event_types.size());
 }
 
-void Measure::track_bytes(size_t bytes) { bytes += bytes; }
+void Measure::track_bytes(size_t bytes) { _bytes += bytes; }
 
 size_t Measure::bytes() { return _bytes; }
 
