@@ -1,6 +1,8 @@
 import os
+import sys
 from scipy.io import mmread, mmwrite
 from scipy.sparse import csr_matrix
+import shutil
 
 def load_matrix(filename):
     """
@@ -38,19 +40,34 @@ def process_directory(directory):
                 B_file = os.path.join(root, file)
         
         if A_file and B_file:
-            print(f"Processing {A_file} and {B_file}...")
-            A = load_matrix(A_file)
-            B = load_matrix(B_file)
-            
-            if A is None or B is None:
-                print("Error loading matrices.")
-                continue
+          process_matrices(root)
 
-            C_expected = A.dot(B)
-            save_matrix(C_expected, os.path.join(root, "C_expected.mtx"))
+def process_matrices(folder):
+  A_file = os.path.join(folder, "A.mtx")
+  B_file = os.path.join(folder, "B.mtx")
+  
+  print(f"Processing {A_file} and {B_file}...")
+  A = load_matrix(A_file)
+  B = load_matrix(B_file)
+  
+  if A is None or B is None:
+    print("Error loading matrices.")
+    sys.exit(1)
+
+  C_expected = A.dot(B)
+  C_expected_file = os.path.join(folder, "C_expected.mtx")
+  save_matrix(C_expected, C_expected_file)
+  # Copy as sparsity matrix (for now)
+  # TODO: Compute smth we actual need
+  shutil.copyfile(C_expected_file,  os.path.join(folder, "C_sparsity.mtx"))
 
 def main():
+  if len(sys.argv) <= 1:
+    # Process the whole dir
     process_directory("matrices")
+  else:
+    # Process a specific dir that is provided!
+    process_matrices(sys.argv[1])
 
 if __name__ == "__main__":
-    main()
+  main()
