@@ -59,6 +59,8 @@ if __name__ == "__main__":
     description='Merge shuffled matrix partitions into one unshuffled matrix.')
   parser.add_argument("--source", required=True,
                       help='Folder containing partitions, partitioning info and shuffling info.')
+  parser.add_argument("--nodes", required=True,
+                      help='Number of nodes used for computation.')
   args = parser.parse_args()
 
   smA = load_shuffle_mapping(os.path.join(args.source, f'A_shuffle'))
@@ -66,7 +68,7 @@ if __name__ == "__main__":
   pm = load_partition_mapping(os.path.join(args.source, f'partitions.csv'))
 
   dfs = []
-  for i in range(2):
+  for i in range(args.nodes):
     df = load_partition(args.source, i, smA, smB, pm)
     dfs.append(df)
   c = pd.concat(dfs)
