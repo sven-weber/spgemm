@@ -30,7 +30,7 @@ def load_shuffle_mapping(filename):
   Read the shuffle file and return a DataFrame
   """
   shuffle = pd.read_csv((filename), names=['shuffle'], header=None)
-  shuffle = shuffle.reset_index().set_index('shuffle')
+  shuffle = shuffle.reset_index()
   return shuffle
 
 def load_partition_mapping(partitions_file):
@@ -50,8 +50,8 @@ def load_partition(partitions_directory, rank, shuffle_mapping_A, shuffle_mappin
   
   df = pd.DataFrame({'row': partition.row, 'col': partition.col, 'data': partition.data})
   df['row'] += partition_mapping.loc[rank, 'start_row']
-  df['row'] = df['row'].map(shuffle_mapping_A['index'])
-  df['col'] = df['col'].map(shuffle_mapping_B['index'])
+  df['row'] = df['row'].map(shuffle_mapping_A['shuffle'])
+  df['col'] = df['col'].map(shuffle_mapping_B['shuffle'])
   return df
 
 if __name__ == "__main__":
@@ -71,8 +71,8 @@ if __name__ == "__main__":
     dfs.append(df)
   c = pd.concat(dfs)
 
-  n_rows = pm['end_row'].max() + 1
-  n_cols = pm['end_col'].max() + 1
+  n_rows = pm['end_row'].max()
+  n_cols = pm['end_col'].max()
   coo = coo_matrix((c['data'], (c['row'], c['col'])), shape=(n_rows, n_cols))
   save_matrix(coo.tocsr(), os.path.join(args.source, f'C.mtx'))
 
