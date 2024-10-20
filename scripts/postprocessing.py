@@ -68,7 +68,7 @@ if __name__ == "__main__":
   pm = load_partition_mapping(os.path.join(args.source, f'partitions.csv'))
 
   dfs = []
-  for i in range(args.nodes):
+  for i in range(int(args.nodes)):
     df = load_partition(args.source, i, smA, smB, pm)
     dfs.append(df)
   c = pd.concat(dfs)

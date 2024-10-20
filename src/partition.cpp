@@ -15,9 +15,11 @@ Shuffle shuffle(size_t size) {
     shuffled[i] = i;
   }
 
+#ifndef NSHUFFLE
   std::random_device rd;
   std::mt19937 g(rd());
   std::shuffle(shuffled.begin(), shuffled.end(), g);
+#endif
 
 #ifndef NDEBUG
   std::cout << "Shuffled indices: ";

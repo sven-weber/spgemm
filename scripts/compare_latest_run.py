@@ -15,6 +15,18 @@ def fetch_matrix_target():
     else:
       print("Target not found in MAKE!")
       sys.exit(1)
+
+def fetch_num_machines():
+  with open("Makefile", 'r') as file:
+    content = file.read()
+
+    # Use regex to find the MATRIX_TARGET parameter
+    match = re.search(r'^\s*TEST_MACHINES\s*=\s*(.+)', content, re.MULTILINE)
+    if match:
+      return match.group(1).strip()  # Return the value without leading/trailing whitespace
+    else:
+      print("Target not found in MAKE!")
+      sys.exit(1)
           
 def find_latest_folder():
     latest_folder = None
@@ -36,46 +48,47 @@ def find_latest_folder():
 
     return latest_folder
 
-def run_postprocessing(folder):
-  try:
-    result = subprocess.run(
-        ["python", "scripts/postprocessing.py", "--source", folder],
-        capture_output=True,
-        text=True
-    )
+def run_postprocessing(folder, num_machines):
+  result = subprocess.run(
+      ["python", "scripts/postprocessing.py", "--source", folder, "--nodes", num_machines],
+      capture_output=True,
+      text=True
+  )
 
-    # Print the script output
-    output = result.stdout.strip()
-    print(output)
-    
-    return_code = result.returncode
-    assert return_code == 0, "Failed to generate expected values"
-
-  except Exception as e:
-    print(f"An error occurred: {e}")
+  # Print the script output
+  output = result.stdout.strip()
+  error = result.stderr.strip()
+  print(output)
+  if error != "":
+    print(error)
+  
+  return_code = result.returncode
+  assert return_code == 0, "Running postprocessing failed!"
 
 def run_comparison(source_matrix, target_matrix):
-  try:
-    result = subprocess.run(
-        ["python", "scripts/compare_matrices.py", source_matrix, target_matrix],
-        capture_output=True,
-        text=True
-    )
+  result = subprocess.run(
+      ["python", "scripts/compare_matrices.py", source_matrix, target_matrix],
+      capture_output=True,
+      text=True
+  )
 
-    # Print the script output
-    output = result.stdout.strip()
-    print(output)
-    
-    return_code = result.returncode
-    assert return_code == 0, "Failed to generate expected values"
+  # Print the script output
+  output = result.stdout.strip()
+  error = result.stderr.strip()
+  print(output)
+  if error != "":
+    print(error)
 
-  except Exception as e:
-    print(f"An error occurred: {e}")
+  return_code = result.returncode
+  assert return_code == 0, "Run comparison failed!"
 
 def main():
   run_target = find_latest_folder()
   matrix_target = fetch_matrix_target()
-  run_postprocessing(run_target)
+  num_machines = fetch_num_machines()
+  print("Running postprocessing")
+  run_postprocessing(run_target, num_machines)
+  print("Running comparison")
   run_comparison(os.path.join("matrices", matrix_target, "C_expected.mtx"), os.path.join(run_target, "C.mtx"))
 
 if __name__ == "__main__":

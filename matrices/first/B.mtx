@@ -1,4 +1,4 @@
-%%MatrixMarket matrix coordinate real symmetric
+%%MatrixMarket matrix coordinate real general
 %-------------------------------------------------------------------------------
 % SuiteSparse Matrix Collection, Tim Davis
 % https://sparse.tamu.edu/ML_Graph/YaleA_10NN

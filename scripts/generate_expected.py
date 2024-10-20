@@ -4,12 +4,26 @@ from scipy.io import mmread, mmwrite
 from scipy.sparse import csr_matrix
 import shutil
 
+supported_formats = [
+  "%%MatrixMarket matrix coordinate real general",
+]
+
 def load_matrix(filename):
+    # Fetch first line from the file and check that its a matrix we can work with!
+    try:
+      with open(filename, 'r') as file:
+          first_line = file.readline().strip()
+          assert first_line in supported_formats, f"Matrix file does not have expected format! Has {first_line}"
+    except Exception as e:
+      print(f"Error loading {filename}: {e}")
+      return None
+
     """
     Loads a matrix from a Matrix Market (.mtx) file.
     """
     try:
         matrix = mmread(filename)
+        print(matrix)
         return csr_matrix(matrix)
     except Exception as e:
         print(f"Error loading {filename}: {e}")

@@ -17,6 +17,11 @@ matrices = {
     "extract_files": ["gr_30_30.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("gr_30_30", "gr_30_30.mtx")
   },
+  "stranke94": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Pajek/Stranke94.tar.gz",
+    "extract_files": ["Stranke94.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stranke94", "Stranke94.mtx")
+  }
 }
 
 def copy_one_matrix_to_A_and_B(folder, source_name):

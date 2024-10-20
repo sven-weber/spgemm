@@ -43,6 +43,7 @@ run_optimize: $(TARGET)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
 	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)"
 
+## run: OPTFLAGS += -DNSHUFFLE
 run: $(TARGET)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
 	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)"
