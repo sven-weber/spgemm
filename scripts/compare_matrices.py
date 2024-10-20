@@ -24,20 +24,25 @@ def compare_matrices(C_expected, C_real, tolerance=1e-10):
         print(f"Matrix shape mismatch: C_expected {C_expected.shape}, C_real {C_real.shape}")
         return
     
-    expected_row_indices, expected_col_indices = C_expected.nonzero()
-    differences = 0
+
+    close_values = np.isclose(C_expected.data, C_real.data, atol=tolerance)
+    not_close_values = ~close_values
+    differences = np.sum(not_close_values)
     
-    for i, j in zip(expected_row_indices, expected_col_indices):
-        expected_value = C_expected[i, j]
-        real_value = C_real[i, j]
-        if not np.isclose(expected_value, real_value, atol=tolerance):
-            differences += 1
-            print(f"Mismatch at position ({i}, {j}): expected {expected_value}, got {real_value}")
+    # expected_row_indices, expected_col_indices = C_expected.nonzero()
+    # differences = 0
     
-    real_row_indices, real_col_indices = C_real.nonzero()
-    for i, j in zip(real_row_indices, real_col_indices):
-        if (i, j) not in zip(expected_row_indices, expected_col_indices):
-            print(f"Extra entry in C_real at position ({i}, {j}): got {C_real[i, j]}")
+    # for i, j in zip(expected_row_indices, expected_col_indices):
+    #     expected_value = C_expected[i, j]
+    #     real_value = C_real[i, j]
+    #     if not np.isclose(expected_value, real_value, atol=tolerance):
+    #         differences += 1
+    #         print(f"Mismatch at position ({i}, {j}): expected {expected_value}, got {real_value}")
+    
+    # real_row_indices, real_col_indices = C_real.nonzero()
+    # for i, j in zip(real_row_indices, real_col_indices):
+    #     if (i, j) not in zip(expected_row_indices, expected_col_indices):
+    #         print(f"Extra entry in C_real at position ({i}, {j}): got {C_real[i, j]}")
 
     if differences == 0:
         print("The matrices are identical within the given tolerance.")
