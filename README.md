@@ -34,7 +34,11 @@ python3 scripts/fetch_matrices.py
 TODO!!
 
 ```console
-source init-euler.sh
+source euler/init.sh
+```
+
+```console
+python3 scripts/fetch_matrices.py --euler
 ```
 
 ```console

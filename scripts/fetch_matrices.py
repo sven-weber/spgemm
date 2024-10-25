@@ -5,6 +5,7 @@ import tempfile
 import sys
 import shutil
 import subprocess
+import argparse
 from scipy.io import mmread, mmwrite
 from scipy.sparse import csc_matrix
 
@@ -15,30 +16,33 @@ formats_that_support_conversion = [
   "%%MatrixMarket matrix coordinate integer general"
 ]
 
+PYTHON_BIN = "python3"
+
 matrices = {
   "cont-300" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/GHS_indef/cont-300.tar.gz",
     "extract_files": ["cont-300.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cont-300", "cont-300.mtx"),
-    "compute_expected": True
   },
   "cell1" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Lucifora/cell1.tar.gz",
     "extract_files": ["cell1.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cell1", "cell1.mtx"),
-    "compute_expected": True
   },
   "jan99jac060sc" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Hollinger/jan99jac060sc.tar.gz",
     "extract_files": ["jan99jac060sc.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("jan99jac060sc", "jan99jac060sc.mtx"),
-    "compute_expected": True
   },
   "viscoplastic2" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Quaglino/viscoplastic2.tar.gz",
     "extract_files": ["viscoplastic2.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("viscoplastic2", "viscoplastic2.mtx"),
-    "compute_expected": True
+  },
+  "largebasis": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/QLi/largebasis.tar.gz",
+    "extract_files": ["largebasis.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("largebasis", "largebasis.mtx"),
   }
   #
   # Missing: Queen_4147
@@ -148,13 +152,20 @@ def download_and_extract_tar_gz(info_dict, target_folder):
     except tarfile.TarError as e:
         print(f"Error extracting tar.gz file: {e}")
    
-def compute_expected(folder):
+def compute_expected(folder, euler):
+  if euler:
+    print("Submitting job to euler via SLURM")
+    # Submit this as a slurm job!
+    cmd = ["sbatch", "--wait", "-n", "2", "--wrap", f"{PYTHON_BIN} scripts/generate_expected.py"]
+  else:
+    cmd = [PYTHON_BIN, "scripts/generate_expected.py", folder]
+
   result = subprocess.run(
-    ["python", "scripts/generate_expected.py", folder],
+    cmd,
+    cwd=os.getcwd(),
     capture_output=True,
     text=True
   )
-
   # Print the script output
   output = result.stdout.strip()
   print(output)
@@ -178,7 +189,7 @@ def add_to_gitignore(target, gitignore_path=".gitignore"):
   
   print(f"'{target}' has been added to {gitignore_path}.")
 
-if __name__ == "__main__":
+def main(euler: bool):
   print("Fetching missing matrices")
   for name, dict in matrices.items():
     target_path = f"matrices/{name}"
@@ -188,14 +199,21 @@ if __name__ == "__main__":
       # Execute post extract func
       if dict["post_extract_func"] is not None:
         dict["post_extract_func"]()
-      if dict["compute_expected"] == True:
-        # Compute expected matrix
-        # Only feasible for small matrices!
-        print("Computing expected output")
-        compute_expected(target_path)
+      print("Computing expected output")
+      compute_expected(target_path, euler)
       print("Processing finished.")
       add_to_gitignore(target_path)
       print(f"-------- {name} --------")
     else:
       print(f"Skipped {name} since it already exists.")
   print("Fetching done.")
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser(
+    prog='fetch_matrices',
+    description='Fetch matrices to compute')
+  parser.add_argument('--euler', action="store_true")
+  args = parser.parse_args()
+  main(args.euler)
+
+
