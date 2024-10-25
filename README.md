@@ -28,9 +28,9 @@ This repository has a script to install all dependencies and perform the setup f
 TODO!!
 
 ```console
-./init-euler.sh
+source init-euler.sh
 ```
 
 ```console
-pi
+pip3 install -r requirements.txt
 ```
