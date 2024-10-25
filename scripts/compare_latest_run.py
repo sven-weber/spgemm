@@ -38,7 +38,8 @@ def find_latest_folder():
       if os.path.isdir(folder_path):
         try:
           # Convert folder name to datetime object
-          folder_time = datetime.strptime(folder, "%Y-%m-%d-%H:%M:%S")
+          date = "-".join(folder.split("-")[0:-1])
+          folder_time = datetime.strptime(date, "%Y-%m-%d-%H:%M:%S")
           if latest_time is None or folder_time > latest_time:
             latest_time = folder_time
             latest_folder = folder_path
@@ -50,7 +51,7 @@ def find_latest_folder():
 
 def run_postprocessing(folder, num_machines):
   result = subprocess.run(
-      ["python", "scripts/postprocessing.py", "--source", folder, "--nodes", num_machines],
+      ["python3", "scripts/postprocessing.py", "--source", folder, "--nodes", num_machines],
       capture_output=True,
       text=True
   )
@@ -67,7 +68,7 @@ def run_postprocessing(folder, num_machines):
 
 def run_comparison(source_matrix, target_matrix):
   result = subprocess.run(
-      ["python", "scripts/compare_matrices.py", source_matrix, target_matrix],
+      ["python3", "scripts/compare_matrices.py", source_matrix, target_matrix],
       capture_output=True,
       text=True
   )

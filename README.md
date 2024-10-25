@@ -23,6 +23,12 @@ This repository has a script to install all dependencies and perform the setup f
 ./scripts/install_deps_macos.sh
 ```
 
+## Fetch matrices
+
+```console
+python3 scripts/fetch_matrices.py
+```
+
 ## Run on euler
 
 TODO!!

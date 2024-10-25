@@ -58,6 +58,7 @@ debug: compile
 clean:
 	@echo -e "RMRF\tbuild $(TARGET)"
 	@rm -rf build runs $(TARGET)
+	@rm slurm-*.out
 
 format:
 	clang-format -i $(CPP_FILES) $(CPP_HEADER_FILES)
