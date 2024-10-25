@@ -22,3 +22,15 @@ This repository has a script to install all dependencies and perform the setup f
 ```console
 ./scripts/install_deps_macos.sh
 ```
+
+## Run on euler
+
+TODO!!
+
+```console
+./init-euler.sh
+```
+
+```console
+pi
+```
