@@ -31,6 +31,7 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A,
   int current_rank_B = rank;
   int recv_rank = rank != 0 ? rank - 1 : n_nodes - 1;
 
+  MPI_Request requests[2];
   // Do computation. We need n-1 communication rounds
   for (int i = 0; i < n_nodes; i++) {
     // Start async send and receive partition of B
@@ -38,10 +39,10 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A,
     // Resize buffer to the correct size (should not free/alloc memory)
     receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
     communication::send(serialized->data(), serialized_sizes_B_bytes[rank],
-                        MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &send);
+                        MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &requests[0]);
     communication::recv(receiving_B_buffer->data(),
                         serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
-                        recv_rank, 0, MPI_COMM_WORLD, &recv);
+                        recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
 
     // Matrix multiplication
     for (size_t row = 0; row < part_A.height; row++) {
@@ -70,7 +71,7 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A,
     }
 
     // Wait for the communication to finish
-    MPI_Waitall(2, (MPI_Request[]){send, recv}, MPI_STATUSES_IGNORE);
+    MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
 
     // Deserialize Matrix for next round and switch buffer pointers
     std::swap(received_B_buffer, receiving_B_buffer);
