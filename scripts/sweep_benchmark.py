@@ -15,14 +15,18 @@ N_RUNS    = 10
 
 # Does a run of the CMD with mpi using `nodes` nodes and returns
 # the run folder.
-def run_mpi(matrix: str, nodes: int) -> str:
+def run_mpi(matrix: str, nodes: int, euler: bool = False) -> str:
     print(f"Running with {nodes} nodes")
     date = datetime.now().strftime("%Y-%m-%d-%T")
     id = f"{date}-{nodes}"
     folder = join(RUNS_DIR, id)
     pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
 
-    cmd = ["mpirun", "-n", str(nodes), CMD, matrix, folder, str(N_WARMUP), str(N_RUNS)]
+
+    if euler:
+        cmd = ["sbatch", "--wait", "-n", nodes, f"--wrap=\"mpirun {CMD} {matrix} {folder} {N_WARMUP} {N_RUNS}\""]
+    else:
+        cmd = ["mpirun", "-n", str(nodes), CMD, matrix, folder, str(N_WARMUP), str(N_RUNS)]
     result = subprocess.run(
         cmd,
         capture_output=True,
@@ -112,6 +116,7 @@ if __name__ == "__main__":
     parser.add_argument('--min', type=int, required=False, default=2)
     parser.add_argument('--max', type=int, required=False, default=4)
     parser.add_argument('--stride', type=int, required=False, default=1)
+    parser.add_argument('--euler', type=bool, required=False, default=False)
     args = parser.parse_args()
 
     folders = []
