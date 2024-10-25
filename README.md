@@ -34,3 +34,11 @@ source init-euler.sh
 ```console
 pip3 install -r requirements.txt
 ```
+
+```console
+make optimize
+```
+
+```console
+python3 scripts/sweep_benchmark.py --matrix first --min 1 --max 2 --stride 1 --euler
+```
