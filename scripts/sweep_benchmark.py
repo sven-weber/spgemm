@@ -27,6 +27,8 @@ def run_mpi(matrix: str, nodes: int, euler: bool = False) -> str:
         cmd = ["sbatch", "--wait", "-n", str(nodes), f"--wrap=\"mpirun {CMD} {matrix} {folder} {N_WARMUP} {N_RUNS}\""]
     else:
         cmd = ["mpirun", "-n", str(nodes), CMD, matrix, folder, str(N_WARMUP), str(N_RUNS)]
+    print("Will run:")
+    print(cmd)
     result = subprocess.run(
         cmd,
         cwd=os.getcwd(),
