@@ -6,6 +6,7 @@ import subprocess
 import pathlib
 import argparse
 import os
+import matplotlib.pyplot as plt
 
 CMD       = "./dphpc"
 RUNS_DIR  = "runs"
@@ -88,8 +89,20 @@ def graph_multiple_runs(folders: List[str]):
         aggregated_df = aggregate_horizontally(dataframes)
         aggregated_df['nodes'] = len(dataframes)
         timings = pd.concat([timings, aggregated_df], axis=0)
+    return timings
 
-    print(timings)
+def plot_timings_increasingnodes(timings: pd.DataFrame, folders: List[str]):
+    for folder_path in folders:
+        _, ax = plt.subplots()
+        for func_name in timings["func"].unique():
+            func_data = timings[timings["func"] == func_name]
+            ax.plot(func_data["nodes"], func_data["avg_time"], label=func_name)
+
+        ax.set_xlabel("Nodes")
+        ax.set_ylabel("Time (ns)")
+        ax.set_title("Time vs Nodes")
+        ax.legend()
+        plt.savefig(join(folder_path, "timings_plot.png"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -97,7 +110,7 @@ if __name__ == "__main__":
                     description='Generate graphs from benchmarks')
     parser.add_argument('--matrix', type=str, required=False, default='test')
     parser.add_argument('--min', type=int, required=False, default=2)
-    parser.add_argument('--max', type=int, required=False, default=8)
+    parser.add_argument('--max', type=int, required=False, default=4)
     parser.add_argument('--stride', type=int, required=False, default=1)
     args = parser.parse_args()
 
@@ -105,4 +118,6 @@ if __name__ == "__main__":
     for n in range(args.min, args.max+1, args.stride):
         folders.append(run_mpi(args.matrix, n))
 
-    graph_multiple_runs(folders)
+    timings = graph_multiple_runs(folders)
+
+    plot_timings_increasingnodes(timings, folders)
