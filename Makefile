@@ -1,11 +1,11 @@
-SRC_DIR  				= src
-INCLUDE_DIR			= include
-INT_DIR  				= build
-TARGET   				= dphpc
-TEST_MACHINES 	= 2
-NUMBER_RUNS			= 1
-NUMBER_WARMUP		= 0
-MATRIX_TARGET		= first
+SRC_DIR  					= src
+INCLUDE_DIR				= include
+INT_DIR  					= build
+TARGET   					= dphpc
+TEST_MACHINES 		= 2
+NUMBER_RUNS				= 1
+NUMBER_WARMUP			= 0
+MATRIX_TARGET			= first
 
 CXX ?= gcc
 ## -MMD creates dependency list, but ignores system includes
@@ -58,7 +58,7 @@ debug: compile
 clean:
 	@echo -e "RMRF\tbuild $(TARGET)"
 	@rm -rf build runs $(TARGET)
-	@rm slurm-*.out
+	@rm -f slurm-*.out
 
 format:
 	clang-format -i $(CPP_FILES) $(CPP_HEADER_FILES)

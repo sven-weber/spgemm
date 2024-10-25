@@ -4,6 +4,8 @@ import subprocess
 import os
 from datetime import datetime
 
+PYTHON_BIN = "python3"
+
 def fetch_matrix_target():
   with open("Makefile", 'r') as file:
     content = file.read()
@@ -51,7 +53,7 @@ def find_latest_folder():
 
 def run_postprocessing(folder, num_machines):
   result = subprocess.run(
-      ["python3", "scripts/postprocessing.py", "--source", folder, "--nodes", num_machines],
+      [PYTHON_BIN, "scripts/postprocessing.py", "--source", folder, "--nodes", num_machines],
       capture_output=True,
       text=True
   )
@@ -68,7 +70,7 @@ def run_postprocessing(folder, num_machines):
 
 def run_comparison(source_matrix, target_matrix):
   result = subprocess.run(
-      ["python3", "scripts/compare_matrices.py", source_matrix, target_matrix],
+      [PYTHON_BIN, "scripts/compare_matrices.py", source_matrix, target_matrix],
       capture_output=True,
       text=True
   )
