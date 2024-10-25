@@ -3,9 +3,11 @@
 nodes=$1
 cmd=$2
 matrix=$3
+n_runs=$4
+n_warmup=$5
 
 id=$(date +"%Y-%m-%d-%T")
 run_path="runs/$id-$nodes"
 mkdir -p "$run_path"
 
-mpirun -n "$nodes" "$cmd" "$matrix" "$run_path" | sort -s -t '[' -k2,2n
+mpirun -n "$nodes" "$cmd" "$matrix" "$run_path" "$n_runs" "$n_warmup" | sort -s -t '[' -k2,2n

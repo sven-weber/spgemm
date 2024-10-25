@@ -34,6 +34,8 @@ Measure::Measure() : measurements({}) {
 
 void Measure::track_bytes(size_t bytes) { _bytes += bytes; }
 
+void Measure::reset_bytes() { _bytes = 0; }
+
 size_t Measure::bytes() { return _bytes; }
 
 void Measure::track(const std::string func, const MeasurementEvent event) {

@@ -4,6 +4,7 @@
 #include "partition.hpp"
 #include "parts.hpp"
 #include "utils.hpp"
+#include "communication.hpp"
 
 #include <algorithm>
 #include <format>
@@ -18,7 +19,7 @@ void write_matrix_name(std::string name, std::string path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc < 3) {
+  if (argc < 5) {
     std::cerr
         << "Did not get enough arguments. Expected <matrix_path> <run_path>"
         << std::endl;
@@ -34,6 +35,9 @@ int main(int argc, char **argv) {
   std::string partitions_path = std::format("{}/partitions.csv", run_path);
   std::string A_shuffle_path = std::format("{}/A_shuffle", run_path);
   std::string B_shuffle_path = std::format("{}/B_shuffle", run_path);
+
+  int n_runs = std::stoi(argv[3]);
+  int n_warmup = std::stoi(argv[4]);
 
   // Init MPI
   int rank, n_nodes;
@@ -118,16 +122,36 @@ int main(int argc, char **argv) {
     utils::print_serialized_sizes(serialized_sizes_B_bytes, max_B_bytes_size);
   }
 
+  matrix::Cells c(0, 0, 0);
+  matrix::CSRMatrix partial_C(c, false);
+
+  //WARUMP
+#ifndef NDEBUG
+  std::cout << "Running warmup." << std::endl;
+#endif
   MPI_Barrier(MPI_COMM_WORLD);
-  // TODO: Benchmarking
+  for (int i = 0; i < n_warmup; i++) {
+    matrix::CSRMatrix res =
+        mults::baseline::spgemm(A, B, rank, n_nodes, partitions,
+                                serialized_sizes_B_bytes, max_B_bytes_size);
+    std::swap(partial_C, res);
+  }
+  measure::Measure::get_instance()->reset_bytes();
+#ifndef NDEBUG
+  std::cout << "Finished warmup, performing " << n_runs << " runs." << std::endl;
+#endif
 
-  measure_point(measure::gemm, measure::MeasurementEvent::START);
-  // Do the multiplication!
-  auto partial_C =
-      mults::baseline::spgemm(A, B, rank, n_nodes, partitions,
-                              serialized_sizes_B_bytes, max_B_bytes_size);
+  // ACTUAL COMPUTATION!!
+  for (int i = 0; i < n_runs; i++) {
+    communication::sync_start_time(rank);
+    measure_point(measure::gemm, measure::MeasurementEvent::START);
+    matrix::CSRMatrix res =
+        mults::baseline::spgemm(A, B, rank, n_nodes, partitions,
+                                serialized_sizes_B_bytes, max_B_bytes_size);
+    measure_point(measure::gemm, measure::MeasurementEvent::END);
+    std::swap(partial_C, res);
+  }
 
-  measure_point(measure::gemm, measure::MeasurementEvent::END);
   measure_point(measure::global, measure::MeasurementEvent::END);
 #ifndef NDEBUG
   std::cout << "Finished computation.\n";

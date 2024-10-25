@@ -2,8 +2,10 @@ SRC_DIR  				= src
 INCLUDE_DIR			= include
 INT_DIR  				= build
 TARGET   				= dphpc
-TEST_MACHINES 	= 8
-MATRIX_TARGET		= cell1
+TEST_MACHINES 	= 2
+NUMBER_RUNS			= 1
+NUMBER_WARMUP		= 0
+MATRIX_TARGET		= first
 
 CXX ?= gcc
 ## -MMD creates dependency list, but ignores system includes
@@ -41,12 +43,12 @@ run_optimize: OPTFLAGS += -DNDEBUG
 run_optimize: compile
 run_optimize: $(TARGET)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
-	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)"
+	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)" $(NUMBER_RUNS) $(NUMBER_WARMUP)
 
 ## run: OPTFLAGS += -DNSHUFFLE
 run: $(TARGET)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
-	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)"
+	@./scripts/run $(TEST_MACHINES) ./$(TARGET) "$(MATRIX_TARGET)" $(NUMBER_RUNS) $(NUMBER_WARMUP)
 
 debug: CXXFLAGS += -ggdb -fno-omit-frame-pointer
 debug: compile

@@ -50,6 +50,7 @@ public:
 
   void track(const std::string func, const MeasurementEvent event);
   void track_bytes(size_t bytes);
+  void reset_bytes();
   std::vector<Interval> intervals();
   void save(const std::string path);
   size_t bytes();

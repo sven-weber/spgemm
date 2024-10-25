@@ -7,8 +7,10 @@ import pathlib
 import argparse
 import os
 
-CMD = "./dphpc"
-RUNS_DIR = "runs"
+CMD       = "./dphpc"
+RUNS_DIR  = "runs"
+N_WARMUP  = 5
+N_RUNS    = 10
 
 # Does a run of the CMD with mpi using `nodes` nodes and returns
 # the run folder.
@@ -19,7 +21,7 @@ def run_mpi(matrix: str, nodes: int) -> str:
     folder = join(RUNS_DIR, id)
     pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
 
-    cmd = ["mpirun", "-n", str(nodes), CMD, matrix, folder]
+    cmd = ["mpirun", "-n", str(nodes), CMD, matrix, folder, str(N_WARMUP), str(N_RUNS)]
     result = subprocess.run(
         cmd,
         capture_output=True,
