@@ -89,20 +89,20 @@ def graph_multiple_runs(folders: List[str]):
         aggregated_df = aggregate_horizontally(dataframes)
         aggregated_df['nodes'] = len(dataframes)
         timings = pd.concat([timings, aggregated_df], axis=0)
+        print(timings)
     return timings
 
-def plot_timings_increasingnodes(timings: pd.DataFrame, folders: List[str]):
-    for folder_path in folders:
-        _, ax = plt.subplots()
-        for func_name in timings["func"].unique():
-            func_data = timings[timings["func"] == func_name]
-            ax.plot(func_data["nodes"], func_data["avg_time"], label=func_name)
+def plot_timings_increasingnodes(timings: pd.DataFrame):
+    _, ax = plt.subplots()
+    func_name = "gemm"
+    func_data = timings[timings["func"] == func_name]
+    ax.plot(func_data["nodes"], func_data["avg_time"], label=func_name)
 
-        ax.set_xlabel("Nodes")
-        ax.set_ylabel("Time (ns)")
-        ax.set_title("Time vs Nodes")
-        ax.legend()
-        plt.savefig(join(folder_path, "timings_plot.png"))
+    ax.set_xlabel("Nodes")
+    ax.set_ylabel("Time (ns)")
+    ax.set_title("Time vs Nodes")
+    ax.legend()
+    plt.savefig(join(RUNS_DIR, "timings_plot.png"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -120,4 +120,4 @@ if __name__ == "__main__":
 
     timings = graph_multiple_runs(folders)
 
-    plot_timings_increasingnodes(timings, folders)
+    plot_timings_increasingnodes(timings)
