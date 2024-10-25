@@ -29,6 +29,7 @@ def run_mpi(matrix: str, nodes: int, euler: bool = False) -> str:
         cmd = ["mpirun", "-n", str(nodes), CMD, matrix, folder, str(N_WARMUP), str(N_RUNS)]
     print("Will run:")
     print(cmd)
+    print(os.getcwd())
     result = subprocess.run(
         cmd,
         cwd=os.getcwd(),
