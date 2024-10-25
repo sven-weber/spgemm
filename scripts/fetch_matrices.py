@@ -19,23 +19,45 @@ matrices = {
   "cont-300" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/GHS_indef/cont-300.tar.gz",
     "extract_files": ["cont-300.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cont-300", "cont-300.mtx")
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cont-300", "cont-300.mtx"),
+    "compute_expected": True
   },
   "cell1" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Lucifora/cell1.tar.gz",
     "extract_files": ["cell1.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cell1", "cell1.mtx")
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cell1", "cell1.mtx"),
+    "compute_expected": True
   },
   "jan99jac060sc" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Hollinger/jan99jac060sc.tar.gz",
     "extract_files": ["jan99jac060sc.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("jan99jac060sc", "jan99jac060sc.mtx")
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("jan99jac060sc", "jan99jac060sc.mtx"),
+    "compute_expected": True
   },
   "viscoplastic2" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Quaglino/viscoplastic2.tar.gz",
     "extract_files": ["viscoplastic2.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("viscoplastic2", "viscoplastic2.mtx")
-  },
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("viscoplastic2", "viscoplastic2.mtx"),
+    "compute_expected": True
+  }
+  #
+  # Missing: Queen_4147
+  # Missing: nlpkkt200
+  # 
+  # TOO Big at the moment... 10 GB uncompressed. The processing alone creates problems ...
+  #  "HV15R": {
+  #  "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Fluorem/HV15R.tar.gz",
+  #   "extract_files": ["HV15R.mtx"],
+  #  "post_extract_func": lambda: copy_one_matrix_to_A_and_B("HV15R", "HV15R.mtx"),
+  #  "compute_expected": False # Too big!
+  #}
+  #
+  # TOO Big at the moment.... 8GB uncompressed - 300 million non zeros :)
+  #"stokes": {
+  #  "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/stokes.tar.gz",
+  #  "extract_files": ["stokes.mtx"],
+  #  "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stokes", "stokes.mtx")
+  #},
 }
 
 def copy_one_matrix_to_A_and_B(folder, source_name):
@@ -101,8 +123,12 @@ def download_and_extract_tar_gz(info_dict, target_folder):
       
       # Extract the .tar.gz file to the target folder
       with tarfile.open(temp_file_path, 'r:gz') as tar:
+        members = tar.getmembers()
+        print("Tar file has the following members:")
+        print([member.name for member in members])
+
         # Extract only the files we need
-        members = [member for member in tar.getmembers() if member.name.split("/")[-1] in target_files]
+        members = [member for member in members if member.name.split("/")[-1] in target_files]
 
         if members:
             # Extract only the specific file(s) to the target folder
@@ -162,9 +188,11 @@ if __name__ == "__main__":
       # Execute post extract func
       if dict["post_extract_func"] is not None:
         dict["post_extract_func"]()
-      # Compute expected matrix
-      print("Computing expected output")
-      compute_expected(target_path)
+      if dict["compute_expected"] == True:
+        # Compute expected matrix
+        # Only feasible for small matrices!
+        print("Computing expected output")
+        compute_expected(target_path)
       print("Processing finished.")
       add_to_gitignore(target_path)
       print(f"-------- {name} --------")

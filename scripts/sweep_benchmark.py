@@ -101,13 +101,37 @@ def plot_timings_increasingnodes(timings: pd.DataFrame):
     _, ax = plt.subplots()
     func_name = "gemm"
     func_data = timings[timings["func"] == func_name]
-    ax.plot(func_data["nodes"], func_data["avg_time"]/(10**6), label=func_name)
+    timing_data = func_data["avg_time"]/(10**6)
+    ax.plot(func_data["nodes"], timing_data, label=func_name)
 
+    # Calculate a linear progression based on the first timing point
+    initial_time = timing_data.iloc[0]  # Timing for the first number of nodes
+    linear_progression = initial_time * (1 / (func_data["nodes"] / func_data["nodes"].iloc[0]))
+
+    print(linear_progression)
+
+    # Plot the linear progression line
+    ax.plot(func_data["nodes"], linear_progression, linestyle='--', color='red', label="Linear Speedup")
+
+    # Set labels, title, and legend
     ax.set_xlabel("Nodes")
     ax.set_ylabel("Time (ms)")
     ax.set_title("Time vs Nodes")
     ax.legend()
     plt.savefig(join(RUNS_DIR, "timings_plot.png"))
+
+
+def get_subfolders(folder_path):
+    subfolders = []
+    try:
+        for item in os.listdir(folder_path):
+            item_path = os.path.join(folder_path, item)
+            if os.path.isdir(item_path):
+                subfolders.append(item_path)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    
+    return subfolders
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -118,12 +142,18 @@ if __name__ == "__main__":
     parser.add_argument('--max', type=int, required=False, default=4)
     parser.add_argument('--stride', type=int, required=False, default=1)
     parser.add_argument('--euler', action="store_true")
+    parser.add_argument('--skip_run', action="store_true")
     args = parser.parse_args()
 
     folders = []
-    for n in range(args.min, args.max+1, args.stride):
-        folders.append(run_mpi(args.matrix, n, args.euler))
+
+    if args.skip_run:
+        # Just fetch all the rolders inside run and
+        # only do the visualization!
+        folders = get_subfolders(RUNS_DIR)
+    else:
+        for n in range(args.min, args.max+1, args.stride):
+            folders.append(run_mpi(args.matrix, n, args.euler))
 
     timings = graph_multiple_runs(folders)
-
     plot_timings_increasingnodes(timings)

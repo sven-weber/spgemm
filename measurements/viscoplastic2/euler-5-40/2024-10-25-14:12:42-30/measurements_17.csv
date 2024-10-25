@@ -1,0 +1,8 @@
+func,duration,bytes
+bytes,0,30841200
+global,3.21391e+10,0
+gemm,1.33746e+09,0
+gemm,1.33706e+09,0
+gemm,1.33484e+09,0
+gemm,1.33878e+09,0
+gemm,1.33642e+09,0
