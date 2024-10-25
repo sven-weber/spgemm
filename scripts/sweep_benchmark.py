@@ -24,7 +24,7 @@ def run_mpi(matrix: str, nodes: int, euler: bool = False) -> str:
 
 
     if euler:
-        cmd = ["sbatch", "--wait", "-n", nodes, f"--wrap=\"mpirun {CMD} {matrix} {folder} {N_WARMUP} {N_RUNS}\""]
+        cmd = ["sbatch", "--wait", "-n", str(nodes), f"--wrap=\"mpirun {CMD} {matrix} {folder} {N_WARMUP} {N_RUNS}\""]
     else:
         cmd = ["mpirun", "-n", str(nodes), CMD, matrix, folder, str(N_WARMUP), str(N_RUNS)]
     result = subprocess.run(
@@ -116,12 +116,12 @@ if __name__ == "__main__":
     parser.add_argument('--min', type=int, required=False, default=2)
     parser.add_argument('--max', type=int, required=False, default=4)
     parser.add_argument('--stride', type=int, required=False, default=1)
-    parser.add_argument('--euler', type=bool, required=False, default=False)
+    parser.add_argument('--euler', action="store_true")
     args = parser.parse_args()
 
     folders = []
     for n in range(args.min, args.max+1, args.stride):
-        folders.append(run_mpi(args.matrix, n))
+        folders.append(run_mpi(args.matrix, n, args.euler))
 
     timings = graph_multiple_runs(folders)
 
