@@ -96,10 +96,10 @@ def plot_timings_increasingnodes(timings: pd.DataFrame):
     _, ax = plt.subplots()
     func_name = "gemm"
     func_data = timings[timings["func"] == func_name]
-    ax.plot(func_data["nodes"], func_data["avg_time"], label=func_name)
+    ax.plot(func_data["nodes"], func_data["avg_time"]/(10**6), label=func_name)
 
     ax.set_xlabel("Nodes")
-    ax.set_ylabel("Time (ns)")
+    ax.set_ylabel("Time (ms)")
     ax.set_title("Time vs Nodes")
     ax.legend()
     plt.savefig(join(RUNS_DIR, "timings_plot.png"))
