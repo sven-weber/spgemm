@@ -1,14 +1,6 @@
 #include "mults.hpp"
 
 namespace mults {
-void CSRMatrixMultiplication::save_result(std::string path) {
-  matrix::CSRMatrix result(cells);
-  result.save(path);
-}
-
-size_t CSRMatrixMultiplication::get_B_serialization_size() {
-  return first_part_B.serialize()->size();
-}
 
 MatrixMultiplication::MatrixMultiplication(int rank, int n_nodes,
                                            partition::Partitions partitions)
@@ -21,4 +13,14 @@ CSRMatrixMultiplication::CSRMatrixMultiplication(
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, true, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col) {}
+
+void CSRMatrixMultiplication::save_result(std::string path) {
+  matrix::CSRMatrix result(cells);
+  result.save(path);
+}
+
+size_t CSRMatrixMultiplication::get_B_serialization_size() {
+  return first_part_B.serialize()->size();
+}
+
 } // namespace mults

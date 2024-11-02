@@ -59,9 +59,9 @@ void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size) {
 }
 #else
 // We hope this get optimized away :)
-void visualize(matrix::CSRMatrix &csr) {}
-void print_partitions(partition::Partitions &parts, int size) {}
-void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size) {}
+void visualize(matrix::CSRMatrix &, const std::string &) {}
+void print_partitions(partition::Partitions &, int) {}
+void print_serialized_sizes(std::vector<size_t> &, size_t) {}
 #endif
 
 // Custom stream buffer that prepends a string to each line of output

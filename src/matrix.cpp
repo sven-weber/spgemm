@@ -313,12 +313,12 @@ Matrix::Matrix(std::string file_path, bool transposed,
               .col = transposed ? row - 1 : col - 1,
               .val = val};
 
-    if (keep != nullptr && keep_map.contains(c.row))
-      c.row = keep_map[c.row];
-
     assert(pos(c.row, c.col) < raw_data->size());
-    if (keep == nullptr || keep_map.contains(c.row))
+    if (keep == nullptr || keep_map.contains(c.row)) {
+      if (keep != nullptr && keep_map.contains(c.row))
+        c.row = keep_map[c.row];
       data[pos(c.row, c.col)] = val;
+    }
   }
   stream.close();
 }

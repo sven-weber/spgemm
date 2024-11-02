@@ -106,8 +106,8 @@ int main(int argc, char **argv) {
 
   mults::MatrixMultiplication *mult = NULL;
   if (algo_name == "baseline") {
-    mult = new mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows,
-                               B_path, &keep_cols);
+    mult = new mults::FullMatrixMultiplication(
+        rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
   } else {
     std::cerr << "Unknown algorithm type " << algo_name << "\n";
     exit(1);

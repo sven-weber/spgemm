@@ -1,21 +1,27 @@
 #include "communication.hpp"
 #include "mpi.h"
 #include "mults.hpp"
-#include "utils.hpp"
-#include <cstring>
-#include <iostream>
-#include <unistd.h>
 
 namespace mults {
 
-Baseline::Baseline(int rank, int n_nodes, partition::Partitions partitions,
-                   std::string path_A, std::vector<size_t> *keep_rows,
-                   std::string path_B, std::vector<size_t> *keep_cols)
-    : CSRMatrixMultiplication(rank, n_nodes, partitions, path_A, keep_rows,
-                              path_B, keep_cols) {}
+FullMatrixMultiplication::FullMatrixMultiplication(
+    int rank, int n_nodes, partition::Partitions partitions, std::string path_A,
+    std::vector<size_t> *keep_rows, std::string path_B,
+    std::vector<size_t> *keep_cols)
+    : MatrixMultiplication(rank, n_nodes, partitions),
+      part_A(path_A, false, keep_rows), first_part_B(path_B, true, keep_cols),
+      result(part_A.height, partitions[n_nodes - 1].end_col) {}
 
-void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
-                    size_t max_size_B_bytes) {
+void FullMatrixMultiplication::save_result(std::string path) {
+  result.save(path);
+}
+
+size_t FullMatrixMultiplication::get_B_serialization_size() {
+  return first_part_B.serialize()->size();
+}
+
+void FullMatrixMultiplication::gemm(
+    std::vector<size_t> serialized_sizes_B_bytes, size_t max_size_B_bytes) {
   // Buffer where the receiving partitions will be stored
   auto receiving_B_buffer =
       std::make_shared<std::vector<char>>(max_size_B_bytes);
@@ -44,26 +50,22 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
     // Matrix multiplication
     for (size_t row = 0; row < part_A.height; row++) {
       // Note: B is transposed!
-      auto [row_data, row_pos, row_len] = part_A.row(row);
+      double *row_data = &part_A.data[row * part_A.width];
       for (size_t col = 0; col < part_B->height; col++) {
-        auto [col_data, col_pos, col_len] = part_B->col(col);
+        // TODO: check that part_B->width is what we expect
+        double *col_data = &part_B->data[col * part_B->width];
         double res = 0;
         size_t col_elem = 0, row_elem = 0;
-        // inner loop for multiplication
-        while (col_elem < col_len && row_elem < row_len) {
-          if (col_pos[col_elem] < row_pos[row_elem]) {
-            col_elem++;
-          } else if (col_pos[col_elem] > row_pos[row_elem]) {
-            row_elem++;
-          } else {
-            res += row_data[row_elem] * col_data[col_elem];
-            row_elem++;
-            col_elem++;
-          }
-        }
+        for (size_t i = 0; i < part_A.width; ++i)
+          res += row_data[i] * col_data[i];
+
         // TODO: Why are we producing nulls?
-        if (res != 0)
-          cells.add({row, partitions[current_rank_B].start_col + col, res});
+        if (res != 0) {
+          auto i = row;
+          auto j = partitions[current_rank_B].start_col + col;
+          auto idx = (i * part_B->width) + j;
+          result.data[idx] = res;
+        }
       }
     }
 
@@ -72,7 +74,7 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
 
     // Deserialize Matrix for next round and switch buffer pointers
     std::swap(received_B_buffer, receiving_B_buffer);
-    matrix::CSRMatrix received(received_B_buffer);
+    matrix::Matrix received(received_B_buffer);
     part_B = &received;
 
     // Get next targets
@@ -81,4 +83,5 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
     recv_rank = recv_rank != 0 ? recv_rank - 1 : n_nodes - 1;
   }
 }
+
 } // namespace mults

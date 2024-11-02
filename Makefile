@@ -15,16 +15,15 @@ CPP_HEADER_FILES := $(wildcard $(INCLUDE_DIR)/**/**/*.hpp) $(wildcard $(INCLUDE_
 
 debug: 
 	mkdir -p $(BUILD_DIR)
-	cd build; cmake .. -DCMAKE_BUILD_TYPE=Debug
+	cd build; cmake .. -DCMAKE_BUILD_TYPE=Debug; make
 
 optimize: 
 	mkdir -p $(BUILD_DIR)
-	cd build; cmake .. -DCMAKE_BUILD_TYPE=Release
+	cd build; cmake .. -DCMAKE_BUILD_TYPE=Release; make
 
 $(BUILD_DIR): debug
 
 run: $(BUILD_DIR)
-	@cd $(BUILD_DIR); make
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
 	@./scripts/run $(TEST_MACHINES) ./$(TARGET) $(ALGORITHM) "$(MATRIX_TARGET)" $(NUMBER_RUNS) $(NUMBER_WARMUP)
 

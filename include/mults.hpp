@@ -36,13 +36,31 @@ public:
   size_t get_B_serialization_size() override;
 };
 
+class FullMatrixMultiplication : public MatrixMultiplication {
+protected:
+  matrix::Matrix part_A;
+  matrix::Matrix first_part_B;
+  matrix::Matrix result;
+
+public:
+  FullMatrixMultiplication(int rank, int n_nodes,
+                           partition::Partitions partitions, std::string path_A,
+                           std::vector<size_t> *keep_rows, std::string path_B,
+                           std::vector<size_t> *keep_cols);
+
+  void save_result(std::string path) override;
+  size_t get_B_serialization_size() override;
+  void gemm(std::vector<size_t> serialized_sizes_B_bytes,
+            size_t max_size_B_bytes) override;
+};
+
 class Baseline : public CSRMatrixMultiplication {
 public:
   Baseline(int rank, int n_nodes, partition::Partitions partitions,
            std::string path_A, std::vector<size_t> *keep_rows,
            std::string path_B, std::vector<size_t> *keep_cols);
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
-            size_t max_size_B_bytes);
+            size_t max_size_B_bytes) override;
 };
 
 } // namespace mults
