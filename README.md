@@ -38,11 +38,11 @@ source euler/init.sh
 ```
 
 ```console
-python3 scripts/fetch_matrices.py --euler
+pip3 install -r requirements.txt
 ```
 
 ```console
-pip3 install -r requirements.txt
+python3 scripts/fetch_matrices.py --euler
 ```
 
 Build for release:
@@ -51,16 +51,7 @@ Build for release:
 make optimize
 ```
 
-Build for debug:
-
-```console
-make optimize
-```
-
-To quickly run it with the number of nodes defined in the Makefile:
-```console
-make run
-```
+Run the benchmark:
 
 ```console
 python3 scripts/sweep_benchmark.py --algo comb --matrix first --min 1 --max 2 --stride 1 --euler
