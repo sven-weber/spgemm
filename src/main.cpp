@@ -49,8 +49,8 @@ int main(int argc, char **argv) {
       std::format("{}/measurements_{}.csv", run_path, rank);
 
   // Custom cout that prepends MPI rank
-  utils::CoutWithMPIRank custom_cout(rank);
 #ifndef NDEBUG
+  utils::CoutWithMPIRank custom_cout(rank);
   std::cout << "Started." << std::endl;
 #endif
 
@@ -64,6 +64,7 @@ int main(int argc, char **argv) {
   // Load sparsity
   matrix::CSRMatrix C(C_sparsity_path, false);
 
+  // Perform the shuffling
   partition::Shuffle A_shuffle(C.height);
   partition::Shuffle B_shuffle(C.width);
   if (rank == MPI_ROOT_ID) {
@@ -80,8 +81,6 @@ int main(int argc, char **argv) {
   MPI_Bcast(B_shuffle.data(), sizeof(size_t) * B_shuffle.size(), MPI_BYTE,
             MPI_ROOT_ID, MPI_COMM_WORLD);
 
-  // TODO: Decide which implementation to use
-
   // Do the partitioning
   partition::Partitions partitions(n_nodes);
   if (rank == MPI_ROOT_ID) {
@@ -95,19 +94,19 @@ int main(int argc, char **argv) {
   MPI_Bcast(partitions.data(), sizeof(partition::Partition) * partitions.size(),
             MPI_BYTE, MPI_ROOT_ID, MPI_COMM_WORLD);
 
-  // Load the partial matrices for the rank of this process
+  // Determine which rows/colums to run
   std::vector<size_t> keep_rows(&A_shuffle[partitions[rank].start_row],
                                 &A_shuffle[partitions[rank].end_row]);
-  matrix::CSRMatrix A(A_path, false, &keep_rows);
 
   std::vector<size_t> keep_cols(&B_shuffle[partitions[rank].start_col],
                                 &B_shuffle[partitions[rank].end_col]);
-  matrix::CSRMatrix B(B_path, true, &keep_cols);
+
+  // TODO: Decide which implementation to use
+  mults::MatrixMultiplication mult = mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
 
   // Share serialization sizes
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
-
-  size_t B_byte_size = B.serialize()->size();
+  size_t B_byte_size = mult.get_B_serialization_size();
   MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE,
              &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
              MPI_ROOT_ID, MPI_COMM_WORLD);
@@ -122,19 +121,14 @@ int main(int argc, char **argv) {
     utils::print_serialized_sizes(serialized_sizes_B_bytes, max_B_bytes_size);
   }
 
-  matrix::Cells c(0, 0, 0);
-  matrix::CSRMatrix partial_C(c, false);
-
   //WARUMP
 #ifndef NDEBUG
   std::cout << "Running warmup." << std::endl;
 #endif
   MPI_Barrier(MPI_COMM_WORLD);
   for (int i = 0; i < n_warmup; i++) {
-    matrix::CSRMatrix res =
-        mults::baseline::spgemm(A, B, rank, n_nodes, partitions,
-                                serialized_sizes_B_bytes, max_B_bytes_size);
-    std::swap(partial_C, res);
+    // TODO: Check if we use warmup runs
+    mult.gemm(serialized_sizes_B_bytes, max_B_bytes_size);
   }
   measure::Measure::get_instance()->reset_bytes();
 #ifndef NDEBUG
@@ -145,11 +139,8 @@ int main(int argc, char **argv) {
   for (int i = 0; i < n_runs; i++) {
     communication::sync_start_time(rank);
     measure_point(measure::gemm, measure::MeasurementEvent::START);
-    matrix::CSRMatrix res =
-        mults::baseline::spgemm(A, B, rank, n_nodes, partitions,
-                                serialized_sizes_B_bytes, max_B_bytes_size);
+    mult.gemm(serialized_sizes_B_bytes, max_B_bytes_size);
     measure_point(measure::gemm, measure::MeasurementEvent::END);
-    std::swap(partial_C, res);
   }
 
   measure_point(measure::global, measure::MeasurementEvent::END);
@@ -158,7 +149,7 @@ int main(int argc, char **argv) {
 #endif
 
   // Store the result
-  partial_C.save(C_path);
+  mult.save_result(C_path);
   measure::Measure::get_instance()->save(measurements_path);
 
   MPI_Finalize();
