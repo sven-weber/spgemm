@@ -42,8 +42,8 @@ void visualize(matrix::CSRMatrix &csr, const std::string &name) {
   visualize_raw(matrix.data(), csr.height, csr.width, name);
 }
 
-void print_partitions(partition::Partitions &parts, int size) {
-  for (int i = 0; i < size; i++) {
+void print_partitions(partition::Partitions &parts, size_t size) {
+  for (size_t i = 0; i < size; i++) {
     std::cout << "Partition for machine " << i << ". Rows: ["
               << parts[i].start_row << ", " << parts[i].end_row
               << "). Columns: [" << parts[i].start_col << ", "
@@ -52,7 +52,7 @@ void print_partitions(partition::Partitions &parts, int size) {
 }
 
 void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size) {
-  for (int i = 0; i < sizes.size(); i++) {
+  for (size_t i = 0; i < sizes.size(); i++) {
     std::cout << "Serialized size " << i << ": " << sizes[i] << std::endl;
   }
   std::cout << "Max size: " << max_size << std::endl;

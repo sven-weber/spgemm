@@ -22,7 +22,7 @@ void visualize(matrix::CSRMatrix &csr, const std::string &name);
 /**
  * Prints the given partition to std out for debugging
  */
-void print_partitions(partition::Partitions &part, int size);
+void print_partitions(partition::Partitions &part, size_t size);
 
 void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size);
 

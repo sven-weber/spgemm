@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 3.9.1)
 project(dphpc)
 
 set(CMAKE_CXX_STANDARD 20)
-# set(GCC_COVERAGE_COMPILE_FLAGS "-Wall -Wextra -Werror -pedantic -lm -O3 -funroll-loops")
-set(GCC_COVERAGE_COMPILE_FLAGS "-Wall -pedantic -lm -O3 -funroll-loops")
+set(GCC_COVERAGE_COMPILE_FLAGS "-Wall -Wextra -Werror -pedantic -lm -O3 -funroll-loops")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
 
 set(CMAKE_CXX_FLAGS_DEBUG_INIT "-ggdb -fno-omit-frame-pointer")

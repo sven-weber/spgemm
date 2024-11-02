@@ -34,8 +34,6 @@ matrix::CSRMatrix spgemm(matrix::CSRMatrix &part_A,
   MPI_Request requests[2];
   // Do computation. We need n-1 communication rounds
   for (int i = 0; i < n_nodes; i++) {
-    // Start async send and receive partition of B
-    MPI_Request send, recv;
     // Resize buffer to the correct size (should not free/alloc memory)
     receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
     communication::send(serialized->data(), serialized_sizes_B_bytes[rank],

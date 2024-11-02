@@ -29,15 +29,16 @@ typedef struct Cell {
 } Cell;
 
 class Cells {
+public:
+  // Don't use!
+  size_t height;
+  size_t width;
+  std::vector<Cell> _cells;
+
 private:
   std::vector<size_t> non_zero_per_row;
 
 public:
-  // Don't use!
-  std::vector<Cell> _cells;
-  size_t height;
-  size_t width;
-
   // Takes in the number of rows
   Cells(size_t height, size_t width, size_t non_zeros = 0);
   ~Cells() = default;

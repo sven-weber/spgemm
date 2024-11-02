@@ -136,9 +136,11 @@ std::tuple<size_t *, size_t *, double *> CSRMatrix::get_offsets() {
       (size_t *)(((char *)row_ptr) + ((height + 1) * sizeof(size_t)));
   double *values = (double *)(((char *)col_idx) + (non_zeros * sizeof(size_t)));
 
-  assert(((char *)row_ptr - data_ptr) == sizeof(Fields));
-  assert(((char *)col_idx - (char *)row_ptr) == (height + 1) * sizeof(size_t));
-  assert(((char *)values - (char *)col_idx) == non_zeros * sizeof(size_t));
+  assert((size_t)((char *)row_ptr - data_ptr) == sizeof(Fields));
+  assert((size_t)((char *)col_idx - (char *)row_ptr) ==
+         (height + 1) * sizeof(size_t));
+  assert((size_t)((char *)values - (char *)col_idx) ==
+         non_zeros * sizeof(size_t));
 
   return {row_ptr, col_idx, values};
 }

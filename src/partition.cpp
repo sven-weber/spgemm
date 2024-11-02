@@ -23,7 +23,7 @@ Shuffle shuffle(size_t size) {
 
 #ifndef NDEBUG
   std::cout << "Shuffled indices: ";
-  for (int i = 0; i < size; i++) {
+  for (size_t i = 0; i < size; i++) {
     std::cout << shuffled[i] << " ";
   }
   std::cout << std::endl;
