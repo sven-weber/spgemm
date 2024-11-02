@@ -102,11 +102,11 @@ int main(int argc, char **argv) {
                                 &B_shuffle[partitions[rank].end_col]);
 
   // TODO: Decide which implementation to use
-  mults::MatrixMultiplication mult = mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
+  mults::MatrixMultiplication* mult = new mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
 
   // Share serialization sizes
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
-  size_t B_byte_size = mult.get_B_serialization_size();
+  size_t B_byte_size = mult->get_B_serialization_size();
   MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE,
              &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
              MPI_ROOT_ID, MPI_COMM_WORLD);
@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
   MPI_Barrier(MPI_COMM_WORLD);
   for (int i = 0; i < n_warmup; i++) {
     // TODO: Check if we use warmup runs
-    mult.gemm(serialized_sizes_B_bytes, max_B_bytes_size);
+    mult->gemm(serialized_sizes_B_bytes, max_B_bytes_size);
   }
   measure::Measure::get_instance()->reset_bytes();
 #ifndef NDEBUG
@@ -139,7 +139,7 @@ int main(int argc, char **argv) {
   for (int i = 0; i < n_runs; i++) {
     communication::sync_start_time(rank);
     measure_point(measure::gemm, measure::MeasurementEvent::START);
-    mult.gemm(serialized_sizes_B_bytes, max_B_bytes_size);
+    mult->gemm(serialized_sizes_B_bytes, max_B_bytes_size);
     measure_point(measure::gemm, measure::MeasurementEvent::END);
   }
 
@@ -149,7 +149,8 @@ int main(int argc, char **argv) {
 #endif
 
   // Store the result
-  mult.save_result(C_path);
+  std::cout << "Trying to store to " << C_path << "\n";
+  mult->save_result(C_path);
   measure::Measure::get_instance()->save(measurements_path);
 
   MPI_Finalize();

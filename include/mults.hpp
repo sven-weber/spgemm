@@ -32,8 +32,8 @@ class CSRMatrixMultiplication : public MatrixMultiplication {
             std::string path_B, std::vector<size_t>* keep_cols); 
     
     public:
-        void save_result(std::string path);
-        size_t get_B_serialization_size();
+        void save_result(std::string path) override;
+        size_t get_B_serialization_size() override;
 };
 
 class Baseline : public CSRMatrixMultiplication {
