@@ -35,6 +35,11 @@ CombBLASMatrixMultiplication::CombBLASMatrixMultiplication(
       A1D(loadMatrix(path_A, fullWorld)), B1D(loadMatrix(path_A, fullWorld)),
       C1D(A1D) {}
 
+void CombBLASMatrixMultiplication::save_result(std::string path) {
+  Sp2D C2DFrom1D(C1D);
+  C2DFrom1D.ParallelWriteMM(path, false);
+}
+
 void CombBLASMatrixMultiplication::gemm(
     std::vector<size_t> serialized_sizes_B_bytes, size_t max_size_B_bytes) {
   C1D = std::move(
@@ -44,8 +49,4 @@ void CombBLASMatrixMultiplication::gemm(
                               combblas::SpDCCols<int64_t, double>>(A1D, B1D));
 }
 
-void CombBLASMatrixMultiplication::save_result(std::string path) {
-  Sp2D C2DFrom1D(C1D); 
-  C2DFrom1D.ParallelWriteMM(path, false);
-}
 } // namespace mults

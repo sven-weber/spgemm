@@ -20,6 +20,11 @@ size_t FullMatrixMultiplication::get_B_serialization_size() {
   return first_part_B.serialize()->size();
 }
 
+void FullMatrixMultiplication::reset() {
+  result =
+      std::move(matrix::Matrix(part_A.height, partitions[n_nodes - 1].end_col));
+}
+
 void FullMatrixMultiplication::gemm(
     std::vector<size_t> serialized_sizes_B_bytes, size_t max_size_B_bytes) {
   // Buffer where the receiving partitions will be stored

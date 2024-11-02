@@ -23,4 +23,9 @@ size_t CSRMatrixMultiplication::get_B_serialization_size() {
   return first_part_B.serialize()->size();
 }
 
+void CSRMatrixMultiplication::reset() {
+  cells =
+      std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
+}
+
 } // namespace mults

@@ -144,6 +144,7 @@ int main(int argc, char **argv) {
   MPI_Barrier(MPI_COMM_WORLD);
   for (int i = 0; i < n_warmup; i++) {
     // TODO: Check if we use warmup runs
+    mult->reset();
     mult->gemm(serialized_sizes_B_bytes, max_B_bytes_size);
   }
   measure::Measure::get_instance()->reset_bytes();
@@ -154,6 +155,7 @@ int main(int argc, char **argv) {
 
   // ACTUAL COMPUTATION!!
   for (int i = 0; i < n_runs; i++) {
+    mult->reset();
     communication::sync_start_time(rank);
     measure_point(measure::gemm, measure::MeasurementEvent::START);
     mult->gemm(serialized_sizes_B_bytes, max_B_bytes_size);

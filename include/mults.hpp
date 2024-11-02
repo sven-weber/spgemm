@@ -24,6 +24,8 @@ public:
 
   virtual void save_result(std::string) {}
 
+  virtual void reset() {}
+
   MatrixMultiplication(int rank, int n_nodes, partition::Partitions partitions);
 };
 
@@ -40,6 +42,7 @@ protected:
 public:
   void save_result(std::string path) override;
   size_t get_B_serialization_size() override;
+  void reset() override;
 };
 
 class FullMatrixMultiplication : public MatrixMultiplication {
@@ -56,6 +59,7 @@ public:
 
   void save_result(std::string path) override;
   size_t get_B_serialization_size() override;
+  void reset() override;
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
 };
@@ -86,9 +90,9 @@ public:
   CombBLASMatrixMultiplication(int rank, int n_nodes,
                                partition::Partitions partitions,
                                std::string path_A);
+  void save_result(std::string path) override;
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
-  void save_result(std::string path) override;
 };
 
 } // namespace mults
