@@ -106,6 +106,9 @@ int main(int argc, char **argv) {
 
   mults::MatrixMultiplication *mult = NULL;
   if (algo_name == "baseline") {
+    mult = new mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows,
+                               B_path, &keep_cols);
+  } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
   } else {

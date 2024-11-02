@@ -15,7 +15,7 @@ N_RUNS    = 10
 
 # Does a run of the CMD with mpi using `nodes` nodes and returns
 # the run folder.
-def run_mpi(matrix: str, nodes: int, euler: bool = False) -> str:
+def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False) -> str:
     print(f"Running with {nodes} nodes")
     date = datetime.now().strftime("%Y-%m-%d-%T")
     id = f"{date}-{nodes}"
@@ -24,9 +24,9 @@ def run_mpi(matrix: str, nodes: int, euler: bool = False) -> str:
 
 
     if euler:
-        cmd = ["sbatch", "--wait", "-n", str(nodes), "--wrap", f"mpirun {CMD} {matrix} {folder} {N_RUNS} {N_WARMUP}"]
+        cmd = ["sbatch", "--wait", "-n", str(nodes), "--wrap", f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP}"]
     else:
-        cmd = ["mpirun", "-n", str(nodes), CMD, matrix, folder, str(N_RUNS), str(N_WARMUP)]
+        cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP)]
     result = subprocess.run(
         cmd,
         cwd=os.getcwd(),
@@ -136,6 +136,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
                     prog='benchmark_time',
                     description='Generate graphs from benchmarks')
+    parser.add_argument('--impl', type=str, required=False, default='baseline')
     parser.add_argument('--matrix', type=str, required=False, default='test')
     parser.add_argument('--min', type=int, required=False, default=2)
     parser.add_argument('--max', type=int, required=False, default=4)
@@ -152,7 +153,7 @@ if __name__ == "__main__":
         folders = get_subfolders(RUNS_DIR)
     else:
         for n in range(args.min, args.max+1, args.stride):
-            folders.append(run_mpi(args.matrix, n, args.euler))
+            folders.append(run_mpi(args.impl, args.matrix, n, args.euler))
 
     timings = graph_multiple_runs(folders)
     plot_timings_increasingnodes(timings)
