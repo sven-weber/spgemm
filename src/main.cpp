@@ -1,10 +1,10 @@
+#include "communication.hpp"
 #include "matrix.hpp"
 #include "measure.hpp"
 #include "mults.hpp"
 #include "partition.hpp"
 #include "parts.hpp"
 #include "utils.hpp"
-#include "communication.hpp"
 
 #include <algorithm>
 #include <format>
@@ -12,32 +12,33 @@
 #include <iostream>
 #include <mpi.h>
 
-void write_matrix_name(std::string name, std::string path) {
+void write_to_file(std::string name, std::string path) {
   std::ofstream f(path);
   f << name << std::endl;
   f.close();
 }
 
 int main(int argc, char **argv) {
-  if (argc < 5) {
+  if (argc < 6) {
     std::cerr
         << "Did not get enough arguments. Expected <matrix_path> <run_path>"
         << std::endl;
   }
 
-  std::string matrix_name = argv[1];
+  std::string algo_name = argv[1];
+  std::string matrix_name = argv[2];
   std::string A_path = std::format("matrices/{}/A.mtx", matrix_name);
   std::string B_path = std::format("matrices/{}/B.mtx", matrix_name);
   std::string C_sparsity_path =
       std::format("matrices/{}/C_sparsity.mtx", matrix_name);
 
-  std::string run_path = argv[2];
+  std::string run_path = argv[3];
   std::string partitions_path = std::format("{}/partitions.csv", run_path);
   std::string A_shuffle_path = std::format("{}/A_shuffle", run_path);
   std::string B_shuffle_path = std::format("{}/B_shuffle", run_path);
 
-  int n_runs = std::stoi(argv[3]);
-  int n_warmup = std::stoi(argv[4]);
+  int n_runs = std::stoi(argv[4]);
+  int n_warmup = std::stoi(argv[5]);
 
   // Init MPI
   int rank, n_nodes;
@@ -51,14 +52,16 @@ int main(int argc, char **argv) {
   // Custom cout that prepends MPI rank
 #ifndef NDEBUG
   utils::CoutWithMPIRank custom_cout(rank);
-  std::cout << "Started." << std::endl;
+  std::cout << "Started with algo " << algo_name << std::endl;
 #endif
 
   measure_point(measure::global, measure::MeasurementEvent::START);
 
   if (rank == MPI_ROOT_ID) {
     std::string matrix_name_path = std::format("{}/matrix", run_path);
-    write_matrix_name(matrix_name, matrix_name_path);
+    write_to_file(matrix_name, matrix_name_path);
+    std::string algo_name_path = std::format("{}/algo", run_path);
+    write_to_file(algo_name, algo_name_path);
   }
 
   // Load sparsity
@@ -101,8 +104,14 @@ int main(int argc, char **argv) {
   std::vector<size_t> keep_cols(&B_shuffle[partitions[rank].start_col],
                                 &B_shuffle[partitions[rank].end_col]);
 
-  // TODO: Decide which implementation to use
-  mults::MatrixMultiplication* mult = new mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
+  mults::MatrixMultiplication *mult = NULL;
+  if (algo_name == "baseline") {
+    mult = new mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows,
+                               B_path, &keep_cols);
+  } else {
+    std::cerr << "Unknown algorithm type " << algo_name << "\n";
+    exit(1);
+  }
 
   // Share serialization sizes
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
@@ -121,7 +130,7 @@ int main(int argc, char **argv) {
     utils::print_serialized_sizes(serialized_sizes_B_bytes, max_B_bytes_size);
   }
 
-  //WARUMP
+  // WARUMP
 #ifndef NDEBUG
   std::cout << "Running warmup." << std::endl;
 #endif
@@ -132,7 +141,8 @@ int main(int argc, char **argv) {
   }
   measure::Measure::get_instance()->reset_bytes();
 #ifndef NDEBUG
-  std::cout << "Finished warmup, performing " << n_warmup << " runs." << std::endl;
+  std::cout << "Finished warmup, performing " << n_warmup << " runs."
+            << std::endl;
 #endif
 
   // ACTUAL COMPUTATION!!
