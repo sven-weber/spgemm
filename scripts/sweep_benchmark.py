@@ -8,7 +8,7 @@ import argparse
 import os
 import matplotlib.pyplot as plt
 
-CMD       = "./dphpc"
+CMD       = "./build/dphpc"
 RUNS_DIR  = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
 N_WARMUP  = 5
 N_RUNS    = 10
