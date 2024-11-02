@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
   }
   measure::Measure::get_instance()->reset_bytes();
 #ifndef NDEBUG
-  std::cout << "Finished warmup, performing " << n_runs << " runs." << std::endl;
+  std::cout << "Finished warmup, performing " << n_warmup << " runs." << std::endl;
 #endif
 
   // ACTUAL COMPUTATION!!
