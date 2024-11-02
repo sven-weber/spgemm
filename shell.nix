@@ -17,6 +17,7 @@ stdenvNoCC.mkDerivation {
     python3Packages.pandas
     python3Packages.requests
     python3Packages.scipy
+    python3Packages.matplotlib
   ];
 
   MAKEFLAGS = "-j16";

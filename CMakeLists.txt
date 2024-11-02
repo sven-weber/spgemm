@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.9.1)
 project(dphpc)
 include(FetchContent)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # OpenMP
 find_package(OpenMP)

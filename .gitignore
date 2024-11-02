@@ -39,7 +39,6 @@ dphpc
 
 # CLang
 .cache
-compile_commands.json
 
 # Project specific
 spgemm
