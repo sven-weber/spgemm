@@ -3,6 +3,7 @@ with import <nixpkgs> { };
 stdenvNoCC.mkDerivation {
   name = "dphpc-project";
   buildInputs = with pkgs; [
+    cmake
     gnat14
     clang-tools
     bear

@@ -45,8 +45,21 @@ python3 scripts/fetch_matrices.py --euler
 pip3 install -r requirements.txt
 ```
 
+Build for release:
+
 ```console
 make optimize
+```
+
+Build for debug:
+
+```console
+make optimize
+```
+
+To quickly run it with the number of nodes defined in the Makefile:
+```console
+make run
 ```
 
 ```console
