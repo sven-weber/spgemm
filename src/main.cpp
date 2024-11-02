@@ -111,6 +111,10 @@ int main(int argc, char **argv) {
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
+  } else if (algo_name == "comb") {
+    C_path = std::format("{}/C.mtx", run_path);
+    mult = new mults::CombBLASMatrixMultiplication(rank, n_nodes, partitions,
+                                                   A_path);
   } else {
     std::cerr << "Unknown algorithm type " << algo_name << "\n";
     exit(1);
@@ -162,7 +166,6 @@ int main(int argc, char **argv) {
 #endif
 
   // Store the result
-  std::cout << "Trying to store to " << C_path << "\n";
   mult->save_result(C_path);
   measure::Measure::get_instance()->save(measurements_path);
 

@@ -1,5 +1,11 @@
 #pragma once
 
+#include "CombBLAS/CombBLAS.h"
+#include "CombBLAS/ParFriends.h"
+#include "CombBLAS/SpDCCols.h"
+#include "CombBLAS/SpDefs.h"
+#include "CombBLAS/SpMat.h"
+#include "CombBLAS/SpParMat1D.h"
 #include "matrix.hpp"
 #include "partition.hpp"
 
@@ -61,6 +67,28 @@ public:
            std::string path_B, std::vector<size_t> *keep_cols);
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
+};
+
+typedef combblas::SpParMat1D<int64_t, double,
+                             combblas::SpDCCols<int64_t, double>>
+    Sp1D;
+typedef combblas::SpParMat<int64_t, double, combblas::SpDCCols<int64_t, double>>
+    Sp2D;
+typedef combblas::PlusTimesSRing<double, double> PTFF;
+class CombBLASMatrixMultiplication : public MatrixMultiplication {
+protected:
+  shared_ptr<combblas::CommGrid> fullWorld;
+  Sp1D A1D;
+  Sp1D B1D;
+  Sp1D C1D;
+
+public:
+  CombBLASMatrixMultiplication(int rank, int n_nodes,
+                               partition::Partitions partitions,
+                               std::string path_A);
+  void gemm(std::vector<size_t> serialized_sizes_B_bytes,
+            size_t max_size_B_bytes) override;
+  void save_result(std::string path) override;
 };
 
 } // namespace mults
