@@ -1,5 +1,23 @@
 cmake_minimum_required(VERSION 3.9.1)
 project(dphpc)
+include(FetchContent)
+
+# OpenMP
+find_package(OpenMP)
+
+# MPI
+find_package(MPI REQUIRED)
+
+set(CMAKE_CXX_FLAGS "-w")
+
+FetchContent_Declare(
+  CombBLAS
+  GIT_REPOSITORY https://github.com/PASSIONLab/CombBLAS.git
+  GIT_TAG        yuxi/spgemm1d
+  OVERRIDE_FIND_PACKAGE
+)
+
+find_package(CombBLAS)
 
 set(CMAKE_CXX_STANDARD 20)
 set(GCC_COVERAGE_COMPILE_FLAGS "-Wall -Wextra -Werror -pedantic -lm -O3 -funroll-loops")
@@ -20,12 +38,8 @@ file(GLOB HEADERS LIST_DIRECTORIES true ${INCLUDE_DIR})
 add_executable(dphpc ${SOURCES})
 target_include_directories(dphpc PRIVATE ${HEADERS})
 
-# OpenMP
-find_package(OpenMP)
 if(OpenMP_CXX_FOUND)
     target_link_libraries(dphpc PUBLIC OpenMP::OpenMP_CXX)
 endif()
-
-# MPI
-find_package(MPI REQUIRED)
 target_link_libraries(dphpc PUBLIC MPI::MPI_CXX)
+target_link_libraries(dphpc PUBLIC CombBLAS)
