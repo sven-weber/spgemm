@@ -9,7 +9,7 @@ import os
 import matplotlib.pyplot as plt
 
 CMD       = "./dphpc"
-RUNS_DIR  = "runs"
+RUNS_DIR  = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
 N_WARMUP  = 5
 N_RUNS    = 10
 
@@ -94,7 +94,7 @@ def graph_multiple_runs(folders: List[str]):
         aggregated_df = aggregate_horizontally(dataframes)
         aggregated_df['nodes'] = len(dataframes)
         timings = pd.concat([timings, aggregated_df], axis=0)
-        print(timings)
+    print(timings)
     return timings
 
 def plot_timings_increasingnodes(timings: pd.DataFrame):
@@ -102,13 +102,13 @@ def plot_timings_increasingnodes(timings: pd.DataFrame):
     func_name = "gemm"
     func_data = timings[timings["func"] == func_name]
     timing_data = func_data["avg_time"]/(10**6)
-    ax.plot(func_data["nodes"], timing_data, label=func_name)
+    eb = [(func_data['avg_time'] - func_data['min_time'])/(10**6), (func_data['max_time'] - func_data['avg_time'])/(10**6)]
+    ax.errorbar(func_data["nodes"], timing_data, yerr=eb, fmt='-o', label=func_name)
 
     # Calculate a linear progression based on the first timing point
     initial_time = timing_data.iloc[0]  # Timing for the first number of nodes
     linear_progression = initial_time * (1 / (func_data["nodes"] / func_data["nodes"].iloc[0]))
-
-    print(linear_progression)
+    #print(linear_progression)
 
     # Plot the linear progression line
     ax.plot(func_data["nodes"], linear_progression, linestyle='--', color='red', label="Linear Speedup")
@@ -130,7 +130,6 @@ def get_subfolders(folder_path):
                 subfolders.append(item_path)
     except Exception as e:
         print(f"An error occurred: {e}")
-    
     return subfolders
 
 if __name__ == "__main__":
