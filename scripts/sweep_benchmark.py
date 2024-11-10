@@ -8,10 +8,12 @@ import argparse
 import os
 import matplotlib.pyplot as plt
 
-CMD       = "./build/dphpc"
-RUNS_DIR  = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
-N_WARMUP  = 5
-N_RUNS    = 10
+CMD             = "./build/dphpc"
+RUNS_DIR        = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
+N_WARMUP        = 5
+N_RUNS          = 10
+N_SECTIONS      = 1
+MEM_PER_CORE_GB = 3
 
 # Does a run of the CMD with mpi using `nodes` nodes and returns
 # the run folder.
@@ -24,9 +26,9 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False) -> str:
 
 
     if euler:
-        cmd = ["sbatch", "--wait", "-n", str(nodes), "--wrap", f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP}"]
+        cmd = ["sbatch", "--wait", f"--mem-per-cpu={MEM_PER_CORE_GB}G", "-n", str(nodes), "--wrap", f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {N_SECTIONS}"]
     else:
-        cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP)]
+        cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), str(N_SECTIONS)]
     result = subprocess.run(
         cmd,
         cwd=os.getcwd(),
