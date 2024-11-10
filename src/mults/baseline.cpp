@@ -34,13 +34,15 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   MPI_Request requests[2];
   // Do computation. We need n-1 communication rounds
   for (int i = 0; i < n_nodes; i++) {
-    // Resize buffer to the correct size (should not free/alloc memory)
-    receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
-    communication::send(serialized->data(), serialized_sizes_B_bytes[rank],
-                        MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &requests[0]);
-    communication::recv(receiving_B_buffer->data(),
-                        serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
-                        recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
+    if (i < n_nodes - 1) {
+      // Resize buffer to the correct size (should not free/alloc memory)
+      receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
+      communication::send(serialized->data(), serialized_sizes_B_bytes[rank],
+                          MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &requests[0]);
+      communication::recv(receiving_B_buffer->data(),
+                          serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
+                          recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
+    }
 
     measure_point(measure::mult, measure::MeasurementEvent::START);
     // Matrix multiplication
@@ -63,27 +65,29 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
             col_elem++;
           }
         }
-        // TODO: Why are we producing nulls?
-        if (res != 0)
-          cells.add({row, partitions[current_rank_B].start_col + col}, res);
+        if (res != 0) {
+          cells.add({row, partitions[current_rank_B].start_col + col, res});
+        }
       }
     }
     measure_point(measure::mult, measure::MeasurementEvent::END);
 
-    measure_point(measure::wait_all, measure::MeasurementEvent::START);
-    // Wait for the communication to finish
-    MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
-    measure_point(measure::wait_all, measure::MeasurementEvent::END);
+    if (i < n_nodes - 1) {
+      measure_point(measure::wait_all, measure::MeasurementEvent::START);
+      // Wait for the communication to finish
+      MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
+      measure_point(measure::wait_all, measure::MeasurementEvent::END);
 
-    // Deserialize Matrix for next round and switch buffer pointers
-    std::swap(received_B_buffer, receiving_B_buffer);
-    matrix::CSRMatrix received(received_B_buffer);
-    part_B = &received;
+      // Deserialize Matrix for next round and switch buffer pointers
+      std::swap(received_B_buffer, receiving_B_buffer);
+      matrix::CSRMatrix received(received_B_buffer);
+      part_B = &received;
 
-    // Get next targets
-    send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;
-    current_rank_B = recv_rank;
-    recv_rank = recv_rank != 0 ? recv_rank - 1 : n_nodes - 1;
+      // Get next targets
+      send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;
+      current_rank_B = recv_rank;
+      recv_rank = recv_rank != 0 ? recv_rank - 1 : n_nodes - 1;
+    }
   }
 }
 } // namespace mults

@@ -42,7 +42,7 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False) -> str:
         print(error)
 
     return_code = result.returncode
-    assert return_code == 0, f"Running {CMD} with {nodes} nodes failed"
+    assert return_code == 0, f"Slurm job execution with {nodes} nodes failed" if euler else f"Running {CMD} with {nodes} nodes failed"
     return folder
 
 FILE_NAME = "measurements"
@@ -57,6 +57,10 @@ def load_timings(folder_path: str) -> DataFrames:
             df = pd.read_csv(join(folder_path, file))
             dataframes[node_id] = df
     return dataframes
+
+def load_algorithm(folder_path: str) -> str:
+    with open(join(folder_path, "algo"), "r") as f:
+        return f.read().strip()
 
 # Because there may be multiple function names in the same file
 def aggregate_vertically(dataframes: DataFrames):
@@ -84,34 +88,47 @@ def aggregate_horizontally(dataframes: DataFrames) -> pd.DataFrame:
     aggregated_df = pd.DataFrame(aggregated_data)
     return aggregated_df
 
-def graph_multiple_runs(folders: List[str]):
-    timings = pd.DataFrame()
+def graph_multiple_runs(folders: List[str]) -> Dict[str, pd.DataFrame]:
+    timings_per_algo = {}
     for folder_path in folders:
+        # Load algo and initialize
+        algo = load_algorithm(folder_path)
+        if not algo in timings_per_algo:
+            timings_per_algo[algo] = pd.DataFrame()
+
+        # Load DFs
         dataframes = load_timings(folder_path)
         aggregate_vertically(dataframes)
 
         # Aggregate horizontally timings related to same function
         aggregated_df = aggregate_horizontally(dataframes)
         aggregated_df['nodes'] = len(dataframes)
-        timings = pd.concat([timings, aggregated_df], axis=0)
-    print(timings)
-    return timings
+        timings_per_algo[algo] = pd.concat([timings_per_algo[algo], aggregated_df], axis=0)
+    
+    #Print the results:
+    for algo in timings_per_algo:
+        print(f"Aggregated data for {algo}")
+        print(timings_per_algo[algo])
+    
+    return timings_per_algo
 
-def plot_timings_increasingnodes(timings: pd.DataFrame):
+def plot_timings_increasingnodes(data: Dict[str, pd.DataFrame], linear: bool):
     _, ax = plt.subplots()
-    func_name = "gemm"
-    func_data = timings[timings["func"] == func_name]
-    timing_data = func_data["avg_time"]/(10**6)
-    eb = [(func_data['avg_time'] - func_data['min_time'])/(10**6), (func_data['max_time'] - func_data['avg_time'])/(10**6)]
-    ax.errorbar(func_data["nodes"], timing_data, yerr=eb, fmt='-o', label=func_name)
+    for algo in data:
+        timings = data[algo]
+        func_data = timings[timings["func"] == "gemm"]
+        timing_data = func_data["avg_time"]/(10**6)
+        eb = [(func_data['avg_time'] - func_data['min_time'])/(10**6), (func_data['max_time'] - func_data['avg_time'])/(10**6)]
+        ax.errorbar(func_data["nodes"], timing_data, yerr=eb, fmt='-o', label=algo)
 
-    # Calculate a linear progression based on the first timing point
-    initial_time = timing_data.iloc[0]  # Timing for the first number of nodes
-    linear_progression = initial_time * (1 / (func_data["nodes"] / func_data["nodes"].iloc[0]))
-    #print(linear_progression)
+        if (linear):
+            # Calculate a linear progression based on the first timing point
+            initial_time = timing_data.iloc[0]  # Timing for the first number of nodes
+            linear_progression = initial_time * (1 / (func_data["nodes"] / func_data["nodes"].iloc[0]))
+            #print(linear_progression)
 
-    # Plot the linear progression line
-    ax.plot(func_data["nodes"], linear_progression, linestyle='--', color='red', label="Linear Speedup")
+            # Plot the linear progression line
+            ax.plot(func_data["nodes"], linear_progression, linestyle='--', color='red', label="Linear Speedup")
 
     # Set labels, title, and legend
     ax.set_xlabel("Nodes")
@@ -134,7 +151,7 @@ def get_subfolders(folder_path):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-                    prog='benchmark_time',
+                    prog='sweep_benchmark',
                     description='Generate graphs from benchmarks')
     parser.add_argument('--impl', type=str, required=False, default='baseline')
     parser.add_argument('--matrix', type=str, required=False, default='test')
@@ -143,17 +160,25 @@ if __name__ == "__main__":
     parser.add_argument('--stride', type=int, required=False, default=1)
     parser.add_argument('--euler', action="store_true")
     parser.add_argument('--skip_run', action="store_true")
+    parser.add_argument('--quadratic', required=False, action="store_true")
+    parser.add_argument('--plot_linear', required=False, action="store_true")
     args = parser.parse_args()
 
     folders = []
 
     if args.skip_run:
-        # Just fetch all the rolders inside run and
+        # Just fetch all the folders inside run and
         # only do the visualization!
         folders = get_subfolders(RUNS_DIR)
     else:
-        for n in range(args.min, args.max+1, args.stride):
-            folders.append(run_mpi(args.impl, args.matrix, n, args.euler))
+        # Check if multiple implementations where provided
+        impls = args.impl.split(',')
+        for impl in impls:
+            print(f"Executing implementation {impl}")
+            for n in range(args.min, args.max+1, args.stride):
+                if args.quadratic:
+                    n = n*n
+                folders.append(run_mpi(impl, args.matrix, n, args.euler))
 
     timings = graph_multiple_runs(folders)
-    plot_timings_increasingnodes(timings)
+    plot_timings_increasingnodes(timings, args.plot_linear)

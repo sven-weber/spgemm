@@ -54,5 +54,5 @@ make optimize
 Run the benchmark:
 
 ```console
-python3 scripts/sweep_benchmark.py --algo comb --matrix first --min 1 --max 2 --stride 1 --euler
+python3 scripts/sweep_benchmark.py --impl baseline --matrix first --min 10 --max 10 --stride 1 --euler
 ```
