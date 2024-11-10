@@ -12,7 +12,9 @@ CSRMatrixMultiplication::CSRMatrixMultiplication(
     std::vector<size_t> *keep_cols)
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, true, keep_cols),
-      cells(part_A.height, partitions[n_nodes - 1].end_col) {}
+      cells(part_A.height, partitions[n_nodes - 1].end_col) {
+        drop_sections = bitmap::compute_drop_sections(part_A);
+      }
 
 void CSRMatrixMultiplication::save_result(std::string path) {
   matrix::CSRMatrix result(cells);

@@ -8,6 +8,7 @@
 #include "CombBLAS/SpParMat1D.h"
 #include "matrix.hpp"
 #include "partition.hpp"
+#include "bitmap.hpp"
 
 namespace mults {
 
@@ -34,6 +35,7 @@ protected:
   matrix::CSRMatrix part_A;
   matrix::CSRMatrix first_part_B;
   matrix::Cells cells;
+  std::vector<bitmap::section> drop_sections;
   CSRMatrixMultiplication(int rank, int n_nodes,
                           partition::Partitions partitions, std::string path_A,
                           std::vector<size_t> *keep_rows, std::string path_B,
