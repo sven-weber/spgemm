@@ -33,7 +33,8 @@ size_t Cells::cells_in_row(size_t row) {
 size_t Cells::non_zeros() { return _cells.size(); }
 
 Fields read_fields(std::string file_path, bool transposed,
-                   std::vector<size_t> *keep) {
+                   std::vector<size_t> *keep_rows,
+                   std::vector<size_t> *keep_cols) {
   std::ifstream stream(file_path);
   if (!stream.is_open()) {
     std::cout << "could not open file (reading): " << file_path << std::endl;
@@ -56,8 +57,10 @@ Fields read_fields(std::string file_path, bool transposed,
     line_stream >> height;
     line_stream >> width;
   }
-  if (keep != nullptr)
-    height = keep->size();
+  if (keep_rows != nullptr)
+    height = keep_rows->size();
+  if (keep_cols != nullptr)
+    width = keep_cols->size();
 
   // This is going to be overwritten later if we're partially loading the matrix
   line_stream >> non_zeros;
@@ -72,23 +75,29 @@ Fields read_fields(std::string file_path, bool transposed,
 }
 
 Cells get_cells(std::string file_path, bool transposed,
-                std::vector<size_t> *keep) {
-  auto keep_map = std::unordered_map<size_t, size_t>();
-  if (keep != nullptr)
-    for (size_t i = 0; i < keep->size(); ++i) {
-      keep_map.insert({(*keep)[i], i});
+                std::vector<size_t> *keep_rows,
+                std::vector<size_t> *keep_cols) {
+  auto keep_rows_map = std::unordered_map<size_t, size_t>();
+  if (keep_rows != nullptr)
+    for (size_t i = 0; i < keep_rows->size(); ++i) {
+      keep_rows_map.insert({(*keep_rows)[i], i});
     }
+  auto keep_cols_map = std::unordered_map<size_t, size_t>();
+  if (keep_cols != nullptr)
+    for (size_t i = 0; i < keep_cols->size(); ++i) {
+      keep_cols_map.insert({(*keep_cols)[i], i});
+    }
+  bool full = keep_rows == nullptr && keep_cols == nullptr;
 
-  auto fields = read_fields(file_path, transposed, keep);
+  auto fields = read_fields(file_path, transposed, keep_rows, keep_cols);
   std::ifstream stream(file_path);
   std::string sink;
   do {
     getline(stream, sink);
   } while (sink.size() > 0 and sink[0] == '%');
 
-  Cells cells = keep == nullptr
-                    ? Cells(fields.height, fields.width, fields.non_zeros)
-                    : Cells(fields.height, fields.width);
+  Cells cells = full ? Cells(fields.height, fields.width, fields.non_zeros)
+                     : Cells(fields.height, fields.width);
 
   // read non-zeros
   auto l = fields.non_zeros;
@@ -103,12 +112,20 @@ Cells get_cells(std::string file_path, bool transposed,
               .col = transposed ? row - 1 : col - 1,
               .val = val};
 
-    if (keep == nullptr)
-      cells.add(c);
-    else if (keep_map.contains(c.row)) {
-      c.row = keep_map[c.row];
-      cells.add(c);
+    if (keep_rows != nullptr) {
+      if (!keep_rows_map.contains(c.row))
+        continue;
+
+      c.row = keep_rows_map[c.row];
     }
+    if (keep_cols != nullptr) {
+      if (!keep_cols_map.contains(c.col))
+        continue;
+
+      c.col = keep_cols_map[c.col];
+    }
+
+    cells.add(c);
   }
   stream.close();
   return cells;
@@ -146,8 +163,10 @@ std::tuple<size_t *, size_t *, double *> CSRMatrix::get_offsets() {
 }
 
 CSRMatrix::CSRMatrix(std::string file_path, bool transposed,
-                     std::vector<size_t> *keep)
-    : CSRMatrix(get_cells(file_path, transposed, keep), transposed) {}
+                     std::vector<size_t> *keep_rows,
+                     std::vector<size_t> *keep_cols)
+    : CSRMatrix(get_cells(file_path, transposed, keep_rows, keep_cols),
+                transposed) {}
 
 CSRMatrix::CSRMatrix(Cells cells, bool transposed)
     : height(cells.height), width(cells.width), non_zeros(cells.non_zeros()),
@@ -286,41 +305,12 @@ Matrix::Matrix(Fields fs)
 #define pos(i, j) ((i) * width + j)
 
 Matrix::Matrix(std::string file_path, bool transposed,
-               std::vector<size_t> *keep)
-    : Matrix(read_fields(file_path, transposed, keep)) {
-  auto keep_map = std::unordered_map<size_t, size_t>();
-  if (keep != nullptr)
-    for (size_t i = 0; i < keep->size(); ++i) {
-      keep_map.insert({(*keep)[i], i});
-    }
-
-  std::ifstream stream(file_path);
-  std::string sink;
-  do {
-    getline(stream, sink);
-  } while (sink.size() > 0 and sink[0] == '%');
-
-  // read non-zeros
-  auto l = fields->non_zeros;
-  while (l--) {
-    size_t row, col;
-    double val;
-    stream >> row;
-    stream >> col;
-    stream >> val;
-
-    Cell c = {.row = transposed ? col - 1 : row - 1,
-              .col = transposed ? row - 1 : col - 1,
-              .val = val};
-
-    assert(pos(c.row, c.col) < raw_data->size());
-    if (keep == nullptr || keep_map.contains(c.row)) {
-      if (keep != nullptr && keep_map.contains(c.row))
-        c.row = keep_map[c.row];
-      data[pos(c.row, c.col)] = val;
-    }
+               std::vector<size_t> *keep_rows, std::vector<size_t> *keep_cols)
+    : Matrix(read_fields(file_path, transposed, keep_rows, keep_cols)) {
+  auto cells = get_cells(file_path, transposed, keep_rows, keep_cols);
+  for (auto cell : cells._cells) {
+    data[pos(cell.row, cell.col)] = cell.val;
   }
-  stream.close();
 }
 
 Matrix::Matrix(std::shared_ptr<std::vector<char>> serialized_data)

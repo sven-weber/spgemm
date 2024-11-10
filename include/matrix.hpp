@@ -81,7 +81,8 @@ public:
   double *values = nullptr;
 
   CSRMatrix(std::string file_path, bool transposed = false,
-            std::vector<size_t> *keep = nullptr);
+            std::vector<size_t> *keep_rows = nullptr,
+            std::vector<size_t> *keep_cols = nullptr);
   CSRMatrix(Cells cells, bool tranposed = false);
   CSRMatrix(std::shared_ptr<std::vector<char>> serialized_data);
   ~CSRMatrix() = default;
@@ -114,7 +115,8 @@ public:
 
   Matrix(size_t height, size_t width, bool transposed = false);
   Matrix(std::string file_path, bool transposed = false,
-         std::vector<size_t> *keep = nullptr);
+         std::vector<size_t> *keep_rows = nullptr,
+         std::vector<size_t> *keep_cols = nullptr);
   Matrix(std::shared_ptr<std::vector<char>> serialized_data);
   ~Matrix() = default;
 
