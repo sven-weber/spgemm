@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <map>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -14,26 +15,16 @@ typedef struct SmallVec {
   const size_t len;
 } SmallVec;
 
-typedef struct Cell {
-  size_t row;
-  size_t col;
-  double val;
-
-  // sort by column
-  bool operator<(const Cell &l) const { return (col < l.col); }
-
-  // pretty printing of cell
-  friend std::ostream &operator<<(std::ostream &os, Cell const &c) {
-    return os << "(" << c.row << "," << c.row << "," << c.val << ")";
-  }
-} Cell;
+//                row,    col
+typedef std::pair<size_t, size_t> CellPos;
+typedef std::pair<CellPos, double> Cell;
 
 class Cells {
 public:
   // Don't use!
   size_t height;
   size_t width;
-  std::vector<Cell> _cells;
+  std::map<CellPos, double> _cells;
 
 private:
   std::vector<size_t> non_zero_per_row;
@@ -44,9 +35,11 @@ public:
   ~Cells() = default;
 
   // Add one cell to the list of Cells
-  // usage: add([row, col, val])
+  // usage: add({row, col}, val)
   // indexes are 0-based
-  void add(Cell c);
+  // If a cell in {row, col} has already been inserted, the value is summed
+  // to the previous
+  void add(CellPos pos, double val);
 
   // Returns the amount of cells (i.e., non_zeros)
   size_t non_zeros();

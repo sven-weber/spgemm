@@ -14,15 +14,18 @@ namespace matrix {
 Cells::Cells(size_t height, size_t width, size_t non_zeros)
     : height(height), width(width),
       non_zero_per_row(std::vector<size_t>(height, 0)) {
-  _cells.reserve(non_zeros);
 }
 
-void Cells::add(Cell c) {
-  assert(c.row < non_zero_per_row.size());
-  assert(c.val != 0);
+void Cells::add(CellPos pos, double val) {
+  assert(pos.first < non_zero_per_row.size());
+  assert(val != 0);
 
-  _cells.push_back(c);
-  ++non_zero_per_row[c.row];
+  if (!_cells.contains(pos))
+    ++non_zero_per_row[pos.first];
+  else
+    val += _cells[pos];
+
+  _cells[pos] = val;
 }
 
 size_t Cells::cells_in_row(size_t row) {
@@ -102,30 +105,29 @@ Cells get_cells(std::string file_path, bool transposed,
   // read non-zeros
   auto l = fields.non_zeros;
   while (l--) {
-    size_t row, col;
+    size_t _row, _col;
     double val;
-    stream >> row;
-    stream >> col;
+    stream >> _row;
+    stream >> _col;
     stream >> val;
 
-    Cell c = {.row = transposed ? col - 1 : row - 1,
-              .col = transposed ? row - 1 : col - 1,
-              .val = val};
+    auto row = transposed ? _col - 1 : _row - 1;
+    auto col = transposed ? _row - 1 : _col - 1;
 
     if (keep_rows != nullptr) {
-      if (!keep_rows_map.contains(c.row))
+      if (!keep_rows_map.contains(row))
         continue;
 
-      c.row = keep_rows_map[c.row];
+      row = keep_rows_map[row];
     }
     if (keep_cols != nullptr) {
-      if (!keep_cols_map.contains(c.col))
+      if (!keep_cols_map.contains(col))
         continue;
 
-      c.col = keep_cols_map[c.col];
+      col = keep_cols_map[col];
     }
 
-    cells.add(c);
+    cells.add({row, col}, val);
   }
   stream.close();
   return cells;
@@ -173,8 +175,9 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed)
       transposed(transposed) {
 #ifndef NDEBUG
   for (auto c : cells._cells) {
-    assert(c.row < height);
-    assert(c.col < width);
+    auto pos = c.first;
+    assert(pos.first < height);
+    assert(pos.second < width);
   }
 #endif
 
@@ -198,7 +201,11 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed)
 
   // Fill values and col_index arrays using row_ptr
   auto next_pos_in_row = std::vector<size_t>(height + 1, 0);
-  for (auto [row, col, val] : cells._cells) {
+  for (auto cell : cells._cells) {
+    auto row = cell.first.first;
+    auto col = cell.first.second;
+    auto val = cell.second;
+
     auto index = row_ptr[row] + next_pos_in_row[row];
     col_idx[index] = col;
     values[index] = val;
@@ -243,7 +250,8 @@ void write_matrix_market(std::string file_path, size_t height, size_t width,
 
   std::sort(lines.begin(), lines.end());
   for (auto line : lines) {
-    stream << line.row + 1 << " " << line.col + 1 << " " << line.val
+    auto pos = line.first;
+    stream << pos.first + 1 << " " << pos.second + 1 << " " << line.second
            << std::endl;
   }
 
@@ -257,9 +265,9 @@ void CSRMatrix::save(std::string file_path) {
     for (size_t j = row_ptr[row]; j < row_ptr[row + 1]; ++j) {
       auto col = col_idx[j];
       if (!transposed)
-        lines[l] = {row, col, values[j]};
+        lines[l] = {{row, col}, values[j]};
       else
-        lines[l] = {col, row, values[j]};
+        lines[l] = {{col, row}, values[j]};
       ++l;
     }
   }
@@ -309,7 +317,8 @@ Matrix::Matrix(std::string file_path, bool transposed,
     : Matrix(read_fields(file_path, transposed, keep_rows, keep_cols)) {
   auto cells = get_cells(file_path, transposed, keep_rows, keep_cols);
   for (auto cell : cells._cells) {
-    data[pos(cell.row, cell.col)] = cell.val;
+    auto pos = cell.first;
+    data[pos(pos.first, pos.second)] = cell.second;
   }
 }
 
@@ -323,8 +332,14 @@ void Matrix::save(std::string file_path) {
   for (size_t i = 0; i < height; ++i) {
     for (size_t j = 0; j < width; ++j) {
       auto v = data[pos(i, j)];
-      if (v != 0)
-        lines.push_back(!transposed ? Cell{i, j, v} : Cell{j, i, v});
+      if (v != 0) {
+        CellPos pos;
+        if (!transposed) 
+          pos = {i, j};
+        else
+          pos = {j, i};
+        lines.push_back({pos, v});
+      }
     }
   }
 
