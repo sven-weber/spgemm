@@ -4,8 +4,8 @@
 #include "utils.hpp"
 #include <cstring>
 #include <iostream>
-#include <unistd.h>
 #include <measure.hpp>
+#include <unistd.h>
 
 namespace mults {
 
@@ -66,7 +66,7 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
           }
         }
         if (res != 0) {
-          cells.add({row, partitions[current_rank_B].start_col + col, res});
+          cells.add({row, partitions[current_rank_B].start_col + col}, res);
         }
       }
     }

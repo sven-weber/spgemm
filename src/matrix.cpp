@@ -1,5 +1,4 @@
 #include "matrix.hpp"
-#include "bitmap.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -14,8 +13,7 @@ namespace matrix {
 
 Cells::Cells(size_t height, size_t width, size_t non_zeros)
     : height(height), width(width),
-      non_zero_per_row(std::vector<size_t>(height, 0)) {
-}
+      non_zero_per_row(std::vector<size_t>(height, 0)) {}
 
 void Cells::add(CellPos pos, double val) {
   assert(pos.first < non_zero_per_row.size());
@@ -274,18 +272,41 @@ void CSRMatrix::save(std::string file_path) {
   write_matrix_market(file_path, height, width, lines);
 }
 
-CSRMatrix CSRMatrix::sub(std::vector<bitmap::section> removed_sections){
-  // TODO @Luca: private constructor
-  size_t offset = 0;
-  auto new_row_ptr = std::vector<size_t>(height);
-  memcpy(new_row_ptr.data(), row_ptr, height * sizeof(size_t));
+template <typename T>
+static inline void insertcpy(std::vector<T> &dst, T *src, size_t amt) {
+  dst.insert(dst.end(), src, src + amt);
+}
 
-  for (auto [start, end] : removed_sections) {
-    offset += row_ptr[end] - row_ptr[start];
-    for (size_t i = start; i < end; ++i) {
-      new_row_ptr[i] = row_ptr[end] - offset;
+CSRMatrix CSRMatrix::submatrix(std::vector<section> remove_sections) {
+  auto new_row_ptr = std::vector<size_t>(height + 1);
+  auto new_col_idx = std::vector<size_t>();
+  auto new_values = std::vector<double>();
+
+  size_t offst = 0;
+
+  auto sec = remove_sections.begin();
+  for (size_t i = 0; i < height; ++i) {
+    while (i >= sec->second)
+      ++sec;
+
+    bool keep = !(i >= sec->first && i < sec->second);
+    auto size = row_ptr[i + 1] - row_ptr[i];
+    std::cout << "keeping row " << i << " " << keep << " of size " << size
+              << std::endl;
+
+    if (keep) {
+      new_row_ptr[i] = new_values.size();
+      insertcpy(new_col_idx, col_idx + offst + new_values.size(), size);
+      insertcpy(new_values, values + offst + new_values.size(), size);
+    } else {
+      offst += size;
+      if (i == 0)
+        new_row_ptr[i] = 0;
+      else
+        new_row_ptr[i] = new_row_ptr[i - 1];
     }
   }
+  new_row_ptr[height] = new_values.size();
 }
 
 // DO NOT WRITE TO THE OUTPUT OF THIS
@@ -346,7 +367,7 @@ void Matrix::save(std::string file_path) {
       auto v = data[pos(i, j)];
       if (v != 0) {
         CellPos pos;
-        if (!transposed) 
+        if (!transposed)
           pos = {i, j};
         else
           pos = {j, i};

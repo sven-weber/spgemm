@@ -6,9 +6,9 @@
 #include "CombBLAS/SpDefs.h"
 #include "CombBLAS/SpMat.h"
 #include "CombBLAS/SpParMat1D.h"
+#include "bitmap.hpp"
 #include "matrix.hpp"
 #include "partition.hpp"
-#include "bitmap.hpp"
 
 namespace mults {
 
@@ -35,7 +35,7 @@ protected:
   matrix::CSRMatrix part_A;
   matrix::CSRMatrix first_part_B;
   matrix::Cells cells;
-  std::vector<bitmap::section> drop_sections;
+  std::vector<matrix::section> drop_sections;
   CSRMatrixMultiplication(int rank, int n_nodes,
                           partition::Partitions partitions, std::string path_A,
                           std::vector<size_t> *keep_rows, std::string path_B,
@@ -80,12 +80,12 @@ protected:
   matrix::CSRMatrix part_A;
   matrix::CSRMatrix first_part_B;
   matrix::Cells cells;
-  std::vector<bitmap::section> drop_sections;
-  
+  std::vector<matrix::section> drop_sections;
+
 public:
   BaselineAdvanced(int rank, int n_nodes, partition::Partitions partitions,
-           std::string path_A, std::vector<size_t> *keep_rows,
-           std::string path_B, std::vector<size_t> *keep_cols);
+                   std::string path_A, std::vector<size_t> *keep_rows,
+                   std::string path_B, std::vector<size_t> *keep_cols);
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
 

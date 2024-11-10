@@ -2,8 +2,7 @@
 #include "matrix.hpp"
 
 namespace bitmap {
-  extern int n_sections;
-  typedef std::pair<int, int> section; 
+extern int n_sections;
 
-  std::vector<section> compute_drop_sections(matrix::CSRMatrix mat);
-}
+std::vector<matrix::section> compute_drop_sections(matrix::CSRMatrix mat);
+} // namespace bitmap

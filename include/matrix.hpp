@@ -1,9 +1,8 @@
 #pragma once
 
 #include <cstddef>
-#include <memory>
 #include <map>
-#include <ostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -18,6 +17,8 @@ typedef struct SmallVec {
 //                row,    col
 typedef std::pair<size_t, size_t> CellPos;
 typedef std::pair<CellPos, double> Cell;
+
+typedef std::pair<int, int> section;
 
 class Cells {
 public:
@@ -85,7 +86,7 @@ public:
 
   void save(std::string file_path);
 
-  CSRMatrix sub(std::vector<std::pair<size_t, size_t>> sections);
+  CSRMatrix submatrix(std::vector<section> remove_sections);
 
   // DO NOT WRITE TO THE OUTPUT OF THIS
   std::shared_ptr<std::vector<char>> serialize();
