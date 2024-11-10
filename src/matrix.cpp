@@ -175,10 +175,10 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed)
     : height(cells.height), width(cells.width), non_zeros(cells.non_zeros()),
       transposed(transposed) {
 #ifndef NDEBUG
-  for (auto c : cells._cells) {
-    auto pos = c.first;
-    assert(pos.first < height);
-    assert(pos.second < width);
+  for (auto [pos, _] : cells._cells) {
+    auto [row, col] = pos;
+    assert(row < height);
+    assert(col < width);
   }
 #endif
 
@@ -202,10 +202,8 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed)
 
   // Fill values and col_index arrays using row_ptr
   auto next_pos_in_row = std::vector<size_t>(height + 1, 0);
-  for (auto cell : cells._cells) {
-    auto row = cell.first.first;
-    auto col = cell.first.second;
-    auto val = cell.second;
+  for (auto [pos, val] : cells._cells) {
+    auto [row, col] = pos;
 
     auto index = row_ptr[row] + next_pos_in_row[row];
     col_idx[index] = col;
@@ -250,10 +248,9 @@ void write_matrix_market(std::string file_path, size_t height, size_t width,
   stream << height << " " << width << " " << lines.size() << std::endl;
 
   std::sort(lines.begin(), lines.end());
-  for (auto line : lines) {
-    auto pos = line.first;
-    stream << pos.first + 1 << " " << pos.second + 1 << " " << line.second
-           << std::endl;
+  for (auto [pos, val] : lines) {
+    auto [row, col] = pos;
+    stream << row + 1 << " " << col + 1 << " " << val << std::endl;
   }
 
   stream.close();
@@ -331,9 +328,9 @@ Matrix::Matrix(std::string file_path, bool transposed,
                std::vector<size_t> *keep_rows, std::vector<size_t> *keep_cols)
     : Matrix(read_fields(file_path, transposed, keep_rows, keep_cols)) {
   auto cells = get_cells(file_path, transposed, keep_rows, keep_cols);
-  for (auto cell : cells._cells) {
-    auto pos = cell.first;
-    data[pos(pos.first, pos.second)] = cell.second;
+  for (auto [pos, val] : cells._cells) {
+    auto [row, col] = pos;
+    data[pos(row, col)] = val;
   }
 }
 
