@@ -15,6 +15,8 @@ typedef std::chrono::high_resolution_clock::time_point time_point;
 
 static const std::string gemm = "gemm";
 static const std::string global = "global";
+static const std::string mult = "mult";
+static const std::string wait_all = "wait_all";
 
 enum class MeasurementEvent : uint8_t { START, END };
 const std::array<MeasurementEvent, 2> measurement_event_types = {

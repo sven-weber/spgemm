@@ -5,6 +5,7 @@
 #include <cstring>
 #include <iostream>
 #include <unistd.h>
+#include <measure.hpp>
 
 namespace mults {
 
@@ -41,6 +42,7 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                         serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
                         recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
 
+    measure_point(measure::mult, measure::MeasurementEvent::START);
     // Matrix multiplication
     for (size_t row = 0; row < part_A.height; row++) {
       // Note: B is transposed!
@@ -66,9 +68,12 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
           cells.add({row, partitions[current_rank_B].start_col + col, res});
       }
     }
+    measure_point(measure::mult, measure::MeasurementEvent::END);
 
+    measure_point(measure::wait_all, measure::MeasurementEvent::START);
     // Wait for the communication to finish
     MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
+    measure_point(measure::wait_all, measure::MeasurementEvent::END);
 
     // Deserialize Matrix for next round and switch buffer pointers
     std::swap(received_B_buffer, receiving_B_buffer);
