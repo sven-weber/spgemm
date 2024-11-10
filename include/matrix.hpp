@@ -84,6 +84,9 @@ public:
   SmallVec col(size_t j);
 
   void save(std::string file_path);
+
+  CSRMatrix sub(std::vector<std::pair<size_t, size_t>> sections);
+
   // DO NOT WRITE TO THE OUTPUT OF THIS
   std::shared_ptr<std::vector<char>> serialize();
 };

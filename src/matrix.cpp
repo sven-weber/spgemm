@@ -1,4 +1,5 @@
 #include "matrix.hpp"
+#include "bitmap.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -274,6 +275,20 @@ void CSRMatrix::save(std::string file_path) {
   assert(l == non_zeros);
 
   write_matrix_market(file_path, height, width, lines);
+}
+
+CSRMatrix CSRMatrix::sub(std::vector<bitmap::section> removed_sections){
+  // TODO @Luca: private constructor
+  size_t offset = 0;
+  auto new_row_ptr = std::vector<size_t>(height);
+  memcpy(new_row_ptr.data(), row_ptr, height * sizeof(size_t));
+
+  for (auto [start, end] : removed_sections) {
+    offset += row_ptr[end] - row_ptr[start];
+    for (size_t i = start; i < end; ++i) {
+      new_row_ptr[i] = row_ptr[end] - offset;
+    }
+  }
 }
 
 // DO NOT WRITE TO THE OUTPUT OF THIS
