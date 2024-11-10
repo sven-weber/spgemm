@@ -75,6 +75,25 @@ public:
             size_t max_size_B_bytes) override;
 };
 
+class BaselineAdvanced : public MatrixMultiplication {
+protected:
+  matrix::CSRMatrix part_A;
+  matrix::CSRMatrix first_part_B;
+  matrix::Cells cells;
+  std::vector<bitmap::section> drop_sections;
+  
+public:
+  BaselineAdvanced(int rank, int n_nodes, partition::Partitions partitions,
+           std::string path_A, std::vector<size_t> *keep_rows,
+           std::string path_B, std::vector<size_t> *keep_cols);
+  void gemm(std::vector<size_t> serialized_sizes_B_bytes,
+            size_t max_size_B_bytes) override;
+
+  void save_result(std::string path) override;
+  size_t get_B_serialization_size() override;
+  void reset() override;
+};
+
 typedef combblas::SpParMat1D<int64_t, double,
                              combblas::SpDCCols<int64_t, double>>
     Sp1D;
