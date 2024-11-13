@@ -6,6 +6,7 @@ import subprocess
 import pathlib
 import argparse
 import os
+import math
 import matplotlib.pyplot as plt
 
 CMD             = "./build/dphpc"
@@ -13,20 +14,43 @@ RUNS_DIR        = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40
 N_WARMUP        = 5
 N_RUNS          = 10
 N_SECTIONS      = 1
-MEM_PER_CORE_GB = 3
+MAXIMUM_MEMORY  = 128
+FILE_NAME       = "measurements"
+DataFrames      = Dict[int, pd.DataFrame]
+
+def should_skip_run(impl: str, matrix: str, nodex: int) -> bool:
+    if impl == "comb" and matrix == "viscoplastic2" and nodes == 9:
+        # Segfaults for unknown reason
+        return True
+    if impl == "comb" and nodes == 1:
+        # Does not work on one node!
+        return True
+    
+    return False
 
 # Does a run of the CMD with mpi using `nodes` nodes and returns
 # the run folder.
 def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False) -> str:
+    if should_skip_run(impl, matrix, nodes):
+        print("CAUTION: Skipping run!!!")
+        return ""
+    
     print(f"Running with {nodes} nodes")
     date = datetime.now().strftime("%Y-%m-%d-%T")
     id = f"{date}-{nodes}"
     folder = join(RUNS_DIR, id)
     pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
 
-
     if euler:
-        cmd = ["sbatch", "--wait", f"--mem-per-cpu={MEM_PER_CORE_GB}G", "-n", str(nodes), "--wrap", f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {N_SECTIONS}"]
+        mem_per_core = int(math.floor(MAXIMUM_MEMORY/nodes))
+        print(f"Running with {mem_per_core} GB memory per core")
+        cmd = ["sbatch",
+            "--wait",
+            "--nodefile=euler_nodes.txt",
+            f"--mem-per-cpu={mem_per_core}G",
+            "-n", str(nodes), 
+            "--wrap",
+            f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {N_SECTIONS}"]
     else:
         cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), str(N_SECTIONS)]
     result = subprocess.run(
@@ -46,10 +70,6 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False) -> str:
     return_code = result.returncode
     assert return_code == 0, f"Slurm job execution with {nodes} nodes failed" if euler else f"Running {CMD} with {nodes} nodes failed"
     return folder
-
-FILE_NAME = "measurements"
-
-DataFrames = Dict[int, pd.DataFrame]
 
 def load_timings(folder_path: str) -> DataFrames:
     dataframes = dict()
@@ -181,7 +201,9 @@ if __name__ == "__main__":
             for n in range(args.min, args.max+1, args.stride):
                 if args.quadratic:
                     n = n*n
-                folders.append(run_mpi(impl, args.matrix, n, args.euler))
+                run_result = run_mpi(impl, args.matrix, n, args.euler)
+                if run_result != "":
+                    folders.append(run_result)
 
     timings = graph_multiple_runs(folders)
     plot_timings_increasingnodes(timings, args.plot_linear)

@@ -38,6 +38,10 @@ source euler/init.sh
 ```
 
 ```console
+./euler/get_euler_nodes.sh
+```
+
+```console
 pip3 install -r requirements.txt
 ```
 

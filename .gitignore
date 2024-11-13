@@ -49,6 +49,8 @@ runs
 
 # Euler
 slurm*.out
+euler_nodes.txt
+_old/**
 
 # Matrices fetched via script
 matrices/cont-300

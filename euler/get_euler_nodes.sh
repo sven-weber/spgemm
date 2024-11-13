@@ -1,0 +1,1 @@
+sinfo --noheader --format "%N" | tr "," "\n" | grep g5 | tr "\n" "," > euler_nodes.txt
