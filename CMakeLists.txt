@@ -13,7 +13,7 @@ set(CMAKE_CXX_FLAGS "-w")
 
 FetchContent_Declare(
   CombBLAS
-  GIT_REPOSITORY https://github.com/PASSIONLab/CombBLAS.git
+  GIT_REPOSITORY https://github.com/lucat1/combblas-spgemm1d
   GIT_TAG        yuxi/spgemm1d
   OVERRIDE_FIND_PACKAGE
 )
