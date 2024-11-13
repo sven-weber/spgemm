@@ -159,7 +159,7 @@ def plot_timings_increasingnodes(data: Dict[str, pd.DataFrame], linear: bool):
             #print(linear_progression)
 
             # Plot the linear progression line
-            ax.plot(func_data["nodes"], linear_progression, linestyle='--', color='red', label="Linear Speedup")
+            ax.plot(func_data["nodes"], linear_progression, linestyle='--', color=color, label="Linear Speedup")
 
     # Set labels, title, and legend
     ax.set_xlabel("Nodes")
