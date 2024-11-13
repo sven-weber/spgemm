@@ -149,6 +149,7 @@ def get_subfolders(folder_path):
                 subfolders.append(item_path)
     except Exception as e:
         print(f"An error occurred: {e}")
+    subfolders.sort()
     return subfolders
 
 if __name__ == "__main__":
