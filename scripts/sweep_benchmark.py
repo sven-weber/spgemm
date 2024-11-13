@@ -17,8 +17,13 @@ N_SECTIONS      = 1
 MAXIMUM_MEMORY  = 128
 FILE_NAME       = "measurements"
 DataFrames      = Dict[int, pd.DataFrame]
+COLOR_MAP       = {
+    "comb": "orange", 
+    "advanced": "black",
+    "baseline": "blue"
+}
 
-def should_skip_run(impl: str, matrix: str, nodex: int) -> bool:
+def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
     if impl == "comb" and matrix == "viscoplastic2" and nodes == 9:
         # Segfaults for unknown reason
         return True
@@ -32,7 +37,7 @@ def should_skip_run(impl: str, matrix: str, nodex: int) -> bool:
 # the run folder.
 def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False) -> str:
     if should_skip_run(impl, matrix, nodes):
-        print("CAUTION: Skipping run!!!")
+        print(f"CAUTION: Skipping run with {nodex} nodes!!!")
         return ""
     
     print(f"Running with {nodes} nodes")
@@ -141,7 +146,11 @@ def plot_timings_increasingnodes(data: Dict[str, pd.DataFrame], linear: bool):
         func_data = timings[timings["func"] == "gemm"]
         timing_data = func_data["avg_time"]/(10**6)
         eb = [(func_data['avg_time'] - func_data['min_time'])/(10**6), (func_data['max_time'] - func_data['avg_time'])/(10**6)]
-        ax.errorbar(func_data["nodes"], timing_data, yerr=eb, fmt='-o', label=algo)
+
+        color = None
+        if algo in COLOR_MAP:
+            color = COLOR_MAP[algo]
+        ax.errorbar(func_data["nodes"], timing_data, yerr=eb, fmt='-o', label=algo, color=color)
 
         if (linear):
             # Calculate a linear progression based on the first timing point
