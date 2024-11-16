@@ -54,9 +54,6 @@ Fields read_fields(std::string file_path, bool transposed,
   stream.close();
 }
 
-Fields *get_fields(std::shared_ptr<std::vector<char>> serialized_data) {
-  return (Fields *)((void *)serialized_data->data());
-}
 
 void write_matrix_market(std::string file_path, midx_t height, midx_t width,
                          std::vector<Cell<>> &lines) {
