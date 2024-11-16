@@ -22,6 +22,10 @@ typedef std::vector<midx_t> Shuffle;
 
 Shuffle shuffle(size_t size);
 
+Shuffle shuffle_avg(matrix::CSRMatrix<> matrix);
+
+Shuffle shuffle_min(matrix::CSRMatrix<> matrix);
+
 void save_shuffle(Shuffle &shuffle, std::string file);
 
 } // namespace partition

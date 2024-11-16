@@ -32,6 +32,44 @@ Shuffle shuffle(size_t size) {
   return shuffled;
 }
 
+Shuffle shuffle_avg(matrix::CSRMatrix<> matrix) {
+  std::vector<double> values(matrix.height);
+  for (size_t row = 0; row < matrix.height; row++) {
+    auto [row_data, row_pos, row_len] = matrix.row(row);
+    double avg = 0;
+    for (size_t col = 0; col < row_len; col++) {
+      avg += row_pos[col] / row_len;
+    }
+    values[row] = avg;
+  }
+
+  std::vector<midx_t> indices(values.size());
+  for (int i = 0; i < indices.size(); ++i) {
+    indices[i] = i;
+  }
+
+  std::sort(indices.begin(), indices.end(),
+            [&](int a, int b) { return values[a] > values[b]; });
+  return indices;
+}
+
+Shuffle shuffle_min(matrix::CSRMatrix<> matrix) {
+  std::vector<double> values(matrix.height);
+  for (size_t row = 0; row < matrix.height; row++) {
+    auto [row_data, row_pos, row_len] = matrix.row(row);
+    values[row] = row_len > 0 ? row_pos[0] : matrix.width;
+  }
+
+  std::vector<midx_t> indices(values.size());
+  for (int i = 0; i < indices.size(); ++i) {
+    indices[i] = i;
+  }
+
+  std::sort(indices.begin(), indices.end(),
+            [&](int a, int b) { return values[a] > values[b]; });
+  return indices;
+}
+
 void save_partitions(Partitions &partitions, std::string file) {
   auto csv = std::ofstream(file);
   assert(!csv.fail());

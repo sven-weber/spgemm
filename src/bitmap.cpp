@@ -17,7 +17,7 @@ std::bitset<N_SECTIONS> compute_bitmap(matrix::CSRMatrix<> mat) {
 
   std::cout << "Matrix size: " << mat.width << "-" << mat.height << std::endl;
   std::cout << "Section width: " << section_width << std::endl;
-  std::cout << "Number of false bits: " << map.count() << std::endl;
+  std::cout << "Drop percentage: " << (N_SECTIONS - map.count())/(double)N_SECTIONS << std::endl;
   return map;
 }
 } // namespace bitmap
