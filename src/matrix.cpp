@@ -78,6 +78,48 @@ void write_matrix_market(std::string file_path, midx_t height, midx_t width,
   stream.close();
 }
 
+void *vector_memory_resource::do_allocate(size_t bytes, size_t alignment) {
+  assert(offst == buf->size());
+  size_t aligned_offst = (offst + alignment - 1) & ~(alignment - 1);
+
+  if (aligned_offst + bytes > buf->size()) {
+    size_t new_cap = std::max(buf->size() * 2, aligned_offst + bytes);
+    buf->resize(new_cap);
+  }
+
+  void *result = buf->data() + aligned_offst;
+  offst = aligned_offst + bytes;
+  assert(offst == buf->size());
+  return result;
+}
+
+void vector_memory_resource::do_deallocate(void *ptr, size_t bytes,
+                                           size_t alignment) {
+  assert(offst == buf->size());
+  size_t dealloc_offst = static_cast<char *>(ptr) - buf->data();
+  if (dealloc_offst + bytes == offst) {
+    offst = dealloc_offst;
+    buf->resize(offst);
+    // buf->shrink_to_fit();
+  }
+  assert(offst == buf->size());
+}
+
+// Override for equality comparison
+bool vector_memory_resource::do_is_equal(
+    const std::pmr::memory_resource &other) const noexcept {
+  return this == &other;
+}
+
+vector_memory_resource::vector_memory_resource(
+    std::shared_ptr<std::vector<char>> buf)
+    : buf(buf), offst(buf->size()) {}
+
+BlockedFields *
+get_blocked_fields(std::shared_ptr<std::vector<char>> serialized_data) {
+  return (BlockedFields *)((void *)serialized_data->data());
+}
+
 } // namespace utils
 
 size_t Matrix::expected_data_size() {
@@ -149,47 +191,5 @@ void Matrix::save(std::string file_path) {
 
 // DO NOT WRITE TO THE OUTPUT OF THIS
 std::shared_ptr<std::vector<char>> Matrix::serialize() { return raw_data; }
-
-class vector_memory_resource : public std::pmr::memory_resource {
-private:
-  std::shared_ptr<std::vector<char>> buf;
-  size_t offst;
-
-protected:
-  void *do_allocate(size_t bytes, size_t alignment) override {
-    assert(offst == buf->size());
-    size_t aligned_offst = (offst + alignment - 1) & ~(alignment - 1);
-
-    if (aligned_offst + bytes > buf->size()) {
-      size_t new_cap = std::max(buf->size() * 2, aligned_offst + bytes);
-      buf->resize(new_cap);
-    }
-
-    void *result = buf->data() + aligned_offst;
-    offst = aligned_offst + bytes;
-    assert(offst == buf->size());
-    return result;
-  }
-
-  void do_deallocate(void *ptr, size_t bytes, size_t alignment) override {
-    assert(offst == buf->size());
-    size_t dealloc_offst = static_cast<char *>(ptr) - buf->data();
-    if (dealloc_offst + bytes == offst) {
-      offst = dealloc_offst;
-      buf->resize(offst);
-      // buf->shrink_to_fit();
-    }
-    assert(offst == buf->size());
-  }
-
-  // Override for equality comparison
-  bool
-  do_is_equal(const std::pmr::memory_resource &other) const noexcept override {
-    return this == &other;
-  }
-
-public:
-  explicit vector_memory_resource() : buf(), offst(0) {}
-};
 
 } // namespace matrix

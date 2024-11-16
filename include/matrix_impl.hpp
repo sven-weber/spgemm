@@ -26,6 +26,27 @@ template <typename T>
 static inline void insertcpy(std::vector<T> &dst, T *src, midx_t amt) {
   dst.insert(dst.end(), src, src + amt);
 }
+
+class vector_memory_resource : public std::pmr::memory_resource {
+private:
+  std::shared_ptr<std::vector<char>> buf;
+  size_t offst;
+
+protected:
+  void *do_allocate(size_t bytes, size_t alignment) override;
+
+  void do_deallocate(void *ptr, size_t bytes, size_t alignment) override;
+
+  bool
+  do_is_equal(const std::pmr::memory_resource &other) const noexcept override;
+
+public:
+  explicit vector_memory_resource(std::shared_ptr<std::vector<char>> buf);
+};
+
+BlockedFields *
+get_blocked_fields(std::shared_ptr<std::vector<char>> serialized_data);
+
 } // namespace utils
 
 template <typename T = double> class Cells {
@@ -173,10 +194,12 @@ public:
 
   CSRMatrix(std::string file_path, bool tr = false,
             std::vector<midx_t> *keep_rows = nullptr,
-            std::vector<midx_t> *keep_cols = nullptr)
+            std::vector<midx_t> *keep_cols = nullptr,
+            const Allocator &alloc = Allocator())
       : CSRMatrix(get_cells<T>(file_path, tr, keep_rows, keep_cols), tr) {}
 
-  CSRMatrix(Cells<T> cells, bool tr = false)
+  CSRMatrix(Cells<T> cells, bool tr = false,
+            const Allocator &alloc = Allocator())
       : height(cells.height), width(cells.width), non_zeros(cells.non_zeros()),
         transposed(tr) {
 #ifndef NDEBUG
@@ -187,7 +210,7 @@ public:
     }
 #endif
 
-    data = std::make_shared<std::vector<char>>(expected_data_size());
+    data = std::make_shared<std::vector<char>>(expected_data_size(), alloc);
 
     fields = utils::get_fields(data);
     fields->transposed = tr;
@@ -228,14 +251,15 @@ public:
   }
 
   // Copy constructor
-  CSRMatrix(const CSRMatrix &mtx, const Allocator &alloc = Allocator()) : data(mtx.data) {
+  CSRMatrix(const CSRMatrix &mtx, const Allocator &alloc = Allocator())
+      : data(mtx.data, alloc) {
     // Copy over the fields
     height = mtx.height;
     width = mtx.width;
     non_zeros = mtx.non_zeros;
     transposed = mtx.transposed;
-    
-    //Adjust the field pointers
+
+    // Adjust the field pointers
     fields = utils::get_fields(data);
 
     auto [_row_ptr, _col_idx, _values] = get_offsets();
@@ -285,29 +309,116 @@ template <typename T = double, class Allocator = std::allocator<char>>
 class BlockedCSRMatrix {
 private:
   std::shared_ptr<std::vector<char>> data;
-  BlockedFields *fields;
+  BlockedFields *blocked_fields;
 
-  size_t expected_data_size();
+  size_t initial_data_size() { return sizeof(BlockedFields); }
+
+  utils::vector_memory_resource alloc;
+
+  std::vector<CSRMatrix<T, Allocator> *> csrs;
+  std::map<midx_t, CSRMatrix<T, Allocator> *> start_row_to_csrs;
+
+  void compute_class_fields() {
+    width = csrs[0].width;
+
+#ifndef NDEBUG
+    for (size_t i; i < blocked_fields->n_sections; ++i) {
+      assert(csrs[i].width == width);
+    }
+#endif
+
+    for (size_t i; i < blocked_fields->n_sections; ++i) {
+      start_row_to_csrs[blocked_fields->section_start_row[i]] = &csrs[i];
+
+      height += csrs[i].height;
+      non_zeros += csrs[i].non_zeros;
+    }
+  }
+
+  void compute_blocked_fields_from_csrs() {
+    // Here we assume all sections are filled
+    size_t section_height = height / blocked_fields->n_sections;
+    char *start = data->data();
+    for (size_t i; i < blocked_fields->n_sections; ++i) {
+      blocked_fields->section_offst[i] = csrs[i]->data->data() - start;
+      blocked_fields->section_start_row[i] = section_height * i;
+    }
+  }
+
+  void compute_csrs_from_blocked_fields() {
+    char *start = data->data();
+    for (size_t i; i < blocked_fields->n_sections; ++i) {
+      csrs[i] = start + blocked_fields->section_offst[i];
+    }
+  }
 
 public:
-  const midx_t height;
-  const midx_t width;
-  const midx_t non_zeros;
+  midx_t height;
+  midx_t width;
+  midx_t non_zeros;
 
   BlockedCSRMatrix(std::string file_path,
-                   std::vector<midx_t> *keep_cols = nullptr) {
-    // TODO
+                   std::vector<midx_t> *keep_cols = nullptr)
+      : data(initial_data_size()),
+        blocked_fields(utils::get_blocked_fields(data)), csrs(4, nullptr),
+        alloc(data), width(0), height(0), non_zeros(0) {
+    static_assert(N_SECTIONS > 1);
+    blocked_fields->n_sections = N_SECTIONS;
+
+    for (size_t i; i < blocked_fields->n_sections; ++i) {
+      csrs[i] = new CSRMatrix<T, Allocator>(file_path, false, nullptr,
+                                            keep_cols, alloc);
+    }
+
+    compute_class_fields();
+    compute_blocked_fields_from_csrs();
   }
-  BlockedCSRMatrix(std::shared_ptr<std::vector<char>> serialized_data);
-  ~BlockedCSRMatrix() = default;
 
-  SmallVec<T> row(midx_t i);
-  CSRMatrix<T, Allocator> block(midx_t i);
+  BlockedCSRMatrix(std::shared_ptr<std::vector<char>> serialized_data)
+      : data(serialized_data), blocked_fields(utils::get_blocked_fields(data)),
+        csrs(4, nullptr), alloc(data), width(0), height(0), non_zeros(0) {
+    compute_csrs_from_blocked_fields();
+    compute_class_fields();
+  }
 
-  BlockedCSRMatrix filter(std::bitset<N_SECTIONS> bitmap);
+  ~BlockedCSRMatrix() {
+    for (size_t i; i < blocked_fields->n_sections; ++i) {
+      free(csrs[i]);
+    }
+  }
+
+  SmallVec<T> row(midx_t i) {
+    auto rel = i % N_SECTIONS;
+    auto block_i = i - rel;
+    return csrs[block_i]->row(rel);
+  }
+
+  CSRMatrix<T, Allocator> *block(midx_t i) {
+    assert(i < N_SECTIONS);
+    return &csrs[i];
+  }
+
+  BlockedCSRMatrix filter(std::bitset<N_SECTIONS> bitmap) {
+    auto new_data = std::make_shared<std::vector<char>>(initial_data_size());
+    auto bf = utils::get_blocked_fields(data);
+    bf->n_sections = bitmap.count();
+    auto alloc = utils::vector_memory_resource(new_data);
+
+    size_t j = 0;
+    size_t section_height = height / blocked_fields->n_sections;
+    for (size_t i; i < blocked_fields->n_sections; ++i) {
+      if (!bitmap[i])
+        continue;
+
+      bf->section_offst[j] = new_data->size();
+      bf->section_start_row[j] = blocked_fields->section_start_row[i];
+    }
+
+    return BlockedCSRMatrix(new_data);
+  }
 
   // DO NOT WRITE TO THE OUTPUT OF THIS
-  std::shared_ptr<std::vector<char>> serialize();
+  std::shared_ptr<std::vector<char>> serialize() { return data; }
 };
 
 } // namespace matrix
