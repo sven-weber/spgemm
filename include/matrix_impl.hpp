@@ -2,6 +2,7 @@
 
 #include "matrix.hpp"
 
+#include <bitset>
 #include <cassert>
 #include <fstream>
 #include <iostream>
@@ -286,7 +287,7 @@ public:
   SmallVec<T> row(midx_t i);
   CSRMatrix<T, Alloc> block(midx_t i);
 
-  BlockedCSRMatrix filter(std::vector<midx_t> keep_blocks);
+  BlockedCSRMatrix filter(std::bitset<N_SECTIONS> bitmap);
 
   // DO NOT WRITE TO THE OUTPUT OF THIS
   std::shared_ptr<std::vector<char>> serialize();

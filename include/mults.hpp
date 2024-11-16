@@ -9,6 +9,7 @@
 #include "bitmap.hpp"
 #include "matrix.hpp"
 #include "partition.hpp"
+#include <bitset>
 
 namespace mults {
 
@@ -75,22 +76,43 @@ public:
             size_t max_size_B_bytes) override;
 };
 
-class BaselineAdvanced : public MatrixMultiplication {
+class Outer : public MatrixMultiplication {
 protected:
   matrix::CSRMatrix<> part_A;
   matrix::CSRMatrix<> first_part_B;
   matrix::Cells<> cells;
-  std::vector<matrix::section> drop_sections;
 
 public:
-  BaselineAdvanced(int rank, int n_nodes, partition::Partitions partitions,
-                   std::string path_A, std::vector<midx_t> *keep_rows,
-                   std::string path_B, std::vector<midx_t> *keep_cols);
+  Outer(int rank, int n_nodes, partition::Partitions partitions,
+        std::string path_A, std::vector<midx_t> *keep_rows, std::string path_B,
+        std::vector<midx_t> *keep_cols);
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
 
   void save_result(std::string path) override;
   size_t get_B_serialization_size() override;
+  void reset() override;
+};
+
+class Drop : public MatrixMultiplication {
+protected:
+  matrix::CSRMatrix<> part_A;
+  matrix::BlockedCSRMatrix<> first_part_B;
+  matrix::Cells<> cells;
+
+public:
+  std::bitset<N_SECTIONS> bitmap;
+  std::vector<std::bitset<N_SECTIONS>> bitmaps;
+
+  Drop(int rank, int n_nodes, partition::Partitions partitions,
+       std::string path_A, std::vector<midx_t> *keep_rows, std::string path_B,
+       std::vector<midx_t> *keep_cols);
+  void gemm(std::vector<size_t> serialized_sizes_B_bytes,
+            size_t max_size_B_bytes) override;
+
+  void save_result(std::string path) override;
+  size_t get_B_serialization_size() override;
+  std::vector<size_t> get_B_serialization_sizes();
   void reset() override;
 };
 

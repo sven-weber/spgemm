@@ -34,7 +34,7 @@ Measure::Measure() : measurements({}) {
 
 void Measure::track_bytes(size_t bytes) { _bytes += bytes; }
 
-void Measure::flush_bytes() { 
+void Measure::flush_bytes() {
   _bytes_measurements.push_back(_bytes);
   reset_bytes();
 }

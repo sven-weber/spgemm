@@ -1,8 +1,7 @@
 #pragma once
 #include "matrix.hpp"
+#include <bitset>
 
 namespace bitmap {
-extern int n_sections;
-
-std::vector<matrix::section> compute_drop_sections(matrix::CSRMatrix<> mat);
+std::bitset<N_SECTIONS> compute_bitmap(matrix::CSRMatrix<> mat);
 } // namespace bitmap

@@ -9,34 +9,29 @@
 
 namespace mults {
 
-BaselineAdvanced::BaselineAdvanced(int rank, int n_nodes,
-                                   partition::Partitions partitions,
-                                   std::string path_A,
-                                   std::vector<midx_t> *keep_rows,
-                                   std::string path_B,
-                                   std::vector<midx_t> *keep_cols)
+Outer::Outer(int rank, int n_nodes, partition::Partitions partitions,
+             std::string path_A, std::vector<midx_t> *keep_rows,
+             std::string path_B, std::vector<midx_t> *keep_cols)
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows),
       first_part_B(path_B, false, nullptr, keep_cols),
-      cells(part_A.height, partitions[n_nodes - 1].end_col) {
-  // drop_sections = bitmap::compute_drop_sections(part_A);
-}
+      cells(part_A.height, partitions[n_nodes - 1].end_col) {}
 
-void BaselineAdvanced::save_result(std::string path) {
+void Outer::save_result(std::string path) {
   matrix::CSRMatrix result(cells);
   result.save(path);
 }
 
-size_t BaselineAdvanced::get_B_serialization_size() {
+size_t Outer::get_B_serialization_size() {
   return first_part_B.serialize()->size();
 }
 
-void BaselineAdvanced::reset() {
+void Outer::reset() {
   cells =
       std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
 }
-void BaselineAdvanced::gemm(std::vector<size_t> serialized_sizes_B_bytes,
-                            size_t max_size_B_bytes) {
+void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
+                 size_t max_size_B_bytes) {
 
   // Buffer where the receiving partitions will be stored
   auto receiving_B_buffer =
