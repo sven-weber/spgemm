@@ -3,6 +3,8 @@ project(dphpc)
 include(FetchContent)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(N_SECTIONS 2048 CACHE STRING "Number of sections in which each partition is split")
+
 # OpenMP
 find_package(OpenMP)
 
@@ -22,7 +24,7 @@ find_package(CombBLAS)
 
 set(CMAKE_CXX_STANDARD 20)
 set(GCC_COVERAGE_COMPILE_FLAGS "-Wall -Wextra -Werror -pedantic -lm -O3 -funroll-loops")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}") #-DNSHUFFLE
 
 set(CMAKE_CXX_FLAGS_DEBUG_INIT "-ggdb -fno-omit-frame-pointer")
 set(CMAKE_CXX_FLAGS_RELEASE_INIT "-DNDEBUG")
@@ -42,5 +44,8 @@ target_include_directories(dphpc PRIVATE ${HEADERS})
 if(OpenMP_CXX_FOUND)
     target_link_libraries(dphpc PUBLIC OpenMP::OpenMP_CXX)
 endif()
+
+target_compile_definitions(dphpc PUBLIC N_SECTIONS=${N_SECTIONS})
+
 target_link_libraries(dphpc PUBLIC MPI::MPI_CXX)
 target_link_libraries(dphpc PUBLIC CombBLAS)
