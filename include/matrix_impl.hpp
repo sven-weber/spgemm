@@ -129,10 +129,10 @@ Cells<T> get_cells(std::string file_path, bool transposed,
   return cells;
 }
 
-template <typename T = double, class Alloc = std::allocator<char>>
+template <typename T = double, class Allocator = std::allocator<char>>
 class CSRMatrix {
 private:
-  std::shared_ptr<std::vector<char, Alloc>> data;
+  std::shared_ptr<std::vector<char, Allocator>> data;
   Fields *fields;
 
   // Returns the expected size of data in bytes
@@ -227,6 +227,23 @@ public:
     values = _values;
   }
 
+  // Copy constructor
+  CSRMatrix(const CSRMatrix &mtx, const Allocator &alloc = Allocator()) : data(mtx.data) {
+    // Copy over the fields
+    height = mtx.height;
+    width = mtx.width;
+    non_zeros = mtx.non_zeros;
+    transposed = mtx.transposed;
+    
+    //Adjust the field pointers
+    fields = utils::get_fields(data);
+
+    auto [_row_ptr, _col_idx, _values] = get_offsets();
+    row_ptr = _row_ptr;
+    col_idx = _col_idx;
+    values = _values;
+  }
+
   ~CSRMatrix() = default;
 
   SmallVec<T> row(midx_t i) {
@@ -264,7 +281,7 @@ public:
   std::shared_ptr<std::vector<char>> serialize() { return data; }
 };
 
-template <typename T = double, class Alloc = std::allocator<char>>
+template <typename T = double, class Allocator = std::allocator<char>>
 class BlockedCSRMatrix {
 private:
   std::shared_ptr<std::vector<char>> data;
@@ -285,7 +302,7 @@ public:
   ~BlockedCSRMatrix() = default;
 
   SmallVec<T> row(midx_t i);
-  CSRMatrix<T, Alloc> block(midx_t i);
+  CSRMatrix<T, Allocator> block(midx_t i);
 
   BlockedCSRMatrix filter(std::bitset<N_SECTIONS> bitmap);
 
