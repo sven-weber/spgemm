@@ -251,8 +251,8 @@ public:
   }
 
   // Copy constructor
-  CSRMatrix(const CSRMatrix &mtx, const Allocator &alloc = Allocator())
-      : data(mtx.data, alloc) {
+  CSRMatrix(const CSRMatrix &mtx, const Allocator &alloc = Allocator()) {
+    data = make_shared<std::vector<char>>(*mtx.data, alloc);
     // Copy over the fields
     height = mtx.height;
     width = mtx.width;
@@ -348,7 +348,7 @@ private:
   void compute_csrs_from_blocked_fields() {
     char *start = data->data();
     for (size_t i; i < blocked_fields->n_sections; ++i) {
-      csrs[i] = start + blocked_fields->section_offst[i];
+      csrs[i] = static_cast<CSRMatrix<T, Allocator> *>(static_cast<void *>(&start[blocked_fields->section_offst[i]]));
     }
   }
 
@@ -359,9 +359,10 @@ public:
 
   BlockedCSRMatrix(std::string file_path,
                    std::vector<midx_t> *keep_cols = nullptr)
-      : data(initial_data_size()),
-        blocked_fields(utils::get_blocked_fields(data)), csrs(4, nullptr),
+      : blocked_fields(utils::get_blocked_fields(data)), csrs(4, nullptr),
         alloc(data), width(0), height(0), non_zeros(0) {
+    data = std::make_shared<std::vector<char>>(initial_data_size());
+    blocked_fields = utils::get_blocked_fields(data);
     static_assert(N_SECTIONS > 1);
     blocked_fields->n_sections = N_SECTIONS;
 
