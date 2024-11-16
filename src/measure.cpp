@@ -34,6 +34,11 @@ Measure::Measure() : measurements({}) {
 
 void Measure::track_bytes(size_t bytes) { _bytes += bytes; }
 
+void Measure::flush_bytes() { 
+  _bytes_measurements.push_back(_bytes);
+  reset_bytes();
+}
+
 void Measure::reset_bytes() { _bytes = 0; }
 
 size_t Measure::bytes() { return _bytes; }
@@ -43,6 +48,10 @@ void Measure::track(const std::string func, const MeasurementEvent event) {
   auto point = MeasurementPoint(func, event, time);
   // This should never result in an extra allocation
   measurements.push_back(point);
+}
+
+std::vector<size_t> Measure::bytes_measurements() {
+  return _bytes_measurements;
 }
 
 std::vector<Interval> Measure::intervals() {
@@ -96,8 +105,9 @@ void Measure::save(std::string path) {
   assert(!csv.fail());
 
   csv << "func,duration,bytes" << std::endl;
-
-  csv << "bytes,0," << _bytes << std::endl;
+  auto bytes_data = Measure::get_instance()->bytes_measurements();
+  for (auto i : bytes_data)
+    csv << "bytes,0," << i << std::endl;
 
   auto data = Measure::get_instance()->intervals();
   for (auto i : data)

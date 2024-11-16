@@ -165,6 +165,7 @@ int main(int argc, char **argv) {
     measure_point(measure::gemm, measure::MeasurementEvent::START);
     mult->gemm(serialized_sizes_B_bytes, max_B_bytes_size);
     measure_point(measure::gemm, measure::MeasurementEvent::END);
+    measure::Measure::get_instance()->flush_bytes();
   }
 
   measure_point(measure::global, measure::MeasurementEvent::END);

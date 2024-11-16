@@ -46,6 +46,7 @@ class Measure {
 private:
   static Measure *instance;
   std::vector<MeasurementPoint> measurements;
+  std::vector<size_t> _bytes_measurements;
   size_t _bytes;
 
 public:
@@ -54,8 +55,10 @@ public:
 
   void track(const std::string func, const MeasurementEvent event);
   void track_bytes(size_t bytes);
+  void flush_bytes();
   void reset_bytes();
   std::vector<Interval> intervals();
+  std::vector<size_t> bytes_measurements();
   void save(const std::string path);
   size_t bytes();
   void reset();
