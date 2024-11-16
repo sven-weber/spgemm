@@ -20,10 +20,11 @@ void write_to_file(std::string name, std::string path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc < 7) {
+  if (argc < 6) {
     std::cerr
         << "Did not get enough arguments. Expected <matrix_path> <run_path>"
         << std::endl;
+    exit(1);
   }
 
   std::string algo_name = argv[1];
@@ -40,7 +41,6 @@ int main(int argc, char **argv) {
 
   int n_runs = std::stoi(argv[4]);
   int n_warmup = std::stoi(argv[5]);
-  bitmap::n_sections = std::stoi(argv[6]);
 
   // Init MPI
   int rank, n_nodes;

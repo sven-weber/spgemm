@@ -5,7 +5,7 @@
 
 namespace parts {
 namespace baseline {
-partition::Partitions partition(matrix::CSRMatrix &C, int mpi_size) {
+partition::Partitions partition(matrix::CSRMatrix<> &C, int mpi_size) {
   partition::Partitions p(mpi_size);
 
   int rows_per_partition = C.height / mpi_size;

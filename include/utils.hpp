@@ -17,7 +17,8 @@ void visualize_raw(double *data, midx_t height, midx_t width,
 /**
  * Visualizes the matrix for debugging
  */
-void visualize(matrix::CSRMatrix &csr, const std::string &name);
+template <typename T = double>
+void visualize(matrix::CSRMatrix<T> &csr, const std::string &name);
 
 /**
  * Prints the given partition to std out for debugging

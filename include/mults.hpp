@@ -32,9 +32,9 @@ public:
 
 class CSRMatrixMultiplication : public MatrixMultiplication {
 protected:
-  matrix::CSRMatrix part_A;
-  matrix::CSRMatrix first_part_B;
-  matrix::Cells cells;
+  matrix::CSRMatrix<> part_A;
+  matrix::CSRMatrix<> first_part_B;
+  matrix::Cells<> cells;
   std::vector<matrix::section> drop_sections;
   CSRMatrixMultiplication(int rank, int n_nodes,
                           partition::Partitions partitions, std::string path_A,
@@ -77,9 +77,9 @@ public:
 
 class BaselineAdvanced : public MatrixMultiplication {
 protected:
-  matrix::CSRMatrix part_A;
-  matrix::CSRMatrix first_part_B;
-  matrix::Cells cells;
+  matrix::CSRMatrix<> part_A;
+  matrix::CSRMatrix<> first_part_B;
+  matrix::Cells<> cells;
   std::vector<matrix::section> drop_sections;
 
 public:

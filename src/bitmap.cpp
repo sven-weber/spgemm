@@ -5,7 +5,7 @@
 namespace bitmap {
 int n_sections;
 
-std::vector<matrix::section> compute_drop_sections(matrix::CSRMatrix mat) {
+std::vector<matrix::section> compute_drop_sections(matrix::CSRMatrix<> mat) {
   auto drop_sections = std::vector<matrix::section>();
   int section_width = ceil((float)mat.width / (float)n_sections);
 

@@ -24,7 +24,8 @@ void visualize_raw(double *data, midx_t height, midx_t width,
 #endif
 
 #ifndef NDEBUG
-void visualize(matrix::CSRMatrix &csr, const std::string &name) {
+template <typename T>
+void visualize(matrix::CSRMatrix<T> &csr, const std::string &name) {
   auto matrix = std::vector<double>(csr.height * csr.width, 0);
 
   for (midx_t i = 0; i < csr.height; i++) {
@@ -59,7 +60,8 @@ void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size) {
 }
 #else
 // We hope this get optimized away :)
-void visualize(matrix::CSRMatrix &, const std::string &) {}
+template <typename T>
+void visualize(matrix::CSRMatrix<T> &, const std::string &) {}
 void print_partitions(partition::Partitions &, size_t) {}
 void print_serialized_sizes(std::vector<size_t> &, size_t) {}
 #endif
