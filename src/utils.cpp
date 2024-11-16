@@ -60,7 +60,7 @@ void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size) {
 #else
 // We hope this get optimized away :)
 void visualize(matrix::CSRMatrix &, const std::string &) {}
-void print_partitions(partition::Partitions &, midx_t) {}
+void print_partitions(partition::Partitions &, size_t) {}
 void print_serialized_sizes(std::vector<size_t> &, size_t) {}
 #endif
 
