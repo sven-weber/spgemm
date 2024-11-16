@@ -81,9 +81,9 @@ int main(int argc, char **argv) {
   }
 
   // Broadcast the shuffled rows and columns
-  MPI_Bcast(A_shuffle.data(), sizeof(size_t) * A_shuffle.size(), MPI_BYTE,
+  MPI_Bcast(A_shuffle.data(), sizeof(midx_t) * A_shuffle.size(), MPI_BYTE,
             MPI_ROOT_ID, MPI_COMM_WORLD);
-  MPI_Bcast(B_shuffle.data(), sizeof(size_t) * B_shuffle.size(), MPI_BYTE,
+  MPI_Bcast(B_shuffle.data(), sizeof(midx_t) * B_shuffle.size(), MPI_BYTE,
             MPI_ROOT_ID, MPI_COMM_WORLD);
 
   // Do the partitioning
@@ -100,10 +100,10 @@ int main(int argc, char **argv) {
             MPI_BYTE, MPI_ROOT_ID, MPI_COMM_WORLD);
 
   // Determine which rows/colums to run
-  std::vector<size_t> keep_rows(&A_shuffle[partitions[rank].start_row],
+  std::vector<midx_t> keep_rows(&A_shuffle[partitions[rank].start_row],
                                 &A_shuffle[partitions[rank].end_row]);
 
-  std::vector<size_t> keep_cols(&B_shuffle[partitions[rank].start_col],
+  std::vector<midx_t> keep_cols(&B_shuffle[partitions[rank].start_col],
                                 &B_shuffle[partitions[rank].end_col]);
 
   mults::MatrixMultiplication *mult = NULL;
@@ -111,8 +111,8 @@ int main(int argc, char **argv) {
     mult = new mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows,
                                B_path, &keep_cols);
   } else if (algo_name == "advanced") {
-    mult = new mults::BaselineAdvanced(
-        rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
+    mult = new mults::BaselineAdvanced(rank, n_nodes, partitions, A_path,
+                                       &keep_rows, B_path, &keep_cols);
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);

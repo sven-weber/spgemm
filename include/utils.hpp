@@ -11,7 +11,7 @@ namespace utils {
 /**
  * Visualizes a raw matrix data
  */
-void visualize_raw(double *data, size_t height, size_t width,
+void visualize_raw(double *data, midx_t height, midx_t width,
                    const std::string &name);
 
 /**

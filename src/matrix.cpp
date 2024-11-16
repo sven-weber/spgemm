@@ -11,9 +11,9 @@
 
 namespace matrix {
 
-Cells::Cells(size_t height, size_t width, size_t non_zeros)
+Cells::Cells(midx_t height, midx_t width, midx_t non_zeros)
     : height(height), width(width),
-      non_zero_per_row(std::vector<size_t>(height, 0)) {}
+      non_zero_per_row(std::vector<midx_t>(height, 0)) {}
 
 void Cells::add(CellPos pos, double val) {
   assert(pos.first < non_zero_per_row.size());
@@ -27,16 +27,16 @@ void Cells::add(CellPos pos, double val) {
   _cells[pos] = val;
 }
 
-size_t Cells::cells_in_row(size_t row) {
+midx_t Cells::cells_in_row(midx_t row) {
   assert(row < non_zero_per_row.size());
   return non_zero_per_row[row];
 }
 
-size_t Cells::non_zeros() { return _cells.size(); }
+midx_t Cells::non_zeros() { return _cells.size(); }
 
 Fields read_fields(std::string file_path, bool transposed,
-                   std::vector<size_t> *keep_rows,
-                   std::vector<size_t> *keep_cols) {
+                   std::vector<midx_t> *keep_rows,
+                   std::vector<midx_t> *keep_cols) {
   std::ifstream stream(file_path);
   if (!stream.is_open()) {
     std::cout << "could not open file (reading): " << file_path << std::endl;
@@ -51,7 +51,7 @@ Fields read_fields(std::string file_path, bool transposed,
 
   // first non-comment line is going to be:
   // <height> <width> <non_zero>
-  size_t width, height, non_zeros;
+  midx_t width, height, non_zeros;
   if (transposed) {
     line_stream >> width;
     line_stream >> height;
@@ -77,16 +77,16 @@ Fields read_fields(std::string file_path, bool transposed,
 }
 
 Cells get_cells(std::string file_path, bool transposed,
-                std::vector<size_t> *keep_rows,
-                std::vector<size_t> *keep_cols) {
-  auto keep_rows_map = std::unordered_map<size_t, size_t>();
+                std::vector<midx_t> *keep_rows,
+                std::vector<midx_t> *keep_cols) {
+  auto keep_rows_map = std::unordered_map<midx_t, midx_t>();
   if (keep_rows != nullptr)
-    for (size_t i = 0; i < keep_rows->size(); ++i) {
+    for (midx_t i = 0; i < keep_rows->size(); ++i) {
       keep_rows_map.insert({(*keep_rows)[i], i});
     }
-  auto keep_cols_map = std::unordered_map<size_t, size_t>();
+  auto keep_cols_map = std::unordered_map<midx_t, midx_t>();
   if (keep_cols != nullptr)
-    for (size_t i = 0; i < keep_cols->size(); ++i) {
+    for (midx_t i = 0; i < keep_cols->size(); ++i) {
       keep_cols_map.insert({(*keep_cols)[i], i});
     }
   bool full = keep_rows == nullptr && keep_cols == nullptr;
@@ -104,7 +104,7 @@ Cells get_cells(std::string file_path, bool transposed,
   // read non-zeros
   auto l = fields.non_zeros;
   while (l--) {
-    size_t _row, _col;
+    midx_t _row, _col;
     double val;
     stream >> _row;
     stream >> _col;
@@ -137,35 +137,35 @@ Fields *get_fields(std::shared_ptr<std::vector<char>> serialized_data) {
 }
 
 // Returns the expected size of data in bytes
-size_t CSRMatrix::expected_data_size() {
-  return sizeof(Fields) + ((height + 1) * sizeof(size_t)) +
-         (non_zeros * sizeof(size_t)) + (non_zeros * sizeof(double));
+midx_t CSRMatrix::expected_data_size() {
+  return sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
+         (non_zeros * sizeof(midx_t)) + (non_zeros * sizeof(double));
 }
 
-std::tuple<size_t *, size_t *, double *> CSRMatrix::get_offsets() {
+std::tuple<midx_t *, midx_t *, double *> CSRMatrix::get_offsets() {
   assert(data->size() == expected_data_size());
   char *data_ptr = data->data();
 
   // Make sure things that come after fields are memory-aligned
-  assert(sizeof(Fields) % sizeof(size_t) == 0);
+  assert(sizeof(Fields) % sizeof(midx_t) == 0);
 
-  size_t *row_ptr = (size_t *)(data_ptr + sizeof(Fields));
-  size_t *col_idx =
-      (size_t *)(((char *)row_ptr) + ((height + 1) * sizeof(size_t)));
-  double *values = (double *)(((char *)col_idx) + (non_zeros * sizeof(size_t)));
+  midx_t *row_ptr = (midx_t *)(data_ptr + sizeof(Fields));
+  midx_t *col_idx =
+      (midx_t *)(((char *)row_ptr) + ((height + 1) * sizeof(midx_t)));
+  double *values = (double *)(((char *)col_idx) + (non_zeros * sizeof(midx_t)));
 
-  assert((size_t)((char *)row_ptr - data_ptr) == sizeof(Fields));
-  assert((size_t)((char *)col_idx - (char *)row_ptr) ==
-         (height + 1) * sizeof(size_t));
-  assert((size_t)((char *)values - (char *)col_idx) ==
-         non_zeros * sizeof(size_t));
+  assert((midx_t)((char *)row_ptr - data_ptr) == sizeof(Fields));
+  assert((midx_t)((char *)col_idx - (char *)row_ptr) ==
+         (height + 1) * sizeof(midx_t));
+  assert((midx_t)((char *)values - (char *)col_idx) ==
+         non_zeros * sizeof(midx_t));
 
   return {row_ptr, col_idx, values};
 }
 
 CSRMatrix::CSRMatrix(std::string file_path, bool transposed,
-                     std::vector<size_t> *keep_rows,
-                     std::vector<size_t> *keep_cols)
+                     std::vector<midx_t> *keep_rows,
+                     std::vector<midx_t> *keep_cols)
     : CSRMatrix(get_cells(file_path, transposed, keep_rows, keep_cols),
                 transposed) {}
 
@@ -194,12 +194,12 @@ CSRMatrix::CSRMatrix(Cells cells, bool transposed)
   values = _values;
 
   row_ptr[0] = 0;
-  for (size_t i = 1; i <= height; ++i) {
+  for (midx_t i = 1; i <= height; ++i) {
     row_ptr[i] = row_ptr[i - 1] + cells.cells_in_row(i - 1);
   }
 
   // Fill values and col_index arrays using row_ptr
-  auto next_pos_in_row = std::vector<size_t>(height + 1, 0);
+  auto next_pos_in_row = std::vector<midx_t>(height + 1, 0);
   for (auto [pos, val] : cells._cells) {
     auto [row, col] = pos;
 
@@ -220,21 +220,21 @@ CSRMatrix::CSRMatrix(std::shared_ptr<std::vector<char>> serialized_data)
   values = _values;
 }
 
-SmallVec CSRMatrix::row(size_t i) {
+SmallVec CSRMatrix::row(midx_t i) {
   assert(!transposed);
   assert(i < height);
   auto offst = row_ptr[i];
   return {values + offst, col_idx + offst, row_ptr[i + 1] - offst};
 }
 
-SmallVec CSRMatrix::col(size_t j) {
+SmallVec CSRMatrix::col(midx_t j) {
   assert(transposed);
   assert(j < height);
   auto offst = row_ptr[j];
   return {values + offst, col_idx + offst, row_ptr[j + 1] - offst};
 }
 
-void write_matrix_market(std::string file_path, size_t height, size_t width,
+void write_matrix_market(std::string file_path, midx_t height, midx_t width,
                          std::vector<Cell> &lines) {
   std::ofstream stream(file_path);
   if (!stream.is_open()) {
@@ -256,9 +256,9 @@ void write_matrix_market(std::string file_path, size_t height, size_t width,
 
 void CSRMatrix::save(std::string file_path) {
   auto lines = std::vector<Cell>(non_zeros);
-  size_t l = 0;
-  for (size_t row = 0; row < height; ++row) {
-    for (size_t j = row_ptr[row]; j < row_ptr[row + 1]; ++j) {
+  midx_t l = 0;
+  for (midx_t row = 0; row < height; ++row) {
+    for (midx_t j = row_ptr[row]; j < row_ptr[row + 1]; ++j) {
       auto col = col_idx[j];
       if (!transposed)
         lines[l] = {{row, col}, values[j]};
@@ -273,19 +273,19 @@ void CSRMatrix::save(std::string file_path) {
 }
 
 template <typename T>
-static inline void insertcpy(std::vector<T> &dst, T *src, size_t amt) {
+static inline void insertcpy(std::vector<T> &dst, T *src, midx_t amt) {
   dst.insert(dst.end(), src, src + amt);
 }
 
 CSRMatrix CSRMatrix::submatrix(std::vector<section> remove_sections) {
-  auto new_row_ptr = std::vector<size_t>(height + 1);
-  auto new_col_idx = std::vector<size_t>();
+  auto new_row_ptr = std::vector<midx_t>(height + 1);
+  auto new_col_idx = std::vector<midx_t>();
   auto new_values = std::vector<double>();
 
-  size_t offst = 0;
+  midx_t offst = 0;
 
   auto sec = remove_sections.begin();
-  for (size_t i = 0; i < height; ++i) {
+  for (midx_t i = 0; i < height; ++i) {
     while (i >= sec->second)
       ++sec;
 
@@ -312,9 +312,9 @@ CSRMatrix CSRMatrix::submatrix(std::vector<section> remove_sections) {
 // DO NOT WRITE TO THE OUTPUT OF THIS
 std::shared_ptr<std::vector<char>> CSRMatrix::serialize() { return data; }
 
-size_t Matrix::expected_data_size() {
+midx_t Matrix::expected_data_size() {
   return sizeof(Fields) +
-         ((height * sizeof(size_t)) * (width * sizeof(size_t)));
+         ((height * sizeof(midx_t)) * (width * sizeof(midx_t)));
 }
 
 double *Matrix::get_offset() {
@@ -322,11 +322,11 @@ double *Matrix::get_offset() {
   char *data_ptr = raw_data->data();
 
   // Make sure things that come after fields are memory-aligned
-  assert(sizeof(Fields) % sizeof(size_t) == 0);
+  assert(sizeof(Fields) % sizeof(midx_t) == 0);
   return (double *)(data_ptr + sizeof(Fields));
 }
 
-Matrix::Matrix(size_t height, size_t width, bool transposed)
+Matrix::Matrix(midx_t height, midx_t width, bool transposed)
     : Matrix(Fields{
           .transposed = transposed,
           .height = height,
@@ -346,7 +346,7 @@ Matrix::Matrix(Fields fs)
 #define pos(i, j) ((i) * width + j)
 
 Matrix::Matrix(std::string file_path, bool transposed,
-               std::vector<size_t> *keep_rows, std::vector<size_t> *keep_cols)
+               std::vector<midx_t> *keep_rows, std::vector<midx_t> *keep_cols)
     : Matrix(read_fields(file_path, transposed, keep_rows, keep_cols)) {
   auto cells = get_cells(file_path, transposed, keep_rows, keep_cols);
   for (auto [pos, val] : cells._cells) {
@@ -362,8 +362,8 @@ Matrix::Matrix(std::shared_ptr<std::vector<char>> serialized_data)
 
 void Matrix::save(std::string file_path) {
   auto lines = std::vector<Cell>();
-  for (size_t i = 0; i < height; ++i) {
-    for (size_t j = 0; j < width; ++j) {
+  for (midx_t i = 0; i < height; ++i) {
+    for (midx_t j = 0; j < width; ++j) {
       auto v = data[pos(i, j)];
       if (v != 0) {
         CellPos pos;

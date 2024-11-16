@@ -1,5 +1,6 @@
 #pragma once
 
+#include "matrix.hpp"
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -7,17 +8,17 @@
 namespace partition {
 
 typedef struct Partition {
-  size_t start_row;
-  size_t end_row;
-  size_t start_col;
-  size_t end_col;
+  midx_t start_row;
+  midx_t end_row;
+  midx_t start_col;
+  midx_t end_col;
 } Partition;
 
 typedef std::vector<Partition> Partitions;
 
 void save_partitions(Partitions &partitions, std::string file);
 
-typedef std::vector<size_t> Shuffle;
+typedef std::vector<midx_t> Shuffle;
 
 Shuffle shuffle(size_t size);
 

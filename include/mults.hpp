@@ -38,8 +38,8 @@ protected:
   std::vector<matrix::section> drop_sections;
   CSRMatrixMultiplication(int rank, int n_nodes,
                           partition::Partitions partitions, std::string path_A,
-                          std::vector<size_t> *keep_rows, std::string path_B,
-                          std::vector<size_t> *keep_cols);
+                          std::vector<midx_t> *keep_rows, std::string path_B,
+                          std::vector<midx_t> *keep_cols);
 
 public:
   void save_result(std::string path) override;
@@ -56,8 +56,8 @@ protected:
 public:
   FullMatrixMultiplication(int rank, int n_nodes,
                            partition::Partitions partitions, std::string path_A,
-                           std::vector<size_t> *keep_rows, std::string path_B,
-                           std::vector<size_t> *keep_cols);
+                           std::vector<midx_t> *keep_rows, std::string path_B,
+                           std::vector<midx_t> *keep_cols);
 
   void save_result(std::string path) override;
   size_t get_B_serialization_size() override;
@@ -69,8 +69,8 @@ public:
 class Baseline : public CSRMatrixMultiplication {
 public:
   Baseline(int rank, int n_nodes, partition::Partitions partitions,
-           std::string path_A, std::vector<size_t> *keep_rows,
-           std::string path_B, std::vector<size_t> *keep_cols);
+           std::string path_A, std::vector<midx_t> *keep_rows,
+           std::string path_B, std::vector<midx_t> *keep_cols);
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
 };
@@ -84,8 +84,8 @@ protected:
 
 public:
   BaselineAdvanced(int rank, int n_nodes, partition::Partitions partitions,
-                   std::string path_A, std::vector<size_t> *keep_rows,
-                   std::string path_B, std::vector<size_t> *keep_cols);
+                   std::string path_A, std::vector<midx_t> *keep_rows,
+                   std::string path_B, std::vector<midx_t> *keep_cols);
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
 

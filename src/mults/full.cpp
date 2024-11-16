@@ -6,8 +6,8 @@ namespace mults {
 
 FullMatrixMultiplication::FullMatrixMultiplication(
     int rank, int n_nodes, partition::Partitions partitions, std::string path_A,
-    std::vector<size_t> *keep_rows, std::string path_B,
-    std::vector<size_t> *keep_cols)
+    std::vector<midx_t> *keep_rows, std::string path_B,
+    std::vector<midx_t> *keep_cols)
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, true, keep_cols),
       result(part_A.height, partitions[n_nodes - 1].end_col) {}
@@ -53,15 +53,15 @@ void FullMatrixMultiplication::gemm(
                         recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
 
     // Matrix multiplication
-    for (size_t row = 0; row < part_A.height; row++) {
+    for (midx_t row = 0; row < part_A.height; row++) {
       // Note: B is transposed!
       double *row_data = &part_A.data[row * part_A.width];
-      for (size_t col = 0; col < part_B->height; col++) {
+      for (midx_t col = 0; col < part_B->height; col++) {
         // TODO: check that part_B->width is what we expect
         double *col_data = &part_B->data[col * part_B->width];
         double res = 0;
-        size_t col_elem = 0, row_elem = 0;
-        for (size_t i = 0; i < part_A.width; ++i)
+        midx_t col_elem = 0, row_elem = 0;
+        for (midx_t i = 0; i < part_A.width; ++i)
           res += row_data[i] * col_data[i];
 
         // TODO: Why are we producing nulls?

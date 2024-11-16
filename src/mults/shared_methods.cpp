@@ -8,8 +8,8 @@ MatrixMultiplication::MatrixMultiplication(int rank, int n_nodes,
 
 CSRMatrixMultiplication::CSRMatrixMultiplication(
     int rank, int n_nodes, partition::Partitions partitions, std::string path_A,
-    std::vector<size_t> *keep_rows, std::string path_B,
-    std::vector<size_t> *keep_cols)
+    std::vector<midx_t> *keep_rows, std::string path_B,
+    std::vector<midx_t> *keep_cols)
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, true, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col) {}

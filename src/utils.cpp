@@ -8,18 +8,18 @@
 namespace utils {
 
 #ifndef NDEBUG
-void visualize_raw(double *data, size_t height, size_t width,
+void visualize_raw(double *data, midx_t height, midx_t width,
                    const std::string &name) {
-  for (size_t i = 0; i < height; i++) {
+  for (midx_t i = 0; i < height; i++) {
     std::cout << name << " " << i << ":\t";
-    for (size_t j = 0; j < width; j++) {
+    for (midx_t j = 0; j < width; j++) {
       std::cout << data[(i * width) + j] << "\t";
     }
     std::cout << "\n";
   }
 }
 #else
-void visualize_raw(double *data, size_t height, size_t width,
+void visualize_raw(double *data, midx_t height, midx_t width,
                    const std::string &name) {}
 #endif
 
@@ -27,7 +27,7 @@ void visualize_raw(double *data, size_t height, size_t width,
 void visualize(matrix::CSRMatrix &csr, const std::string &name) {
   auto matrix = std::vector<double>(csr.height * csr.width, 0);
 
-  for (size_t i = 0; i < csr.height; i++) {
+  for (midx_t i = 0; i < csr.height; i++) {
     auto pos = csr.row_ptr[i];
     auto end = csr.row_ptr[i + 1];
 
@@ -60,7 +60,7 @@ void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size) {
 #else
 // We hope this get optimized away :)
 void visualize(matrix::CSRMatrix &, const std::string &) {}
-void print_partitions(partition::Partitions &, size_t) {}
+void print_partitions(partition::Partitions &, midx_t) {}
 void print_serialized_sizes(std::vector<size_t> &, size_t) {}
 #endif
 

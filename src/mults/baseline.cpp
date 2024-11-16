@@ -10,8 +10,8 @@
 namespace mults {
 
 Baseline::Baseline(int rank, int n_nodes, partition::Partitions partitions,
-                   std::string path_A, std::vector<size_t> *keep_rows,
-                   std::string path_B, std::vector<size_t> *keep_cols)
+                   std::string path_A, std::vector<midx_t> *keep_rows,
+                   std::string path_B, std::vector<midx_t> *keep_cols)
     : CSRMatrixMultiplication(rank, n_nodes, partitions, path_A, keep_rows,
                               path_B, keep_cols) {}
 
@@ -46,13 +46,13 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
 
     measure_point(measure::mult, measure::MeasurementEvent::START);
     // Matrix multiplication
-    for (size_t row = 0; row < part_A.height; row++) {
+    for (midx_t row = 0; row < part_A.height; row++) {
       // Note: B is transposed!
       auto [row_data, row_pos, row_len] = part_A.row(row);
-      for (size_t col = 0; col < part_B->height; col++) {
+      for (midx_t col = 0; col < part_B->height; col++) {
         auto [col_data, col_pos, col_len] = part_B->col(col);
         double res = 0;
-        size_t col_elem = 0, row_elem = 0;
+        midx_t col_elem = 0, row_elem = 0;
         // inner loop for multiplication
         while (col_elem < col_len && row_elem < row_len) {
           if (col_pos[col_elem] < row_pos[row_elem]) {

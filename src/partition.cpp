@@ -1,15 +1,15 @@
-#include "partition.hpp"
-
 #include <algorithm>
 #include <cassert>
 #include <fstream>
 #include <iostream>
 #include <random>
 
+#include "partition.hpp"
+
 namespace partition {
 
 Shuffle shuffle(size_t size) {
-  auto shuffled = std::vector<size_t>(size);
+  auto shuffled = Shuffle(size);
 
   for (size_t i = 0; i < size; i++) {
     shuffled[i] = i;
