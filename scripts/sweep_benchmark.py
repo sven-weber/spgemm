@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 
 CMD             = "./build/dphpc"
 RUNS_DIR        = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
-N_WARMUP        = 5
-N_RUNS          = 10
+N_WARMUP        = 0
+N_RUNS          = 2
 N_SECTIONS      = 1
 MAXIMUM_MEMORY  = 128
 FILE_NAME       = "measurements"
@@ -49,13 +49,17 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False) -> str:
     if euler:
         mem_per_core = int(math.floor(MAXIMUM_MEMORY/nodes))
         print(f"Running with {mem_per_core} GB memory per core")
-        cmd = ["sbatch",
+        cmd = [
+            "sbatch",
             "--wait",
-            "--nodefile=euler_nodes.txt",
+            #"--nodefile=euler_nodes.txt",
             f"--mem-per-cpu={mem_per_core}G",
-            "-n", str(nodes), 
+            "--constraint=EPYC_7742",
+            "-n", str(nodes),
+            "-N", "1", # 1 node
             "--wrap",
-            f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {N_SECTIONS}"]
+            f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {N_SECTIONS}"
+        ]
     else:
         cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), str(N_SECTIONS)]
     result = subprocess.run(
@@ -89,11 +93,14 @@ def load_algorithm(folder_path: str) -> str:
     with open(join(folder_path, "algo"), "r") as f:
         return f.read().strip()
 
+def load_matrix(folder_path: str) -> str:
+    with open(join(folder_path, "matrix"), "r") as f:
+        return f.read().strip()
+
 # Because there may be multiple function names in the same file
-def aggregate_vertically(dataframes: DataFrames):
+def load_duration_as_numeric(dataframes: DataFrames):
     for node_id, df in dataframes.items():
         df["duration"] = pd.to_numeric(df["duration"], errors="coerce")
-        df = df.groupby("func").mean().reset_index()
         dataframes[node_id] = df
 
 # To have the average, min and max for each function across the different files (each file is one node)
@@ -103,6 +110,8 @@ def aggregate_horizontally(dataframes: DataFrames) -> pd.DataFrame:
     for func_name in all_func_names:
         func_dfs = [df[df["func"] == func_name] for df in dataframes.values()]
         concatenated = pd.concat(func_dfs)
+        print(func_name)
+        print(concatenated)
         avg_time = concatenated["duration"].mean()
         min_time = concatenated["duration"].min()
         max_time = concatenated["duration"].max()
@@ -115,6 +124,12 @@ def aggregate_horizontally(dataframes: DataFrames) -> pd.DataFrame:
     aggregated_df = pd.DataFrame(aggregated_data)
     return aggregated_df
 
+
+# Groups the runs of all nodes together to get the maximu
+# for each line in the CSV (the slowest node)
+def group_runs(dataframes: DataFrames) -> pd.DataFrame:
+    return pd.concat(dataframes).groupby(level=1).max()
+
 def graph_multiple_runs(folders: List[str]) -> Dict[str, pd.DataFrame]:
     timings_per_algo = {}
     for folder_path in folders:
@@ -125,38 +140,61 @@ def graph_multiple_runs(folders: List[str]) -> Dict[str, pd.DataFrame]:
 
         # Load DFs
         dataframes = load_timings(folder_path)
-        aggregate_vertically(dataframes)
+        load_duration_as_numeric(dataframes)
 
         # Aggregate horizontally timings related to same function
-        aggregated_df = aggregate_horizontally(dataframes)
-        aggregated_df['nodes'] = len(dataframes)
-        timings_per_algo[algo] = pd.concat([timings_per_algo[algo], aggregated_df], axis=0)
+        grouped_df = group_runs(dataframes)        
+        grouped_df['nodes'] = len(dataframes)
+        timings_per_algo[algo] = pd.concat([timings_per_algo[algo], grouped_df], axis=0)
     
     #Print the results:
     for algo in timings_per_algo:
         print(f"Aggregated data for {algo}")
         print(timings_per_algo[algo])
     
-    return timings_per_algo
+    matrix = load_matrix(folders[-1])
+    return (matrix, timings_per_algo)
 
-def plot_timings_increasingnodes(data: Dict[str, pd.DataFrame], linear: bool):
+def plot_timings_increasingnodes(data: Dict[str, pd.DataFrame], matrix: str, linear: bool):
     _, ax = plt.subplots()
     for algo in data:
         timings = data[algo]
         func_data = timings[timings["func"] == "gemm"]
-        timing_data = func_data["avg_time"]/(10**6)
-        eb = [(func_data['avg_time'] - func_data['min_time'])/(10**6), (func_data['max_time'] - func_data['avg_time'])/(10**6)]
+        
+        # Get the average, min and max of the function execution
+        timing_data = pd.DataFrame({
+            "nodes": [],
+            "avg_time": [],
+            "min_time": [],
+            "max_time": [],
+        })
+
+        grouped = func_data.groupby("nodes")
+        conversion_const = (10**6)
+        for i, (key, _) in enumerate(grouped):
+            duration = grouped.get_group(key)["duration"]
+            avg_time = duration.mean()/conversion_const
+            min_time = duration.min()/conversion_const
+            max_time = duration.max()/conversion_const
+            timing_data.loc[i] = [int(key), avg_time, min_time, max_time]
+
+        # Calculate the error bars
+        eb = [
+            (timing_data['avg_time'] - timing_data['min_time']),
+            (timing_data['max_time'] - timing_data['avg_time'])
+        ]
 
         color = None
         if algo in COLOR_MAP:
             color = COLOR_MAP[algo]
-        ax.errorbar(func_data["nodes"], timing_data, yerr=eb, fmt='-o', label=algo, color=color)
+
+        #
+        ax.errorbar(timing_data["nodes"], timing_data["avg_time"],  yerr=eb, fmt='-o', label=algo, color=color)
 
         if (linear):
             # Calculate a linear progression based on the first timing point
             initial_time = timing_data.iloc[0]  # Timing for the first number of nodes
             linear_progression = initial_time * (1 / (func_data["nodes"] / func_data["nodes"].iloc[0]))
-            #print(linear_progression)
 
             # Plot the linear progression line
             ax.plot(func_data["nodes"], linear_progression, linestyle='--', color=color, label="Linear Speedup")
@@ -164,7 +202,7 @@ def plot_timings_increasingnodes(data: Dict[str, pd.DataFrame], linear: bool):
     # Set labels, title, and legend
     ax.set_xlabel("Nodes")
     ax.set_ylabel("Time (ms)")
-    ax.set_title("Time vs Nodes")
+    ax.set_title(f"Time vs Nodes on {matrix}")
     ax.legend()
     plt.savefig(join(RUNS_DIR, "timings_plot.png"))
 
@@ -214,5 +252,5 @@ if __name__ == "__main__":
                 if run_result != "":
                     folders.append(run_result)
 
-    timings = graph_multiple_runs(folders)
-    plot_timings_increasingnodes(timings, args.plot_linear)
+    (matrix, timings) = graph_multiple_runs(folders)
+    plot_timings_increasingnodes(timings, matrix, args.plot_linear)
