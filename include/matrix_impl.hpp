@@ -313,7 +313,8 @@ private:
 
   size_t initial_data_size() { return sizeof(BlockedFields); }
 
-  utils::vector_memory_resource alloc;
+  utils::vector_memory_resource vms;
+  Allocator alloc;
 
   std::vector<CSRMatrix<T, Allocator> *> csrs;
   std::map<midx_t, CSRMatrix<T, Allocator> *> start_row_to_csrs;
@@ -348,7 +349,8 @@ private:
   void compute_csrs_from_blocked_fields() {
     char *start = data->data();
     for (size_t i; i < blocked_fields->n_sections; ++i) {
-      csrs[i] = static_cast<CSRMatrix<T, Allocator> *>(static_cast<void *>(&start[blocked_fields->section_offst[i]]));
+      csrs[i] = static_cast<CSRMatrix<T, Allocator> *>(
+          static_cast<void *>(&start[blocked_fields->section_offst[i]]));
     }
   }
 
@@ -360,9 +362,13 @@ public:
   BlockedCSRMatrix(std::string file_path,
                    std::vector<midx_t> *keep_cols = nullptr)
       : blocked_fields(utils::get_blocked_fields(data)), csrs(4, nullptr),
-        alloc(data), width(0), height(0), non_zeros(0) {
+        width(0), height(0), non_zeros(0) {
     data = std::make_shared<std::vector<char>>(initial_data_size());
     blocked_fields = utils::get_blocked_fields(data);
+
+    vms = utils::vector_memory_resource(data);
+    alloc = std::pmr::polymorphic_allocator<std::byte>(&vms);
+
     static_assert(N_SECTIONS > 1);
     blocked_fields->n_sections = N_SECTIONS;
 
@@ -403,7 +409,9 @@ public:
     auto new_data = std::make_shared<std::vector<char>>(initial_data_size());
     auto bf = utils::get_blocked_fields(data);
     bf->n_sections = bitmap.count();
-    auto alloc = utils::vector_memory_resource(new_data);
+
+    auto new_vms = utils::vector_memory_resource(new_data);
+    auto new_alloc = std::pmr::polymorphic_allocator<std::byte>(&vms);
 
     size_t j = 0;
     size_t section_height = height / blocked_fields->n_sections;
@@ -411,6 +419,7 @@ public:
       if (!bitmap[i])
         continue;
 
+      CSRMatrix(csrs[i], new_alloc);
       bf->section_offst[j] = new_data->size();
       bf->section_start_row[j] = blocked_fields->section_start_row[i];
     }
