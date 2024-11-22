@@ -36,21 +36,22 @@ get_blocked_fields(std::shared_ptr<std::vector<std::byte>> serialized_data);
 
 template <typename T> class ContiguousAllocator {
 private:
-  std::shared_ptr<std::vector<T>> data;
-
-  T *start() { return data->data(); }
-  T *end() { return start() + data->size(); }
+  std::shared_ptr<std::vector<T, std::allocator<T>>> data;
+  T *begin() { return &(*data->begin()); }
+  T *end() { return &(*data->end()); }
 
 public:
   using value_type = T;
 
-  ContiguousAllocator() = default;
+  ContiguousAllocator() {
+    assert(false && "ContiguousAllocator cannot be default-instantiated");
+  }
   ContiguousAllocator(std::shared_ptr<std::vector<std::byte>> &data)
       : data(data) {}
 
   template <typename U>
   constexpr ContiguousAllocator(const ContiguousAllocator<U> &c) noexcept {
-    c.data = std::make_shared(*c.data);
+    c.data = c.data;
   }
 
   T *allocate(size_t n) {
@@ -63,7 +64,8 @@ public:
   }
 
   void deallocate(T *p, std::size_t n) noexcept {
-    if (p < start() || p + n > end()) {
+    std::cout << "deallocating " << n << " types" << std::endl;
+    if (p < begin() || p + n > end()) {
       throw std::bad_alloc();
     }
     // We can only de-allocate from the end;
@@ -236,7 +238,8 @@ public:
             std::vector<midx_t> *keep_rows = nullptr,
             std::vector<midx_t> *keep_cols = nullptr,
             const Allocator &alloc = Allocator())
-      : CSRMatrix(get_cells<T>(file_path, tr, keep_rows, keep_cols), tr) {}
+      : CSRMatrix(get_cells<T>(file_path, tr, keep_rows, keep_cols), tr,
+                  alloc) {}
 
   CSRMatrix(Cells<T> cells, bool tr = false,
             const Allocator &alloc = Allocator())
@@ -281,7 +284,8 @@ public:
     }
   }
 
-  CSRMatrix(std::shared_ptr<std::vector<std::byte, Allocator>> &serialized_data)
+  CSRMatrix(std::shared_ptr<std::vector<std::byte, Allocator>> &serialized_data,
+            const Allocator &alloc = Allocator())
       : data(serialized_data), fields(utils::get_fields(serialized_data)),
         height(fields->height), width(fields->width),
         non_zeros(fields->non_zeros), transposed(fields->transposed) {
@@ -292,8 +296,10 @@ public:
   }
 
   // Copy constructor
-  CSRMatrix(const CSRMatrix &mtx, const Allocator &alloc = Allocator()) {
-    data = std::make_shared<std::vector<std::byte>>(*mtx.data, alloc);
+  CSRMatrix(const CSRMatrix<T, Allocator> &mtx,
+            const Allocator &alloc = Allocator())
+      : data(std::make_shared<std::vector<std::byte, Allocator>>(
+            *mtx.data.get(), alloc)) {
     // Copy over the fields
     height = mtx.height;
     width = mtx.width;
@@ -343,20 +349,23 @@ public:
   }
 
   // DO NOT WRITE TO THE OUTPUT OF THIS
-  std::shared_ptr<std::vector<std::byte>> serialize() { return data; }
+  std::shared_ptr<std::vector<std::byte, Allocator>> serialize() {
+    return data;
+  }
 };
 
-template <typename T = double, class Allocator = std::allocator<std::byte>>
-class BlockedCSRMatrix {
+template <typename T = double> class BlockedCSRMatrix {
+  using Allocator = utils::ContiguousAllocator<std::byte>;
+
 private:
-  std::shared_ptr<std::vector<std::byte, Allocator>> data;
+  std::shared_ptr<std::vector<std::byte, std::allocator<std::byte>>> data;
   BlockedFields *blocked_fields;
 
   size_t initial_data_size() { return sizeof(BlockedFields); }
 
-  utils::ContiguousAllocator<std::byte> alloc;
+  Allocator alloc;
 
-  std::vector<CSRMatrix<T, Allocator> *> csrs;
+  std::vector<CSRMatrix<T, Allocator>> csrs;
   std::map<midx_t, CSRMatrix<T, Allocator> *> start_row_to_csrs;
 
   void compute_class_fields() {
@@ -381,7 +390,7 @@ private:
     size_t section_height = height / blocked_fields->n_sections;
     std::byte *start = data->data();
     for (size_t i; i < blocked_fields->n_sections; ++i) {
-      blocked_fields->section_offst[i] = csrs[i]->data->data() - start;
+      blocked_fields->section_offst[i] = csrs[i].serialize()->data() - start;
       blocked_fields->section_start_row[i] = section_height * i;
     }
   }
@@ -402,15 +411,15 @@ public:
   BlockedCSRMatrix(std::string file_path,
                    std::vector<midx_t> *keep_cols = nullptr)
       : data(std::make_shared<std::vector<std::byte>>(initial_data_size())),
-        blocked_fields(utils::get_blocked_fields(data)), alloc(data),
-        csrs(4, nullptr), width(0), height(0), non_zeros(0) {
+        blocked_fields(utils::get_blocked_fields(data)), alloc(data), csrs(),
+        width(0), height(0), non_zeros(0) {
 
     static_assert(N_SECTIONS > 1);
     blocked_fields->n_sections = N_SECTIONS;
 
     for (size_t i; i < blocked_fields->n_sections; ++i) {
-      csrs[i] = new CSRMatrix<T, Allocator>(file_path, false, nullptr,
-                                            keep_cols, alloc);
+      csrs.push_back(
+          CSRMatrix<T, Allocator>(file_path, false, nullptr, keep_cols, alloc));
     }
 
     compute_class_fields();
@@ -427,7 +436,7 @@ public:
 
   ~BlockedCSRMatrix() {
     for (size_t i; i < blocked_fields->n_sections; ++i) {
-      free(csrs[i]);
+      csrs[i];
     }
   }
 
@@ -437,9 +446,9 @@ public:
     return csrs[block_i]->row(rel);
   }
 
-  CSRMatrix<T, Allocator> *block(midx_t i) {
+  CSRMatrix<T, Allocator> &block(midx_t i) {
     assert(i < N_SECTIONS);
-    return &csrs[i];
+    return csrs[i];
   }
 
   BlockedCSRMatrix filter(std::bitset<N_SECTIONS> bitmap) {
