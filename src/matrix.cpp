@@ -5,7 +5,6 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <memory_resource>
 #include <sstream>
 #include <vector>
 
@@ -54,7 +53,6 @@ Fields read_fields(std::string file_path, bool transposed,
   stream.close();
 }
 
-
 void write_matrix_market(std::string file_path, midx_t height, midx_t width,
                          std::vector<Cell<>> &lines) {
   std::ofstream stream(file_path);
@@ -74,43 +72,6 @@ void write_matrix_market(std::string file_path, midx_t height, midx_t width,
 
   stream.close();
 }
-
-void *vector_memory_resource::do_allocate(size_t bytes, size_t alignment) {
-  assert(offst == buf->size());
-  size_t aligned_offst = (offst + alignment - 1) & ~(alignment - 1);
-
-  if (aligned_offst + bytes > buf->size()) {
-    size_t new_cap = std::max(buf->size() * 2, aligned_offst + bytes);
-    buf->resize(new_cap);
-  }
-
-  void *result = buf->data() + aligned_offst;
-  offst = aligned_offst + bytes;
-  assert(offst == buf->size());
-  return result;
-}
-
-void vector_memory_resource::do_deallocate(void *ptr, size_t bytes,
-                                           size_t alignment) {
-  assert(offst == buf->size());
-  size_t dealloc_offst = static_cast<char *>(ptr) - buf->data();
-  if (dealloc_offst + bytes == offst) {
-    offst = dealloc_offst;
-    buf->resize(offst);
-    // buf->shrink_to_fit();
-  }
-  assert(offst == buf->size());
-}
-
-// Override for equality comparison
-bool vector_memory_resource::do_is_equal(
-    const std::pmr::memory_resource &other) const noexcept {
-  return this == &other;
-}
-
-vector_memory_resource::vector_memory_resource(
-    std::shared_ptr<std::vector<char>> buf)
-    : buf(buf), offst(buf->size()) {}
 
 BlockedFields *
 get_blocked_fields(std::shared_ptr<std::vector<char>> serialized_data) {

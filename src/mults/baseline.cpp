@@ -19,9 +19,9 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                     size_t max_size_B_bytes) {
   // Buffer where the receiving partitions will be stored
   auto receiving_B_buffer =
-      std::make_shared<std::vector<char>>(max_size_B_bytes);
+      std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
   auto received_B_buffer =
-      std::make_shared<std::vector<char>>(max_size_B_bytes);
+      std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
 
   // Zero-copy serialized representation of B to send around
   auto serialized = first_part_B.serialize();
