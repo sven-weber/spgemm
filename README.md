@@ -31,8 +31,6 @@ python3 scripts/fetch_matrices.py
 
 ## Run on euler
 
-TODO!!
-
 ```console
 source euler/init.sh
 ```
@@ -59,4 +57,36 @@ Run the benchmark:
 
 ```console
 python3 scripts/sweep_benchmark.py --impl baseline --matrix first --min 10 --max 10 --stride 1 --euler
+```
+
+## Run on Piz Daint (CSCS)
+
+1. Generate key-pair via:
+
+[https://sshservice.cscs.ch/](https://sshservice.cscs.ch/)
+
+2. Copy those key-pairs into your ssh folder
+
+3. Run
+
+```console
+ssh-add -t 1d ~/.ssh/cscs-key
+```
+
+4. Add the following to your ssh config
+
+```bash
+Host daint
+    HostName daint
+    User ltagliav
+    ProxyJump ltagliav@ela.cscs.ch
+    AddKeysToAgent yes
+    IdentityFile ~/.ssh/cscs-key
+    ForwardAgent yes
+```
+
+5. Connect via
+
+```console
+ssh daint
 ```
