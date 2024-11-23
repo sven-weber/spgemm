@@ -37,29 +37,36 @@ get_blocked_fields(std::shared_ptr<std::vector<std::byte>> serialized_data);
 template <typename T> class ContiguousAllocator {
 private:
   std::shared_ptr<std::vector<T, std::allocator<T>>> data;
-  T *begin() { return &(*data->begin()); }
-  T *end() { return &(*data->end()); }
+  T *begin() { return data->data(); }
+  T *end() { return data->data() + data->size(); }
 
 public:
   using value_type = T;
 
-  ContiguousAllocator() {
-    assert(false && "ContiguousAllocator cannot be default-instantiated");
-  }
+  ContiguousAllocator() = delete;
+  /*{*/
+  /*  assert(false && "ContiguousAllocator cannot be default-instantiated");*/
+  /*}*/
   ContiguousAllocator(std::shared_ptr<std::vector<std::byte>> &data)
       : data(data) {}
 
   template <typename U>
   constexpr ContiguousAllocator(const ContiguousAllocator<U> &c) noexcept {
+    std::cout << "CoPy COnSTruCtoR" << std::endl;
     c.data = c.data;
   }
 
   T *allocate(size_t n) {
+    std::cout << "allocating " << n << " types" << std::endl;
+    std::cout << "before allocation, vector size: " << data->size()
+              << ", vector pointer: " << data->data() << std::endl;
     if (n > std::allocator_traits<ContiguousAllocator>::max_size(*this)) {
       throw std::bad_alloc();
     }
     T *ptr = end();
     data->resize(data->size() + n);
+    std::cout << "after allocation, vector size: " << data->size()
+              << " vector pointer: " << data->data() << std::endl;
     return ptr;
   }
 
@@ -73,11 +80,12 @@ public:
     data->resize(data->size() - n);
   }
 
-  template <typename U, typename... Args> void construct(U *p, Args &&...args) {
-    new (p) U(std::forward<Args>(args)...);
-  }
-
-  template <typename U> void destroy(U *p) noexcept { p->~U(); }
+  /*template <typename U, typename... Args> void construct(U *p, Args &&...args)
+   * {*/
+  /*  new (p) U(std::forward<Args>(args)...);*/
+  /*}*/
+  /**/
+  /*template <typename U> void destroy(U *p) noexcept { p->~U(); }*/
 
   friend bool operator==(const ContiguousAllocator &a,
                          const ContiguousAllocator &b) {
@@ -198,11 +206,12 @@ private:
   std::shared_ptr<std::vector<std::byte, Allocator>> data;
   Fields *fields;
 
-  // Returns the expected size of data in bytes
   size_t expected_data_size() {
     return sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
            (non_zeros * sizeof(midx_t)) + (non_zeros * sizeof(T));
   }
+
+  // Returns the expected size of data in bytes
   std::tuple<midx_t *, midx_t *, T *> get_offsets() {
     assert(data->size() == expected_data_size());
     std::byte *data_ptr = data->data();
@@ -413,11 +422,21 @@ public:
       : data(std::make_shared<std::vector<std::byte>>(initial_data_size())),
         blocked_fields(utils::get_blocked_fields(data)), alloc(data), csrs(),
         width(0), height(0), non_zeros(0) {
-
     static_assert(N_SECTIONS > 1);
     blocked_fields->n_sections = N_SECTIONS;
 
+    // Compute how much space will be needed for the CSR representation
+    auto fields = utils::read_fields(file_path, false, nullptr, keep_cols);
+    auto expected_size = ((sizeof(T) + sizeof(midx_t)) * fields.non_zeros) +
+                         // The + N_SECTIONS accounts for a wasted space in the
+                         // row_ptr in every CSRMatrix
+                         ((sizeof(midx_t)) * (fields.height + N_SECTIONS)) +
+                         (sizeof(Fields) * N_SECTIONS);
+    std::cout << "expected data size " << expected_size << std::endl;
+    data->reserve(data->size() + expected_size);
+
     for (size_t i; i < blocked_fields->n_sections; ++i) {
+      // TODO: compute keep_rows
       csrs.push_back(
           CSRMatrix<T, Allocator>(file_path, false, nullptr, keep_cols, alloc));
     }
