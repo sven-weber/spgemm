@@ -20,7 +20,7 @@ Drop::Drop(int rank, int n_nodes, partition::Partitions partitions,
       bitmap(bitmap::compute_bitmap(part_A)) {}
 
 void Drop::save_result(std::string path) {
-  matrix::CSRMatrix result(cells);
+  matrix::ManagedCSRMatrix result(cells);
   result.save(path);
 }
 
