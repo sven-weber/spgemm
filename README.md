@@ -90,3 +90,31 @@ Host daint
 ```console
 ssh daint
 ```
+
+6. Init
+
+```console
+source daint/init.sh
+```
+
+7. Install dependencies
+
+```console
+pip3 install -r requirements.txt
+```
+
+```console
+python3 scripts/fetch_matrices.py --daint
+```
+
+Build for release:
+
+```console
+make optimize
+```
+
+Run the benchmark:
+
+```console
+python3 scripts/sweep_benchmark.py --impl baseline --matrix first --min 10 --max 10 --stride 1 --daint
+```

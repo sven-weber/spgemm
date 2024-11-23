@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List, Literal
+from typing import Dict, List
 from os.path import join
 import pandas as pd
 import subprocess
@@ -35,12 +35,12 @@ def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
 
 # Does a run of the CMD with mpi using `nodes` nodes and returns
 # the run folder.
-def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False) -> str:
+def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool = False) -> str:
     if should_skip_run(impl, matrix, nodes):
         print(f"CAUTION: Skipping run with {nodes} nodes!!!")
         return ""
     
-    print(f"Running with {nodes} nodes")
+    print(f"Running with {nodes} cores")
     date = datetime.now().strftime("%Y-%m-%d-%T")
     id = f"{date}-{nodes}"
     folder = join(RUNS_DIR, id)
@@ -59,6 +59,24 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False) -> str:
             "-N", "1", # 1 node
             "--wrap",
             f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {N_SECTIONS}"
+        ]
+    elif daint:
+        # Running on broadwell cluster with 2 sockets - 18 cores each per machine 
+        number_of_nodes = int(math.ceil(nodes / 36.0))
+        mem_per_core = 1
+        print(f"Running on {number_of_nodes} machines with {mem_per_core}G memory per core.")
+        cmd = [
+            "sbatch",
+            "--wait", 
+            "--constraint=mc", # Constraint to XC40
+            "-n", str(nodes), # Number of cores
+            "--ntasks-per-core=1",
+            "--switches=1", # Make sure we are in the same electircal group
+            f"--mem-per-cpu={mem_per_core}G",
+            "-N", str(number_of_nodes), # 1 node
+            "-A", "g34", # The project we use
+            "--wrap",
+            f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {N_SECTIONS}"
         ]
     else:
         cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), str(N_SECTIONS)]
@@ -133,8 +151,9 @@ def graph_multiple_runs(folders: List[str]) -> Dict[str, pd.DataFrame]:
     matrix = load_matrix(folders[-1])
     return (matrix, timings_per_algo)
 
+#property: Literal["duration", "bytes"]
 def plot_increasingnodes(
-    ax, function: str, property: Literal["duration", "bytes"],
+    ax, function: str, property, 
     scaling_factor, data: Dict[str, pd.DataFrame], linear: bool
 ):
     for algo in data:
@@ -238,10 +257,13 @@ if __name__ == "__main__":
     parser.add_argument('--max', type=int, required=False, default=4)
     parser.add_argument('--stride', type=int, required=False, default=1)
     parser.add_argument('--euler', action="store_true")
+    parser.add_argument('--daint', action="store_true")
     parser.add_argument('--skip_run', action="store_true")
     parser.add_argument('--quadratic', required=False, action="store_true")
     parser.add_argument('--plot_linear', required=False, action="store_true")
     args = parser.parse_args()
+
+    assert not (args.euler and args.daint)
 
     folders = []
 
@@ -257,7 +279,7 @@ if __name__ == "__main__":
             for n in range(args.min, args.max+1, args.stride):
                 if args.quadratic:
                     n = n*n
-                run_result = run_mpi(impl, args.matrix, n, args.euler)
+                run_result = run_mpi(impl, args.matrix, n, args.euler, args.daint)
                 if run_result != "":
                     folders.append(run_result)
 

@@ -8,7 +8,6 @@
 #include "utils.hpp"
 
 #include <algorithm>
-#include <format>
 #include <fstream>
 #include <iostream>
 #include <mpi.h>
@@ -29,15 +28,15 @@ int main(int argc, char **argv) {
 
   std::string algo_name = argv[1];
   std::string matrix_name = argv[2];
-  std::string A_path = std::format("matrices/{}/A.mtx", matrix_name);
-  std::string B_path = std::format("matrices/{}/B.mtx", matrix_name);
+  std::string A_path = utils::format("matrices/{}/A.mtx", matrix_name);
+  std::string B_path = utils::format("matrices/{}/B.mtx", matrix_name);
   std::string C_sparsity_path =
-      std::format("matrices/{}/C_sparsity.mtx", matrix_name);
+      utils::format("matrices/{}/C_sparsity.mtx", matrix_name);
 
   std::string run_path = argv[3];
-  std::string partitions_path = std::format("{}/partitions.csv", run_path);
-  std::string A_shuffle_path = std::format("{}/A_shuffle", run_path);
-  std::string B_shuffle_path = std::format("{}/B_shuffle", run_path);
+  std::string partitions_path = utils::format("{}/partitions.csv", run_path);
+  std::string A_shuffle_path = utils::format("{}/A_shuffle", run_path);
+  std::string B_shuffle_path = utils::format("{}/B_shuffle", run_path);
 
   int n_runs = std::stoi(argv[4]);
   int n_warmup = std::stoi(argv[5]);
@@ -47,9 +46,9 @@ int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &n_nodes);
-  std::string C_path = std::format("{}/C_{}.mtx", run_path, rank);
+  std::string C_path = utils::format("{}/C_{}.mtx", run_path, rank);
   std::string measurements_path =
-      std::format("{}/measurements_{}.csv", run_path, rank);
+      utils::format("{}/measurements_{}.csv", run_path, rank);
 
   // Custom cout that prepends MPI rank
 #ifndef NDEBUG
@@ -60,9 +59,9 @@ int main(int argc, char **argv) {
   measure_point(measure::global, measure::MeasurementEvent::START);
 
   if (rank == MPI_ROOT_ID) {
-    std::string matrix_name_path = std::format("{}/matrix", run_path);
+    std::string matrix_name_path = utils::format("{}/matrix", run_path);
     write_to_file(matrix_name, matrix_name_path);
-    std::string algo_name_path = std::format("{}/algo", run_path);
+    std::string algo_name_path = utils::format("{}/algo", run_path);
     write_to_file(algo_name, algo_name_path);
   }
 
@@ -117,7 +116,7 @@ int main(int argc, char **argv) {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
   } else if (algo_name == "comb") {
-    C_path = std::format("{}/C.mtx", run_path);
+    C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLASMatrixMultiplication(rank, n_nodes, partitions,
                                                    A_path);
   } else {
