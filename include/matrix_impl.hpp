@@ -7,7 +7,6 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
-#include <new>
 #include <unordered_map>
 #include <vector>
 
@@ -43,22 +42,21 @@ private:
 public:
   using value_type = T;
 
-  ContiguousAllocator() = delete;
-  /*{*/
-  /*  assert(false && "ContiguousAllocator cannot be default-instantiated");*/
-  /*}*/
+  ContiguousAllocator() : data(nullptr) {}
   ContiguousAllocator(std::shared_ptr<std::vector<std::byte>> &data)
       : data(data) {}
 
   template <typename U>
   constexpr ContiguousAllocator(const ContiguousAllocator<U> &c) noexcept {
-    std::cout << "CoPy COnSTruCtoR" << std::endl;
     c.data = c.data;
   }
 
   T *allocate(size_t n) {
+    assert(data != nullptr &&
+           "ContiguousAllocator was constructed with the default constructor");
     std::cout << "allocating " << n << " types" << std::endl;
     std::cout << "before allocation, vector size: " << data->size()
+              << ", vector capacity: " << data->capacity()
               << ", vector pointer: " << data->data() << std::endl;
     if (n > std::allocator_traits<ContiguousAllocator>::max_size(*this)) {
       throw std::bad_alloc();
@@ -71,13 +69,15 @@ public:
   }
 
   void deallocate(T *p, std::size_t n) noexcept {
+    assert(data != nullptr &&
+           "ContiguousAllocator was constructed with the default constructor");
     std::cout << "deallocating " << n << " types" << std::endl;
     if (p < begin() || p + n > end()) {
       throw std::bad_alloc();
     }
     // We can only de-allocate from the end;
-    assert(p + n == end());
-    data->resize(data->size() - n);
+    // assert(p + n == end());
+    // data->resize(data->size() - n);
   }
 
   /*template <typename U, typename... Args> void construct(U *p, Args &&...args)
@@ -309,6 +309,7 @@ public:
             const Allocator &alloc = Allocator())
       : data(std::make_shared<std::vector<std::byte, Allocator>>(
             *mtx.data.get(), alloc)) {
+    std::cout << "CSRMatrix CoPY ConsTRuCtOR" << std::endl;
     // Copy over the fields
     height = mtx.height;
     width = mtx.width;
@@ -374,23 +375,23 @@ private:
 
   Allocator alloc;
 
-  std::vector<CSRMatrix<T, Allocator>> csrs;
-  std::map<midx_t, CSRMatrix<T, Allocator> *> start_row_to_csrs;
+  std::shared_ptr<CSRMatrix<T, Allocator>> *csrs;
+  std::map<midx_t, std::shared_ptr<CSRMatrix<T, Allocator>>> start_row_to_csrs;
 
   void compute_class_fields() {
-    width = csrs[0].width;
+    width = csrs[0]->width;
 
 #ifndef NDEBUG
-    for (size_t i; i < blocked_fields->n_sections; ++i) {
-      assert(csrs[i].width == width);
+    for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
+      assert(csrs[i]->width == width);
     }
 #endif
 
-    for (size_t i; i < blocked_fields->n_sections; ++i) {
-      start_row_to_csrs[blocked_fields->section_start_row[i]] = &csrs[i];
+    for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
+      start_row_to_csrs[blocked_fields->section_start_row[i]] = csrs[i];
 
-      height += csrs[i].height;
-      non_zeros += csrs[i].non_zeros;
+      height += csrs[i]->height;
+      non_zeros += csrs[i]->non_zeros;
     }
   }
 
@@ -398,15 +399,15 @@ private:
     // Here we assume all sections are filled
     size_t section_height = height / blocked_fields->n_sections;
     std::byte *start = data->data();
-    for (size_t i; i < blocked_fields->n_sections; ++i) {
-      blocked_fields->section_offst[i] = csrs[i].serialize()->data() - start;
+    for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
+      blocked_fields->section_offst[i] = csrs[i]->serialize()->data() - start;
       blocked_fields->section_start_row[i] = section_height * i;
     }
   }
 
   void compute_csrs_from_blocked_fields() {
     std::byte *start = data->data();
-    for (size_t i; i < blocked_fields->n_sections; ++i) {
+    for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
       csrs[i] = static_cast<CSRMatrix<T, Allocator> *>(
           static_cast<void *>(&start[blocked_fields->section_offst[i]]));
     }
@@ -420,25 +421,41 @@ public:
   BlockedCSRMatrix(std::string file_path,
                    std::vector<midx_t> *keep_cols = nullptr)
       : data(std::make_shared<std::vector<std::byte>>(initial_data_size())),
-        blocked_fields(utils::get_blocked_fields(data)), alloc(data), csrs(),
-        width(0), height(0), non_zeros(0) {
-    static_assert(N_SECTIONS > 1);
-    blocked_fields->n_sections = N_SECTIONS;
+        alloc(data), csrs() {
+    // TODO: non_zeros does not take filtering on the column into account
+    auto fields = utils::read_fields(file_path, false, nullptr, keep_cols);
+    height = fields.height;
+    width = fields.width;
+    non_zeros = fields.non_zeros;
 
     // Compute how much space will be needed for the CSR representation
-    auto fields = utils::read_fields(file_path, false, nullptr, keep_cols);
-    auto expected_size = ((sizeof(T) + sizeof(midx_t)) * fields.non_zeros) +
+    auto expected_size = ((sizeof(T) + sizeof(midx_t)) * non_zeros) +
                          // The + N_SECTIONS accounts for a wasted space in the
                          // row_ptr in every CSRMatrix
-                         ((sizeof(midx_t)) * (fields.height + N_SECTIONS)) +
+                         ((sizeof(midx_t)) * (height + N_SECTIONS)) +
                          (sizeof(Fields) * N_SECTIONS);
-    std::cout << "expected data size " << expected_size << std::endl;
+
     data->reserve(data->size() + expected_size);
 
-    for (size_t i; i < blocked_fields->n_sections; ++i) {
-      // TODO: compute keep_rows
-      csrs.push_back(
-          CSRMatrix<T, Allocator>(file_path, false, nullptr, keep_cols, alloc));
+    static_assert(N_SECTIONS > 1);
+    blocked_fields = utils::get_blocked_fields(data);
+    blocked_fields->n_sections = N_SECTIONS;
+
+    csrs = new std::shared_ptr<
+        CSRMatrix<T, Allocator>>[blocked_fields->n_sections];
+
+    auto partition_height = height / blocked_fields->n_sections;
+    for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
+      // TODO: the last partition could be larger
+      std::vector<midx_t> keep_rows;
+      auto end = (i == (blocked_fields->n_sections-1)) ? height : (i + 1) * partition_height;
+      for (size_t j = i * partition_height; j < end;
+           ++j) {
+        keep_rows.push_back(j);
+      }
+
+      csrs[i] = std::make_shared<CSRMatrix<T, Allocator>>(
+          file_path, false, &keep_rows, keep_cols, alloc);
     }
 
     compute_class_fields();
@@ -453,11 +470,7 @@ public:
     compute_class_fields();
   }
 
-  ~BlockedCSRMatrix() {
-    for (size_t i; i < blocked_fields->n_sections; ++i) {
-      csrs[i];
-    }
-  }
+  ~BlockedCSRMatrix() { delete[] csrs; }
 
   SmallVec<T> row(midx_t i) {
     auto rel = i % N_SECTIONS;
@@ -465,7 +478,7 @@ public:
     return csrs[block_i]->row(rel);
   }
 
-  CSRMatrix<T, Allocator> &block(midx_t i) {
+  std::shared_ptr<CSRMatrix<T, Allocator>> block(midx_t i) {
     assert(i < N_SECTIONS);
     return csrs[i];
   }
@@ -480,7 +493,7 @@ public:
 
     size_t j = 0;
     size_t section_height = height / blocked_fields->n_sections;
-    for (size_t i; i < blocked_fields->n_sections; ++i) {
+    for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
       if (!bitmap[i])
         continue;
 
