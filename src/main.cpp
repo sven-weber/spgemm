@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
     partition::save_shuffle(B_shuffle, B_shuffle_path);
 
     // Do the partitioning
-    partitions = parts::baseline::partition(C, n_nodes);
+    partitions = parts::baseline::balanced_partition(C, n_nodes);
     utils::print_partitions(partitions, n_nodes);
 
     partition::save_partitions(partitions, partitions_path);
@@ -124,11 +124,6 @@ int main(int argc, char **argv) {
     std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
     MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
               &bitmaps[0], sizeof(std::bitset<N_SECTIONS>), MPI_BYTE, MPI_COMM_WORLD);
-    // MPI_Gather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
-    //           &bitmaps[0], sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
-    //           MPI_ROOT_ID, MPI_COMM_WORLD);
-    // MPI_Bcast(&bitmaps[0], sizeof(std::bitset<N_SECTIONS>) * n_nodes, MPI_BYTE,
-    //           MPI_ROOT_ID, MPI_COMM_WORLD);
     tmp->bitmaps = bitmaps;
 
     // Share serialization sizes

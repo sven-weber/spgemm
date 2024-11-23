@@ -16,9 +16,8 @@ Drop::Drop(int rank, int n_nodes, partition::Partitions partitions,
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows),
       first_part_B(path_B, keep_cols),
-      cells(part_A.height, partitions[n_nodes - 1].end_col) {
-        bitmap = bitmap::compute_bitmap(part_A);
-      }
+      cells(part_A.height, partitions[n_nodes - 1].end_col),
+      bitmap(bitmap::compute_bitmap(part_A)) {}
 
 void Drop::save_result(std::string path) {
   matrix::CSRMatrix result(cells);
@@ -61,6 +60,7 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   for (int i = 0; i < n_nodes; i++) {
     // Resize buffer to the correct size (should not free/alloc memory)
     receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
+    
     auto send_blocks = first_part_B.filter(bitmaps[send_rank]).serialize();
     communication::send(send_blocks->data(), send_blocks->size(),
                         MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &requests[0]);
