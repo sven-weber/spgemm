@@ -1,6 +1,7 @@
 #include "bitmap.hpp"
 #include "communication.hpp"
 #include "matrix.hpp"
+#include "matrix_impl.hpp"
 #include "measure.hpp"
 #include "mults.hpp"
 #include "partition.hpp"
@@ -13,57 +14,11 @@
 #include <iostream>
 #include <mpi.h>
 
-void write_to_file(std::string name, std::string path) {
-  std::ofstream f(path);
-  f << name << std::endl;
-  f.close();
-}
-
 int main(int argc, char **argv) {
-  if (argc < 6) {
-    std::cerr
-        << "Did not get enough arguments. Expected <matrix_path> <run_path>"
-        << std::endl;
-    exit(1);
-  }
-
-  std::string algo_name = argv[1];
-  std::string matrix_name = argv[2];
-  std::string A_path = std::format("matrices/{}/A.mtx", matrix_name);
-  std::string B_path = std::format("matrices/{}/B.mtx", matrix_name);
-  std::string C_sparsity_path =
-      std::format("matrices/{}/C_sparsity.mtx", matrix_name);
-
-  std::string run_path = argv[3];
-  std::string partitions_path = std::format("{}/partitions.csv", run_path);
-  std::string A_shuffle_path = std::format("{}/A_shuffle", run_path);
-  std::string B_shuffle_path = std::format("{}/B_shuffle", run_path);
-
-  int n_runs = std::stoi(argv[4]);
-  int n_warmup = std::stoi(argv[5]);
-
-  // Init MPI
-  int rank, n_nodes;
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &n_nodes);
-  std::string C_path = std::format("{}/C_{}.mtx", run_path, rank);
-  std::string measurements_path =
-      std::format("{}/measurements_{}.csv", run_path, rank);
-
-  // Custom cout that prepends MPI rank
-#ifndef NDEBUG
-  utils::CoutWithMPIRank custom_cout(rank);
-  std::cout << "Started with algo " << algo_name << std::endl;
-#endif
-
-  measure_point(measure::global, measure::MeasurementEvent::START);
-
-  if (rank == MPI_ROOT_ID) {
-    std::string matrix_name_path = std::format("{}/matrix", run_path);
-    write_to_file(matrix_name, matrix_name_path);
-    std::string algo_name_path = std::format("{}/algo", run_path);
-    write_to_file(algo_name, algo_name_path);
+  matrix::BlockedCSRMatrix<> m("matrices/test/A.mtx");
+  for (size_t i = 0; i < N_SECTIONS; ++i) {
+    auto b = m.block(i);
+    utils::visualize(b.get(), std::format(" m.b{}", i));
   }
 
   // Load sparsity

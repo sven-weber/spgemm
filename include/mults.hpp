@@ -33,8 +33,8 @@ public:
 
 class CSRMatrixMultiplication : public MatrixMultiplication {
 protected:
-  matrix::CSRMatrix<> part_A;
-  matrix::CSRMatrix<> first_part_B;
+  matrix::ManagedCSRMatrix<> part_A;
+  matrix::ManagedCSRMatrix<> first_part_B;
   matrix::Cells<> cells;
   std::vector<matrix::section> drop_sections;
   CSRMatrixMultiplication(int rank, int n_nodes,
@@ -78,8 +78,8 @@ public:
 
 class Outer : public MatrixMultiplication {
 protected:
-  matrix::CSRMatrix<> part_A;
-  matrix::CSRMatrix<> first_part_B;
+  matrix::ManagedCSRMatrix<> part_A;
+  matrix::ManagedCSRMatrix<> first_part_B;
   matrix::Cells<> cells;
 
 public:
@@ -96,7 +96,7 @@ public:
 
 class Drop : public MatrixMultiplication {
 protected:
-  matrix::CSRMatrix<> part_A;
+  matrix::ManagedCSRMatrix<> part_A;
   matrix::BlockedCSRMatrix<> first_part_B;
   matrix::Cells<> cells;
 
