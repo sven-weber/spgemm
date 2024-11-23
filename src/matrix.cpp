@@ -73,9 +73,8 @@ void write_matrix_market(std::string file_path, midx_t height, midx_t width,
   stream.close();
 }
 
-BlockedFields *
-get_blocked_fields(std::shared_ptr<std::vector<std::byte>> serialized_data) {
-  return (BlockedFields *)((void *)serialized_data->data());
+BlockedFields *get_blocked_fields(std::byte *serialized_data) {
+  return (BlockedFields *)((void *)serialized_data);
 }
 
 } // namespace utils
@@ -125,7 +124,8 @@ Matrix::Matrix(std::string file_path, bool transposed,
 }
 
 Matrix::Matrix(std::shared_ptr<std::vector<std::byte>> serialized_data)
-    : raw_data(serialized_data), fields(utils::get_fields(serialized_data->data())),
+    : raw_data(serialized_data),
+      fields(utils::get_fields(serialized_data->data())),
       height(fields->height), width(fields->width),
       transposed(fields->transposed), data(get_offset()) {}
 

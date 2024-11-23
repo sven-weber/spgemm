@@ -30,72 +30,7 @@ static inline void insertcpy(std::vector<T> &dst, T *src, midx_t amt) {
   dst.insert(dst.end(), src, src + amt);
 }
 
-BlockedFields *
-get_blocked_fields(std::shared_ptr<std::vector<std::byte>> serialized_data);
-
-template <typename T> class ContiguousAllocator {
-private:
-  std::shared_ptr<std::vector<T, std::allocator<T>>> data;
-  T *begin() { return data->data(); }
-  T *end() { return data->data() + data->size(); }
-
-public:
-  using value_type = T;
-
-  ContiguousAllocator() : data(nullptr) {}
-  ContiguousAllocator(std::shared_ptr<std::vector<std::byte>> &data)
-      : data(data) {}
-
-  template <typename U>
-  constexpr ContiguousAllocator(const ContiguousAllocator<U> &c) noexcept {
-    c.data = c.data;
-  }
-
-  T *allocate(size_t n) {
-    assert(data != nullptr &&
-           "ContiguousAllocator was constructed with the default constructor");
-    std::cout << "allocating " << n << " types" << std::endl;
-    std::cout << "before allocation, vector size: " << data->size()
-              << ", vector capacity: " << data->capacity()
-              << ", vector pointer: " << data->data() << std::endl;
-    if (n > std::allocator_traits<ContiguousAllocator>::max_size(*this)) {
-      throw std::bad_alloc();
-    }
-    T *ptr = end();
-    data->resize(data->size() + n);
-    std::cout << "after allocation, vector size: " << data->size()
-              << " vector pointer: " << data->data() << std::endl;
-    return ptr;
-  }
-
-  void deallocate(T *p, std::size_t n) noexcept {
-    assert(data != nullptr &&
-           "ContiguousAllocator was constructed with the default constructor");
-    std::cout << "deallocating " << n << " types" << std::endl;
-    if (p < begin() || p + n > end()) {
-      throw std::bad_alloc();
-    }
-    // We can only de-allocate from the end;
-    // assert(p + n == end());
-    // data->resize(data->size() - n);
-  }
-
-  /*template <typename U, typename... Args> void construct(U *p, Args &&...args)
-   * {*/
-  /*  new (p) U(std::forward<Args>(args)...);*/
-  /*}*/
-  /**/
-  /*template <typename U> void destroy(U *p) noexcept { p->~U(); }*/
-
-  friend bool operator==(const ContiguousAllocator &a,
-                         const ContiguousAllocator &b) {
-    return a.data == b.data;
-  }
-  friend bool operator!=(const ContiguousAllocator &a,
-                         const ContiguousAllocator &b) {
-    return a.data != b.data;
-  }
-};
+BlockedFields *get_blocked_fields(std::byte *serialized_data);
 
 } // namespace utils
 
@@ -115,6 +50,11 @@ public:
       : height(height), width(width),
         non_zero_per_row(std::vector<midx_t>(height, 0)) {}
   ~Cells() = default;
+
+  size_t expected_data_size() {
+    return sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
+           (non_zeros() * sizeof(midx_t)) + (non_zeros() * sizeof(T));
+  }
 
   // Add one cell to the list of Cells
   // usage: add({row, col}, val)
@@ -200,9 +140,9 @@ Cells<T> get_cells(std::string file_path, bool transposed,
   return cells;
 }
 
-template <typename T = double> class CSRMatrix {
-  using Data = std::pair<std::byte *, size_t>;
+using Data = std::pair<std::byte *, size_t>;
 
+template <typename T = double> class CSRMatrix {
 protected:
   std::byte *data;
   size_t size;
@@ -217,6 +157,8 @@ private:
 
   // Returns the expected size of data in bytes
   std::tuple<midx_t *, midx_t *, T *> get_offsets() {
+    std::cout << "size " << size << std::endl;
+    std::cout << "expected_data_size " << expected_data_size() << std::endl;
     assert(size == expected_data_size());
     std::byte *data_ptr = data;
 
@@ -297,23 +239,6 @@ public:
     values = _values;
   }
 
-  // Copy constructor
-  CSRMatrix(const CSRMatrix<T> &mtx) : data(mtx.data), size(mtx.size) {
-    // Copy over the fields
-    height = mtx.height;
-    width = mtx.width;
-    non_zeros = mtx.non_zeros;
-    transposed = mtx.transposed;
-
-    // Adjust the field pointers
-    fields = utils::get_fields(data);
-
-    auto [_row_ptr, _col_idx, _values] = get_offsets();
-    row_ptr = _row_ptr;
-    col_idx = _col_idx;
-    values = _values;
-  }
-
   ~CSRMatrix() = default;
 
   SmallVec<T> row(midx_t i) {
@@ -348,12 +273,12 @@ public:
   }
 
   // DO NOT WRITE TO THE OUTPUT OF THIS
-  std::pair<std::byte *, size_t> serialize() { return {data, size}; }
+  Data serialize() { return {data, size}; }
 };
 
 template <typename T = double> class ManagedCSRMatrix : public CSRMatrix<T> {
 private:
-  std::pair<std::byte *, size_t> alloc_for_cells(const Cells<T> &cells) {
+  Data alloc_for_cells(const Cells<T> &cells) {
     auto sz = sizeof(Fields) + ((cells.height + 1) * sizeof(midx_t)) +
               (cells.non_zeros() * sizeof(midx_t)) +
               (cells.non_zeros() * sizeof(T));
@@ -374,22 +299,24 @@ public:
   ~ManagedCSRMatrix() { delete[] CSRMatrix<T>::data; }
 };
 
+#define section_height(height) ((height) / N_SECTIONS)
+
 template <typename T = double> class BlockedCSRMatrix {
 private:
-  std::shared_ptr<std::vector<std::byte, std::allocator<std::byte>>> data;
+  std::shared_ptr<std::vector<std::byte>> data;
   BlockedFields *blocked_fields;
 
   size_t initial_data_size() { return sizeof(BlockedFields); }
 
-  std::shared_ptr<CSRMatrix<T>> *csrs;
+  std::vector<std::shared_ptr<CSRMatrix<T>>> csrs;
   std::map<midx_t, std::shared_ptr<CSRMatrix<T>>> start_row_to_csrs;
 
   void compute_class_fields() {
     width = csrs[0]->width;
 
 #ifndef NDEBUG
-    for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
-      assert(csrs[i]->width == width);
+    for (auto csr : csrs) {
+      assert(csr->width == width);
     }
 #endif
 
@@ -403,27 +330,27 @@ private:
 
   void compute_blocked_fields_from_csrs() {
     // Here we assume all sections are filled
-    size_t section_height = height / blocked_fields->n_sections;
+    size_t sh = section_height(height);
     std::byte *start = data->data();
     for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
-      blocked_fields->section_offst[i] = csrs[i]->serialize()->data() - start;
-      blocked_fields->section_start_row[i] = section_height * i;
+      blocked_fields->section_offst[i] =
+          std::get<0>(csrs[i]->serialize()) - start;
+      blocked_fields->section_start_row[i] = sh * i;
     }
   }
 
   void compute_csrs_from_blocked_fields() {
-    std::byte *start = data->data();
-    csrs = new std::shared_ptr<CSRMatrix<T>>[blocked_fields->n_sections];
-
     for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
-      /*auto begin = blocked_fields->section_offst[i];*/
-      /*auto end = i == blocked_fields->n_sections-1 ? data->size() :
-       * blocked_fields->section_offst[i+1];*/
-      /*auto sz = end - begin;*/
-      /*auto csr_serialized = std::make_shared<std::vector<std::byte>>(sz);*/
-      /*memcpy(csr_serialized->data(), start + begin, sz);*/
-      /**/
-      /*csrs[i] = std::make_shared<CSRMatrix<T>>(csr_serialized);*/
+      std::cout << "blocked_fields->section_offst[" << i
+                << "] = " << blocked_fields->section_offst[i] << std::endl;
+      auto begin = blocked_fields->section_offst[i];
+      auto end = (i == blocked_fields->n_sections - 1)
+                     ? data->size()
+                     : blocked_fields->section_offst[i + 1];
+      auto sz = end - begin;
+
+      Data d = {data->data() + begin, sz};
+      csrs.push_back(std::make_shared<CSRMatrix<T>>(d));
     }
   }
 
@@ -434,55 +361,61 @@ public:
 
   BlockedCSRMatrix(std::string file_path,
                    std::vector<midx_t> *keep_cols = nullptr)
-      : data(std::make_shared<std::vector<std::byte>>(initial_data_size())),
-        csrs() {
-    // TODO: non_zeros does not take filtering on the column into account
+      : data(std::make_shared<std::vector<std::byte>>(initial_data_size(),
+                                                      std::byte(0))) {
     auto fields = utils::read_fields(file_path, false, nullptr, keep_cols);
-    height = fields.height;
-    width = fields.width;
-    non_zeros = fields.non_zeros;
-
-    // Compute how much space will be needed for the CSR representation
-    auto expected_size = ((sizeof(T) + sizeof(midx_t)) * non_zeros) +
-                         // The + N_SECTIONS accounts for a wasted space in the
-                         // row_ptr in every CSRMatrix
-                         ((sizeof(midx_t)) * (height + N_SECTIONS)) +
-                         (sizeof(Fields) * N_SECTIONS);
-
-    data->reserve(data->size() + expected_size);
 
     static_assert(N_SECTIONS > 1);
-    blocked_fields = utils::get_blocked_fields(data);
-    blocked_fields->n_sections = N_SECTIONS;
 
-    csrs = new std::shared_ptr<CSRMatrix<T>>[blocked_fields->n_sections];
+    auto cells = std::vector<Cells<T>>();
+    auto sz = initial_data_size();
 
-    auto partition_height = height / blocked_fields->n_sections;
-    for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
-      // TODO: the last partition could be larger
+    auto partition_height = section_height(fields.height);
+    for (size_t i = 0; i < N_SECTIONS; ++i) {
       std::vector<midx_t> keep_rows;
-      auto end = (i == (blocked_fields->n_sections - 1))
-                     ? height
-                     : (i + 1) * partition_height;
-      for (size_t j = i * partition_height; j < end; ++j) {
+      auto start = i * partition_height;
+      auto end =
+          (i == (N_SECTIONS - 1)) ? fields.height : (i + 1) * partition_height;
+      for (size_t j = start; j < end; ++j) {
         keep_rows.push_back(j);
       }
 
-      csrs[i] = std::make_shared<CSRMatrix<T>>(file_path, false, &keep_rows,
-                                               keep_cols);
+      auto cell = get_cells<T>(file_path, false, &keep_rows, keep_cols);
+      sz += cell.expected_data_size();
+      cells.push_back(cell);
     }
 
+    data->resize(sz);
+    csrs = std::vector<std::shared_ptr<CSRMatrix<T>>>();
+
+    blocked_fields = utils::get_blocked_fields(data->data());
+    blocked_fields->n_sections = N_SECTIONS;
+
+    auto idx = initial_data_size();
+    for (size_t i = 0; i < N_SECTIONS; ++i) {
+      auto cell = cells[i];
+      auto row = i * partition_height;
+
+      auto sz = cell.expected_data_size();
+      Data d = {data->data() + idx, sz};
+      idx += sz;
+
+      blocked_fields->section_start_row[i] = row;
+      blocked_fields->section_offst[i] = idx;
+
+      csrs.push_back(std::make_shared<CSRMatrix<T>>(cell, d, false));
+    }
+
+    assert(blocked_fields->n_sections == N_SECTIONS);
     compute_class_fields();
     compute_blocked_fields_from_csrs();
   }
 
-  BlockedCSRMatrix(std::shared_ptr<std::vector<std::byte>> serialized_data)
-      : data(serialized_data), blocked_fields(utils::get_blocked_fields(data)) {
+  BlockedCSRMatrix(std::shared_ptr<std::vector<std::byte>> data)
+      : data(data), blocked_fields(utils::get_blocked_fields(data->data())) {
     compute_csrs_from_blocked_fields();
     compute_class_fields();
   }
-
-  ~BlockedCSRMatrix() { delete[] csrs; }
 
   SmallVec<T> row(midx_t i) {
     auto rel = i % N_SECTIONS;
@@ -498,19 +431,29 @@ public:
   BlockedCSRMatrix filter(std::bitset<N_SECTIONS> bitmap) {
     auto new_data =
         std::make_shared<std::vector<std::byte>>(initial_data_size());
-    auto bf = utils::get_blocked_fields(data);
-    bf->n_sections = bitmap.count();
+    BlockedFields bf;
+    bf.n_sections = bitmap.count();
 
     size_t j = 0;
-    size_t section_height = height / blocked_fields->n_sections;
+    size_t sz = new_data->size();
+    std::cout << "initial: " << initial_data_size() << std::endl;
+    std::cout << "sz " << sz << std::endl;
     for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
+      std::cout << "bitmap[" << i << "] = " << bitmap[i] << std::endl;
       if (!bitmap[i])
         continue;
 
-      auto m = CSRMatrix<T>(csrs[i]);
-      bf->section_offst[j] = new_data->size();
-      bf->section_start_row[j] = blocked_fields->section_start_row[i];
+      std::cout << "keeping " << i << std::endl;
+      auto [data, sz_] = csrs[i]->serialize();
+      new_data->insert(new_data->end(), data, data + sz_);
+
+      bf.section_offst[j] = sz;
+      bf.section_start_row[j] = blocked_fields->section_start_row[i];
+
+      sz += sz_;
+      ++j;
     }
+    memcpy(new_data->data(), &bf, sizeof(bf));
 
     return BlockedCSRMatrix(new_data);
   }
