@@ -18,12 +18,12 @@ Outer::Outer(int rank, int n_nodes, partition::Partitions partitions,
       cells(part_A.height, partitions[n_nodes - 1].end_col) {}
 
 void Outer::save_result(std::string path) {
-  matrix::CSRMatrix result(cells);
+  matrix::ManagedCSRMatrix result(cells);
   result.save(path);
 }
 
 size_t Outer::get_B_serialization_size() {
-  return first_part_B.serialize()->size();
+  return std::get<1>(first_part_B.serialize());
 }
 
 void Outer::reset() {
@@ -34,14 +34,12 @@ void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                  size_t max_size_B_bytes) {
 
   // Buffer where the receiving partitions will be stored
-  auto receiving_B_buffer =
-      std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
-  auto received_B_buffer =
-      std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
+  std::vector<std::byte> receiving_B_buffer(max_size_B_bytes);
+  std::vector<std::byte> received_B_buffer(max_size_B_bytes);
 
   // Zero-copy serialized representation of B to send around
   auto serialized = first_part_B.serialize();
-  auto part_B = &first_part_B;
+  matrix::CSRMatrix<> part_B = first_part_B;
 
   int send_rank = rank != n_nodes - 1 ? rank + 1 : 0;
   int current_rank_B = rank;
@@ -51,10 +49,10 @@ void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   // Do computation. We need n-1 communication rounds
   for (int i = 0; i < n_nodes; i++) {
     // Resize buffer to the correct size (should not free/alloc memory)
-    receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
-    communication::send(serialized->data(), serialized_sizes_B_bytes[rank],
+    receiving_B_buffer.resize(serialized_sizes_B_bytes[recv_rank]);
+    communication::send(std::get<0>(serialized), serialized_sizes_B_bytes[rank],
                         MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &requests[0]);
-    communication::recv(receiving_B_buffer->data(),
+    communication::recv(receiving_B_buffer.data(),
                         serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
                         recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
 
@@ -64,7 +62,7 @@ void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
       auto [row_data_A, row_pos_A, row_len_A] = part_A.row(row);
       for (midx_t row_elem = 0; row_elem < row_len_A; row_elem++) {
         auto [row_data_B, row_pos_B, row_len_B] =
-            part_B->row(row_pos_A[row_elem]);
+            part_B.row(row_pos_A[row_elem]);
         for (midx_t col_elem = 0; col_elem < row_len_B; col_elem++) {
           double res = row_data_A[row_elem] * row_data_B[col_elem];
           cells.add(
@@ -82,8 +80,9 @@ void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
 
     // Deserialize Matrix for next round and switch buffer pointers
     std::swap(received_B_buffer, receiving_B_buffer);
-    matrix::CSRMatrix received(received_B_buffer);
-    part_B = &received;
+    matrix::CSRMatrix received(
+        {received_B_buffer.data(), receiving_B_buffer.size()});
+    part_B = received;
 
     // Get next targets
     send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;

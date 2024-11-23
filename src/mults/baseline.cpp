@@ -18,14 +18,12 @@ Baseline::Baseline(int rank, int n_nodes, partition::Partitions partitions,
 void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                     size_t max_size_B_bytes) {
   // Buffer where the receiving partitions will be stored
-  auto receiving_B_buffer =
-      std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
-  auto received_B_buffer =
-      std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
+  std::vector<std::byte> receiving_B_buffer(max_size_B_bytes);
+  std::vector<std::byte> received_B_buffer(max_size_B_bytes);
 
   // Zero-copy serialized representation of B to send around
   auto serialized = first_part_B.serialize();
-  auto part_B = &first_part_B;
+  matrix::CSRMatrix<> part_B = first_part_B;
 
   int send_rank = rank != n_nodes - 1 ? rank + 1 : 0;
   int current_rank_B = rank;
@@ -36,10 +34,11 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   for (int i = 0; i < n_nodes; i++) {
     if (i < n_nodes - 1) {
       // Resize buffer to the correct size (should not free/alloc memory)
-      receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
-      communication::send(serialized->data(), serialized_sizes_B_bytes[rank],
-                          MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &requests[0]);
-      communication::recv(receiving_B_buffer->data(),
+      receiving_B_buffer.resize(serialized_sizes_B_bytes[recv_rank]);
+      communication::send(std::get<0>(serialized),
+                          serialized_sizes_B_bytes[rank], MPI_BYTE, send_rank,
+                          0, MPI_COMM_WORLD, &requests[0]);
+      communication::recv(receiving_B_buffer.data(),
                           serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
                           recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
     }
@@ -49,8 +48,8 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
     for (midx_t row = 0; row < part_A.height; row++) {
       // Note: B is transposed!
       auto [row_data, row_pos, row_len] = part_A.row(row);
-      for (midx_t col = 0; col < part_B->height; col++) {
-        auto [col_data, col_pos, col_len] = part_B->col(col);
+      for (midx_t col = 0; col < part_B.height; col++) {
+        auto [col_data, col_pos, col_len] = part_B.col(col);
         double res = 0;
         midx_t col_elem = 0, row_elem = 0;
         // inner loop for multiplication
@@ -80,8 +79,9 @@ void Baseline::gemm(std::vector<size_t> serialized_sizes_B_bytes,
 
       // Deserialize Matrix for next round and switch buffer pointers
       std::swap(received_B_buffer, receiving_B_buffer);
-      matrix::CSRMatrix received(received_B_buffer);
-      part_B = &received;
+      matrix::CSRMatrix received(
+          {received_B_buffer.data(), received_B_buffer.size()});
+      part_B = received;
 
       // Get next targets
       send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;

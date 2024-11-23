@@ -18,8 +18,8 @@ void visualize_raw(double *data, midx_t height, midx_t width,
 /**
  * Visualizes the matrix for debugging
  */
-template <typename T = double, class Allocator = std::allocator<std::byte>>
-void visualize(const matrix::CSRMatrix<T, Allocator> *csr,
+template <typename T = double>
+void visualize(const matrix::CSRMatrix<T> *csr,
                const std::string &name)
 #ifndef NDEBUG
 {

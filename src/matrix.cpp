@@ -107,7 +107,7 @@ Matrix::Matrix(Fields fs)
     : height(fs.height), width(fs.width), transposed(fs.transposed) {
   raw_data = std::make_shared<std::vector<std::byte>>(expected_data_size(),
                                                       std::byte(0));
-  fields = utils::get_fields(raw_data);
+  fields = utils::get_fields(raw_data->data());
   memcpy(fields, &fs, sizeof(Fields));
   data = get_offset();
 }
@@ -125,7 +125,7 @@ Matrix::Matrix(std::string file_path, bool transposed,
 }
 
 Matrix::Matrix(std::shared_ptr<std::vector<std::byte>> serialized_data)
-    : raw_data(serialized_data), fields(utils::get_fields(serialized_data)),
+    : raw_data(serialized_data), fields(utils::get_fields(serialized_data->data())),
       height(fields->height), width(fields->width),
       transposed(fields->transposed), data(get_offset()) {}
 

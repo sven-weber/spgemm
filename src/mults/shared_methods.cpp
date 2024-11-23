@@ -15,12 +15,12 @@ CSRMatrixMultiplication::CSRMatrixMultiplication(
       cells(part_A.height, partitions[n_nodes - 1].end_col) {}
 
 void CSRMatrixMultiplication::save_result(std::string path) {
-  matrix::CSRMatrix result(cells);
+  matrix::ManagedCSRMatrix result(cells);
   result.save(path);
 }
 
 size_t CSRMatrixMultiplication::get_B_serialization_size() {
-  return first_part_B.serialize()->size();
+  return std::get<1>(first_part_B.serialize());
 }
 
 void CSRMatrixMultiplication::reset() {
