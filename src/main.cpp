@@ -15,16 +15,23 @@
 #include <mpi.h>
 
 int main(int argc, char **argv) {
-  matrix::BlockedCSRMatrix<> m("matrices/test/A.mtx");
+  matrix::BlockedCSRMatrix<> m("matrices/test/B.mtx");
   for (size_t i = 0; i < N_SECTIONS; ++i) {
     auto b = m.block(i);
     utils::visualize(b.get(), std::format(" m.b{}", i));
   }
 
-  /*auto ser = m.serialize();*/
-  /*auto mm = matrix::BlockedCSRMatrix(ser);*/
-  /*for (size_t i = 0; i < N_SECTIONS; ++i) {*/
-  /*  auto b = mm.block(i);*/
-  /*  utils::visualize(b.get(), std::format("mm.b{}", i));*/
-  /*}*/
+  auto ser = m.serialize();
+  auto mm = matrix::BlockedCSRMatrix(ser);
+  for (size_t i = 0; i < N_SECTIONS; ++i) {
+    auto b = mm.block(i);
+    utils::visualize(b.get(), std::format("mm.b{}", i));
+  }
+
+  std::bitset<N_SECTIONS> bm{0b01};
+  auto mmm = m.filter(bm);
+  for (size_t i = 0; i < N_SECTIONS; ++i) {
+    auto b = mmm.block(i);
+    utils::visualize(b.get(), std::format("mmm.b{}", i));
+  }
 }
