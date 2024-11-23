@@ -69,15 +69,25 @@ int main(int argc, char **argv) {
   // Load sparsity
   matrix::CSRMatrix C(C_sparsity_path, false);
 
-  // Perform the shuffling
+  
+  partition::Partitions partitions(n_nodes);
   partition::Shuffle A_shuffle(C.height);
   partition::Shuffle B_shuffle(C.width);
   if (rank == MPI_ROOT_ID) {
-    A_shuffle = std::move(partition::shuffle(C.height));
+    matrix::CSRMatrix A(A_path, false);
+
+    // Perform the shuffling
+    A_shuffle = std::move(partition::shuffle_min(A));
     B_shuffle = std::move(partition::shuffle(C.width));
 
     partition::save_shuffle(A_shuffle, A_shuffle_path);
     partition::save_shuffle(B_shuffle, B_shuffle_path);
+
+    // Do the partitioning
+    partitions = parts::baseline::partition(C, n_nodes);
+    utils::print_partitions(partitions, n_nodes);
+
+    partition::save_partitions(partitions, partitions_path);
   }
 
   // Broadcast the shuffled rows and columns
@@ -85,15 +95,6 @@ int main(int argc, char **argv) {
             MPI_ROOT_ID, MPI_COMM_WORLD);
   MPI_Bcast(B_shuffle.data(), sizeof(midx_t) * B_shuffle.size(), MPI_BYTE,
             MPI_ROOT_ID, MPI_COMM_WORLD);
-
-  // Do the partitioning
-  partition::Partitions partitions(n_nodes);
-  if (rank == MPI_ROOT_ID) {
-    partitions = parts::baseline::partition(C, n_nodes);
-    utils::print_partitions(partitions, n_nodes);
-
-    partition::save_partitions(partitions, partitions_path);
-  }
 
   // Distribute the partitioning to all machines
   MPI_Bcast(partitions.data(), sizeof(partition::Partition) * partitions.size(),
@@ -107,12 +108,33 @@ int main(int argc, char **argv) {
                                 &B_shuffle[partitions[rank].end_col]);
 
   mults::MatrixMultiplication *mult = NULL;
+  std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
   if (algo_name == "baseline") {
     mult = new mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows,
                                B_path, &keep_cols);
   } else if (algo_name == "outer") {
     mult = new mults::Outer(rank, n_nodes, partitions, A_path, &keep_rows,
                             B_path, &keep_cols);
+  } else if (algo_name == "drop") {
+    auto *tmp = new mults::Drop(rank, n_nodes, partitions, A_path, &keep_rows,
+                            B_path, &keep_cols);
+    mult = tmp;
+
+    // Share bitmaps
+    std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
+    MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+              &bitmaps[0], sizeof(std::bitset<N_SECTIONS>), MPI_BYTE, MPI_COMM_WORLD);
+    // MPI_Gather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+    //           &bitmaps[0], sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+    //           MPI_ROOT_ID, MPI_COMM_WORLD);
+    // MPI_Bcast(&bitmaps[0], sizeof(std::bitset<N_SECTIONS>) * n_nodes, MPI_BYTE,
+    //           MPI_ROOT_ID, MPI_COMM_WORLD);
+    tmp->bitmaps = bitmaps;
+
+    // Share serialization sizes
+    std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
+    MPI_Alltoall(&B_byte_sizes, sizeof(size_t) , MPI_BYTE,
+              &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE, MPI_COMM_WORLD);
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
@@ -126,13 +148,14 @@ int main(int argc, char **argv) {
   }
 
   // Share serialization sizes
-  std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
-  size_t B_byte_size = mult->get_B_serialization_size();
-  MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE,
-             &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
-             MPI_ROOT_ID, MPI_COMM_WORLD);
-  MPI_Bcast(&serialized_sizes_B_bytes[0], sizeof(size_t) * n_nodes, MPI_BYTE,
-            MPI_ROOT_ID, MPI_COMM_WORLD);
+  if (algo_name != "drop") {
+    size_t B_byte_size = mult->get_B_serialization_size();
+    MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE,
+              &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
+              MPI_ROOT_ID, MPI_COMM_WORLD);
+    MPI_Bcast(&serialized_sizes_B_bytes[0], sizeof(size_t) * n_nodes, MPI_BYTE,
+              MPI_ROOT_ID, MPI_COMM_WORLD);
+  }
 
   // Determine maximum size of elements
   size_t max_B_bytes_size = *std::max_element(serialized_sizes_B_bytes.begin(),
