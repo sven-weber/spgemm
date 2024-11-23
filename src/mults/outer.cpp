@@ -72,22 +72,24 @@ void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
       }
     }
     measure_point(measure::mult, measure::MeasurementEvent::END);
+    
+    if (i < n_nodes - 1) {
+      measure_point(measure::wait_all, measure::MeasurementEvent::START);
+      // Wait for the communication to finish
+      MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
+      measure_point(measure::wait_all, measure::MeasurementEvent::END);
 
-    measure_point(measure::wait_all, measure::MeasurementEvent::START);
-    // Wait for the communication to finish
-    MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
-    measure_point(measure::wait_all, measure::MeasurementEvent::END);
+      // Deserialize Matrix for next round and switch buffer pointers
+      std::swap(received_B_buffer, receiving_B_buffer);
+      matrix::CSRMatrix received(
+          {received_B_buffer.data(), received_B_buffer.size()});
+      part_B = received;
 
-    // Deserialize Matrix for next round and switch buffer pointers
-    std::swap(received_B_buffer, receiving_B_buffer);
-    matrix::CSRMatrix received(
-        {received_B_buffer.data(), receiving_B_buffer.size()});
-    part_B = received;
-
-    // Get next targets
-    send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;
-    current_rank_B = recv_rank;
-    recv_rank = recv_rank != 0 ? recv_rank - 1 : n_nodes - 1;
+      // Get next targets
+      send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;
+      current_rank_B = recv_rank;
+      recv_rank = recv_rank != 0 ? recv_rank - 1 : n_nodes - 1;
+    }
   }
 }
 } // namespace mults
