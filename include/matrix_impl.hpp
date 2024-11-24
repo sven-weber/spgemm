@@ -501,15 +501,16 @@ public:
     return {csrs[i], blocked_fields->section_start_row[i]};
   }
 
-  std::shared_ptr<std::vector<std::byte>> filter(std::bitset<N_SECTIONS> bitmap) {
-    auto new_data =
-        std::make_shared<std::vector<std::byte>>(initial_data_size());
+  std::shared_ptr<std::vector<std::byte>> filter(std::bitset<N_SECTIONS> bitmap, size_t size = 0) {
+    auto new_data = std::make_shared<std::vector<std::byte>>(initial_data_size());
+    new_data->reserve(size != 0 ? size : initial_data_size());
+
     BlockedFields bf;
     bf.n_sections = bitmap.count();
     bf.height = height;
 
     size_t j = 0;
-    size_t sz = new_data->size();
+    size_t sz = initial_data_size();
     for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
       if (!bitmap[i])
         continue;

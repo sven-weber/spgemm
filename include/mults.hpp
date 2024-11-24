@@ -99,6 +99,7 @@ protected:
   matrix::ManagedCSRMatrix<> part_A;
   matrix::BlockedCSRMatrix<> first_part_B;
   matrix::Cells<> cells;
+  std::vector<size_t> serialization_sizes;
 
 public:
   std::bitset<N_SECTIONS> bitmap;
