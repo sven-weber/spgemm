@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Dict, List
 from os.path import join
 import pandas as pd
+import numpy as np
 import subprocess
 import pathlib
 import argparse
@@ -19,8 +20,9 @@ FILE_NAME       = "measurements"
 DataFrames      = Dict[int, pd.DataFrame]
 COLOR_MAP       = {
     "comb": "orange", 
-    "advanced": "black",
-    "baseline": "blue"
+    "outer": "black",
+    "baseline": "blue",
+    "drop": "green",
 }
 
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
@@ -147,14 +149,15 @@ def graph_multiple_runs(folders: List[str]) -> Dict[str, pd.DataFrame]:
     for algo in timings_per_algo:
         print(f"Aggregated data for {algo}")
         print(timings_per_algo[algo])
-    
+
     matrix = load_matrix(folders[-1])
     return (matrix, timings_per_algo)
 
 #property: Literal["duration", "bytes"]
 def plot_increasingnodes(
     ax, function: str, property, 
-    scaling_factor, data: Dict[str, pd.DataFrame], linear: bool
+    scaling_factor, data: Dict[str, pd.DataFrame], linear: bool,
+    daint: bool
 ):
     for algo in data:
         timings = data[algo]
@@ -197,9 +200,29 @@ def plot_increasingnodes(
             # Plot the linear progression line
             ax.plot(timing_data["nodes"], linear_progression, linestyle='--', color=color, label="Linear Speedup")
 
-def plot_timings_increasingnodes(data: Dict[str, pd.DataFrame], matrix: str, linear: bool):
+    if (daint):
+        # Add vertical lines for the machine borders
+        # Get the current x-axis limits
+        x_min, x_max = ax.get_xlim()
+        
+        # cores per machien on daint
+        cores_per_machine = 36
+
+        # Calculate multiples of 36 within the limits
+        machine_borders = np.arange(np.ceil(x_min / cores_per_machine) * cores_per_machine, x_max, cores_per_machine)
+
+        # Add vertical lines at the multiples of 36
+        for i, x_pos in enumerate(machine_borders):
+            label = None
+            if i == 0:
+                label = "Machine border"
+            plt.axvline(x=x_pos, color='red', linestyle='--', linewidth=0.8, label=label)
+
+def plot_timings_increasingnodes(
+    data: Dict[str, pd.DataFrame], matrix: str,
+    linear: bool, daint: bool):
     _, ax = plt.subplots()
-    plot_increasingnodes(ax, "gemm", "duration", lambda _: 10**6, data, linear)
+    plot_increasingnodes(ax, "gemm", "duration", lambda _: 10**6, data, linear, daint)
 
     # Set labels, title, and legend
     ax.set_xlabel("Nodes")
@@ -208,9 +231,11 @@ def plot_timings_increasingnodes(data: Dict[str, pd.DataFrame], matrix: str, lin
     ax.legend()
     plt.savefig(join(RUNS_DIR, "timings_plot.png"))
 
-def plot_bytes_increasingnodes(data: Dict[str, pd.DataFrame], matrix: str):
+def plot_bytes_increasingnodes(
+    data: Dict[str, pd.DataFrame], matrix: str,
+    daint: bool):
     _, ax = plt.subplots()
-    plot_increasingnodes(ax, "bytes", "bytes", lambda _: 1, data, False)
+    plot_increasingnodes(ax, "bytes", "bytes", lambda _: 1, data, False, daint)
 
     # Set labels, title, and legend
     ax.set_xlabel("Nodes")
@@ -219,9 +244,11 @@ def plot_bytes_increasingnodes(data: Dict[str, pd.DataFrame], matrix: str):
     ax.legend()
     plt.savefig(join(RUNS_DIR, "bytes_plot.png"))
 
-def plot_waiting_times(data: Dict[str, pd.DataFrame], matrix: str):
+def plot_waiting_times(
+    data: Dict[str, pd.DataFrame], matrix: str,
+    daint: bool):
     _, ax = plt.subplots()
-    plot_increasingnodes(ax, "wait_all", "duration", lambda _: 10**6, data, False)
+    plot_increasingnodes(ax, "wait_all", "duration", lambda _: 10**6, data, False, daint)
 
     # Set labels, title, and legend
     ax.set_xlabel("Nodes")
@@ -230,10 +257,22 @@ def plot_waiting_times(data: Dict[str, pd.DataFrame], matrix: str):
     ax.legend()
     plt.savefig(join(RUNS_DIR, "waiting_plot.png"))
 
-def do_plots(data: Dict[str, pd.DataFrame], matrix: str, linear: bool):
-    plot_timings_increasingnodes(timings, matrix, args.plot_linear)
-    plot_bytes_increasingnodes(timings, matrix)
-    plot_waiting_times(timings, matrix)
+def plot_mult_times(data: Dict[str, pd.DataFrame], matrix: str, daint: bool):
+    _, ax = plt.subplots()
+    plot_increasingnodes(ax, "mult", "duration", lambda _: 10**6, data, False, daint)
+
+    # Set labels, title, and legend
+    ax.set_xlabel("Nodes")
+    ax.set_ylabel("Time (ms)")
+    ax.set_title(f"Maximum mult time per Node and communication round on {matrix}")
+    ax.legend()
+    plt.savefig(join(RUNS_DIR, "mult_plot.png"))
+
+def do_plots(data: Dict[str, pd.DataFrame], matrix: str, linear: bool, daint: bool):
+    plot_timings_increasingnodes(timings, matrix, args.plot_linear, daint)
+    plot_bytes_increasingnodes(timings, matrix, daint)
+    plot_waiting_times(timings, matrix, daint)
+    plot_mult_times(timings, matrix, daint)
 
 def get_subfolders(folder_path):
     subfolders = []
@@ -286,5 +325,5 @@ if __name__ == "__main__":
     (matrix, timings) = graph_multiple_runs(folders)
 
     # Plots to create
-    do_plots(timings, matrix, args.plot_linear)
+    do_plots(timings, matrix, args.plot_linear, args.daint)
 
