@@ -18,6 +18,8 @@ static const std::string global = "global";
 static const std::string mult = "mult";
 static const std::string send = "send";
 static const std::string wait = "wait";
+static const std::string filter = "filter";
+static const std::string deserialize = "deserialize";
 static const std::string wait_all = "wait_all";
 
 enum class MeasurementEvent : uint8_t { START, END };

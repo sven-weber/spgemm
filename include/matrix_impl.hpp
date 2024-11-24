@@ -307,7 +307,7 @@ private:
   size_t initial_data_size() { return sizeof(BlockedFields); }
 
   std::vector<std::shared_ptr<CSRMatrix<T>>> csrs;
-  std::map<midx_t, std::shared_ptr<CSRMatrix<T>>> start_row_to_csrs;
+  std::unordered_map<midx_t, std::shared_ptr<CSRMatrix<T>>> start_row_to_csrs;
 
   void compute_class_fields() {
     width = csrs[0]->width;

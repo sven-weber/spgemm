@@ -61,7 +61,9 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
     // Resize buffer to the correct size (should not free/alloc memory)
     receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
     
+    measure_point(measure::filter, measure::MeasurementEvent::START);
     auto send_blocks = first_part_B.filter(bitmaps[send_rank]).serialize();
+    measure_point(measure::filter, measure::MeasurementEvent::END);
     communication::send(send_blocks->data(), send_blocks->size(),
                         MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &requests[0]);
     communication::recv(receiving_B_buffer->data(),
@@ -93,7 +95,9 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
 
       // Deserialize Matrix for next round and switch buffer pointers
       std::swap(received_B_buffer, receiving_B_buffer);
+      measure_point(measure::deserialize, measure::MeasurementEvent::START);
       matrix::BlockedCSRMatrix received(received_B_buffer);
+      measure_point(measure::deserialize, measure::MeasurementEvent::END);
       part_B = received;
 
       // Get next targets
