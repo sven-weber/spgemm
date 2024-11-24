@@ -49,7 +49,7 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   auto received_B_buffer =
       std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
 
-  auto part_B = &first_part_B;
+  matrix::BlockedCSRMatrix<> part_B = first_part_B;
 
   int send_rank = rank != n_nodes - 1 ? rank + 1 : 0;
   int current_rank_B = rank;
@@ -74,7 +74,7 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
       auto [row_data_A, row_pos_A, row_len_A] = part_A.row(row);
       for (midx_t row_elem = 0; row_elem < row_len_A; row_elem++) {
         auto [row_data_B, row_pos_B, row_len_B] =
-            part_B->row(row_pos_A[row_elem]);
+            part_B.row(row_pos_A[row_elem]);
         for (midx_t col_elem = 0; col_elem < row_len_B; col_elem++) {
           double res = row_data_A[row_elem] * row_data_B[col_elem];
           cells.add(
@@ -94,7 +94,7 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
       // Deserialize Matrix for next round and switch buffer pointers
       std::swap(received_B_buffer, receiving_B_buffer);
       matrix::BlockedCSRMatrix received(received_B_buffer);
-      part_B = &received;
+      part_B = received;
 
       // Get next targets
       send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;

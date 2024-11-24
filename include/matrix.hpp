@@ -60,6 +60,7 @@ public:
 };
 
 typedef struct BlockedFields {
+  size_t height;
   size_t n_sections;
   size_t section_offst[N_SECTIONS];
   size_t section_start_row[N_SECTIONS];

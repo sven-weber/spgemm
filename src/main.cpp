@@ -76,7 +76,8 @@ int main(int argc, char **argv) {
     matrix::ManagedCSRMatrix A(A_path, false);
 
     // Perform the shuffling
-    A_shuffle = std::move(partition::shuffle_min(A));
+    A_shuffle = std::move(partition::shuffle_min(C));
+    // A_shuffle = std::move(partition::shuffle(C.height));
     B_shuffle = std::move(partition::shuffle(C.width));
 
     partition::save_shuffle(A_shuffle, A_shuffle_path);
@@ -84,6 +85,7 @@ int main(int argc, char **argv) {
 
     // Do the partitioning
     partitions = parts::baseline::balanced_partition(C, n_nodes);
+    // partitions = parts::baseline::partition(C, n_nodes);
     utils::print_partitions(partitions, n_nodes);
 
     partition::save_partitions(partitions, partitions_path);
@@ -120,15 +122,18 @@ int main(int argc, char **argv) {
     mult = tmp;
 
     // Share bitmaps
+    std::cout << "bitmap.count = " << tmp->bitmap.count() << std::endl;
+    std::cout << "bitmap = " << tmp->bitmap << std::endl;
+
     std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
     MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
-              &bitmaps[0], sizeof(std::bitset<N_SECTIONS>), MPI_BYTE, MPI_COMM_WORLD);
+              bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE, MPI_COMM_WORLD);
     tmp->bitmaps = bitmaps;
+    std::cout << "Bitmaps shared" << std::endl;
 
     // Share serialization sizes
     std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
-    MPI_Alltoall(&B_byte_sizes, sizeof(size_t) , MPI_BYTE,
-              &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE, MPI_COMM_WORLD);
+    MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE, serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE, MPI_COMM_WORLD);
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);

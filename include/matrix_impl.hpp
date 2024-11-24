@@ -157,8 +157,6 @@ private:
 
   // Returns the expected size of data in bytes
   std::tuple<midx_t *, midx_t *, T *> get_offsets() {
-    std::cout << "size " << size << std::endl;
-    std::cout << "expected_data_size " << expected_data_size() << std::endl;
     assert(size == expected_data_size());
     std::byte *data_ptr = data;
 
@@ -180,10 +178,10 @@ private:
   }
 
 public:
-  midx_t height;
-  midx_t width;
-  midx_t non_zeros;
-  bool transposed;
+  midx_t height = 0;
+  midx_t width = 0;
+  midx_t non_zeros = 0;
+  bool transposed = false;
 
   midx_t *row_ptr = nullptr;
   midx_t *col_idx = nullptr;
@@ -313,6 +311,7 @@ private:
 
   void compute_class_fields() {
     width = csrs[0]->width;
+    height = blocked_fields->height;
 
 #ifndef NDEBUG
     for (auto csr : csrs) {
@@ -322,8 +321,6 @@ private:
 
     for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
       start_row_to_csrs[blocked_fields->section_start_row[i]] = csrs[i];
-
-      height += csrs[i]->height;
       non_zeros += csrs[i]->non_zeros;
     }
   }
@@ -341,8 +338,6 @@ private:
 
   void compute_csrs_from_blocked_fields() {
     for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
-      std::cout << "blocked_fields->section_offst[" << i
-                << "] = " << blocked_fields->section_offst[i] << std::endl;
       auto begin = blocked_fields->section_offst[i];
       auto end = (i == blocked_fields->n_sections - 1)
                      ? data->size()
@@ -355,9 +350,9 @@ private:
   }
 
 public:
-  midx_t height;
-  midx_t width;
-  midx_t non_zeros;
+  midx_t height = 0;
+  midx_t width = 0;
+  midx_t non_zeros = 0;
 
   BlockedCSRMatrix(std::string file_path,
                    std::vector<midx_t> *keep_cols = nullptr)
@@ -370,6 +365,7 @@ public:
     auto cells = std::vector<Cells<T>>();
     auto sz = initial_data_size();
 
+    std::cout << "Compute keep_rows & load cells" << std::endl;
     auto partition_height = section_height(fields.height);
     for (size_t i = 0; i < N_SECTIONS; ++i) {
       std::vector<midx_t> keep_rows;
@@ -390,7 +386,9 @@ public:
 
     blocked_fields = utils::get_blocked_fields(data->data());
     blocked_fields->n_sections = N_SECTIONS;
+    blocked_fields->height = fields.height;
 
+    std::cout << "Make csrs" << std::endl;
     auto idx = initial_data_size();
     for (size_t i = 0; i < N_SECTIONS; ++i) {
       auto cell = cells[i];
@@ -406,9 +404,11 @@ public:
       csrs.push_back(std::make_shared<CSRMatrix<T>>(cell, d, false));
     }
 
-    assert(blocked_fields->n_sections == N_SECTIONS);
     compute_class_fields();
     compute_blocked_fields_from_csrs();
+
+    assert(blocked_fields->n_sections == N_SECTIONS);
+    assert(blocked_fields->height == height);
   }
 
   BlockedCSRMatrix(std::shared_ptr<std::vector<std::byte>> data)
@@ -418,14 +418,18 @@ public:
   }
 
   SmallVec<T> row(midx_t i) {
-    auto rel = i % N_SECTIONS;
-    auto block_i = i - rel;
-    return csrs[block_i]->row(rel);
+    auto block_i = std::min(i / section_height(height), (midx_t) N_SECTIONS-1);
+    auto start_row = block_i * section_height(height);
+    auto rel = i - start_row;
+
+    return start_row_to_csrs.at(start_row)->row(rel);
   }
 
   std::shared_ptr<CSRMatrix<T>> block(midx_t i) {
-    assert(i < N_SECTIONS);
-    return csrs[i];
+    auto block_i = std::min(i / section_height(height), (midx_t) N_SECTIONS-1);
+    auto start_row = block_i * section_height(height);
+
+    return start_row_to_csrs.at(start_row);
   }
 
   BlockedCSRMatrix filter(std::bitset<N_SECTIONS> bitmap) {
@@ -433,19 +437,16 @@ public:
         std::make_shared<std::vector<std::byte>>(initial_data_size());
     BlockedFields bf;
     bf.n_sections = bitmap.count();
+    bf.height = height;
 
     size_t j = 0;
     size_t sz = new_data->size();
-    std::cout << "initial: " << initial_data_size() << std::endl;
-    std::cout << "sz " << sz << std::endl;
     for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
-      std::cout << "bitmap[" << i << "] = " << bitmap[i] << std::endl;
       if (!bitmap[i])
         continue;
 
-      std::cout << "keeping " << i << std::endl;
-      auto [data, sz_] = csrs[i]->serialize();
-      new_data->insert(new_data->end(), data, data + sz_);
+      auto [csr_data, sz_] = csrs[i]->serialize();
+      new_data->insert(new_data->end(), csr_data, csr_data + sz_);
 
       bf.section_offst[j] = sz;
       bf.section_start_row[j] = blocked_fields->section_start_row[i];
