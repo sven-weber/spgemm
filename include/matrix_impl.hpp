@@ -140,6 +140,72 @@ Cells<T> get_cells(std::string file_path, bool transposed,
   return cells;
 }
 
+template <typename T>
+std::tuple<std::vector<Cells<T>>, size_t> get_cells_sections(std::string file_path, bool transposed,
+                   std::vector<std::vector<midx_t>> *keep_rows_sections,
+                   std::vector<midx_t> *keep_cols) {
+  auto keep_rows_map = std::unordered_map<midx_t, std::tuple<midx_t, size_t>>();
+  assert(keep_rows_sections != nullptr);
+  for (size_t s = 0; s < N_SECTIONS; ++s) {
+    auto keep_rows = (*keep_rows_sections)[s];
+    for (midx_t i = 0; i < keep_rows.size(); ++i) {
+      keep_rows_map.insert({keep_rows[i], {i, s}});
+    }
+  }
+
+  auto keep_cols_map = std::unordered_map<midx_t, midx_t>();
+  if (keep_cols != nullptr)
+    for (midx_t i = 0; i < keep_cols->size(); ++i) {
+      keep_cols_map.insert({(*keep_cols)[i], i});
+    }
+
+  auto fields = utils::read_fields(file_path, transposed, nullptr, keep_cols);
+  std::ifstream stream(file_path);
+  std::string sink;
+  do {
+    getline(stream, sink);
+  } while (sink.size() > 0 and sink[0] == '%');
+
+  std::vector<Cells<T>> cells_sections;
+  for (size_t s = 0; s < N_SECTIONS; ++s) {
+    auto cells = Cells<T>(fields.height, fields.width);
+    cells_sections.push_back(cells);
+  }
+
+  // read non-zeros
+  auto l = fields.non_zeros;
+  while (l--) {
+    midx_t _row, _col;
+    T val;
+    stream >> _row;
+    stream >> _col;
+    stream >> val;
+
+    auto row = transposed ? _col - 1 : _row - 1;
+    auto col = transposed ? _row - 1 : _col - 1;
+
+    if (!keep_rows_map.contains(row))
+      continue;
+    auto [mapped_row, sec] = keep_rows_map[row];
+
+    if (keep_cols != nullptr) {
+      if (!keep_cols_map.contains(col))
+        continue;
+
+      col = keep_cols_map[col];
+    }
+
+    cells_sections[sec].add({mapped_row, col}, val);
+  }
+  stream.close();
+
+  size_t exp_size = 0;
+  for (size_t s = 0; s < N_SECTIONS; ++s) {
+    exp_size += cells_sections[s].expected_data_size();
+  }
+  return {cells_sections, exp_size};
+}
+
 using Data = std::pair<std::byte *, size_t>;
 
 template <typename T = double> class CSRMatrix {
@@ -362,11 +428,9 @@ public:
 
     static_assert(N_SECTIONS > 1);
 
-    auto cells = std::vector<Cells<T>>();
-    auto sz = initial_data_size();
-
     std::cout << "Compute keep_rows & load cells" << std::endl;
     auto partition_height = section_height(fields.height);
+    std::vector<std::vector<midx_t>> keep_rows_sections;
     for (size_t i = 0; i < N_SECTIONS; ++i) {
       std::vector<midx_t> keep_rows;
       auto start = i * partition_height;
@@ -375,11 +439,11 @@ public:
       for (size_t j = start; j < end; ++j) {
         keep_rows.push_back(j);
       }
-
-      auto cell = get_cells<T>(file_path, false, &keep_rows, keep_cols);
-      sz += cell.expected_data_size();
-      cells.push_back(cell);
+      keep_rows_sections.push_back(keep_rows);
     }
+
+    auto [cells, sz] = get_cells_sections<T>(file_path, false, &keep_rows_sections, keep_cols);
+    sz += initial_data_size();
 
     data->resize(sz);
     csrs = std::vector<std::shared_ptr<CSRMatrix<T>>>();
