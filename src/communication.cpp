@@ -54,10 +54,6 @@ void sync_start_time(int rank) {
             MPI_COMM_WORLD);
   auto clock_time = deserialize_time_from_unsigned_long(time_to_wait_for);
 
-#ifndef NDEBUG
-  std::cout << "Waiting until " << clock_time << " to start next run\n";
-#endif
-
   // Busy wait until the target time is reached
   while (std::chrono::system_clock::now() < clock_time) {
     // Busy waiting (doing nothing in the loop)
