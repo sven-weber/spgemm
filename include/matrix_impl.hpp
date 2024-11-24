@@ -168,7 +168,7 @@ std::tuple<std::vector<Cells<T>>, size_t> get_cells_sections(std::string file_pa
 
   std::vector<Cells<T>> cells_sections;
   for (size_t s = 0; s < N_SECTIONS; ++s) {
-    auto cells = Cells<T>(fields.height, fields.width);
+    auto cells = Cells<T>((*keep_rows_sections)[s].size(), fields.width);
     cells_sections.push_back(cells);
   }
 
