@@ -496,7 +496,12 @@ public:
     return start_row_to_csrs.at(start_row);
   }
 
-  BlockedCSRMatrix filter(std::bitset<N_SECTIONS> bitmap) {
+  std::tuple<std::shared_ptr<CSRMatrix<T>>, midx_t> block_i(midx_t i) {
+    assert(i < blocked_fields->n_sections);
+    return {csrs[i], blocked_fields->section_start_row[i]};
+  }
+
+  std::shared_ptr<std::vector<std::byte>> filter(std::bitset<N_SECTIONS> bitmap) {
     auto new_data =
         std::make_shared<std::vector<std::byte>>(initial_data_size());
     BlockedFields bf;
@@ -520,7 +525,7 @@ public:
     }
     memcpy(new_data->data(), &bf, sizeof(bf));
 
-    return BlockedCSRMatrix(new_data);
+    return new_data;
   }
 
   // DO NOT WRITE TO THE OUTPUT OF THIS
