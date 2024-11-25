@@ -19,7 +19,7 @@ void write_to_file(std::string name, std::string path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc < 6) {
+  if (argc < 7) {
     std::cerr
         << "Did not get enough arguments. Expected <matrix_path> <run_path>"
         << std::endl;
@@ -40,6 +40,15 @@ int main(int argc, char **argv) {
 
   int n_runs = std::stoi(argv[4]);
   int n_warmup = std::stoi(argv[5]);
+
+  // Whether to persist results
+  // (takes too long for super large matrices)
+  std::string parse_str = argv[6];
+  bool persist_results = true;
+  if (parse_str == "false") {
+    persist_results = false;
+    std::cout << "CAUTION: NOT PERSISTING RESULTS" << std::endl;
+  }
 
   // Init MPI
   int rank, n_nodes;
@@ -76,17 +85,24 @@ int main(int argc, char **argv) {
     matrix::ManagedCSRMatrix C(C_sparsity_path, false);
 
     // Perform the shuffling
+    measure_point(measure::shuffle, measure::MeasurementEvent::START);
     A_shuffle = std::move(partition::shuffle_min(C));
     B_shuffle = std::move(partition::shuffle(B_fields.width));
 
-    partition::save_shuffle(A_shuffle, A_shuffle_path);
-    partition::save_shuffle(B_shuffle, B_shuffle_path);
+    if (persist_results) {
+      partition::save_shuffle(A_shuffle, A_shuffle_path);
+      partition::save_shuffle(B_shuffle, B_shuffle_path);
+    }
+    measure_point(measure::shuffle, measure::MeasurementEvent::END);
 
     // Do the partitioning
+    measure_point(measure::partition, measure::MeasurementEvent::START);
     partitions = parts::baseline::balanced_partition(C, n_nodes);
     utils::print_partitions(partitions, n_nodes);
-
-    partition::save_partitions(partitions, partitions_path);
+    if (persist_results) {
+      partition::save_partitions(partitions, partitions_path);
+    }
+    measure_point(measure::partition, measure::MeasurementEvent::END);
   }
 
   // Broadcast the shuffled rows and columns
@@ -119,23 +135,39 @@ int main(int argc, char **argv) {
                             B_path, &keep_cols);
     mult = tmp;
 
+    measure_point(measure::bitmaps, measure::MeasurementEvent::START);
+    
+#ifndef NDEBUG
     // Share bitmaps
     std::cout << "bitmap.count = " << tmp->bitmap.count() << std::endl;
     std::cout << "bitmap = " << tmp->bitmap << std::endl;
+#endif
 
     std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
     MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
               bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE, MPI_COMM_WORLD);
     tmp->bitmaps = bitmaps;
+#ifndef NDEBUG
+    // Share bitmaps
     std::cout << "Bitmaps shared" << std::endl;
+#endif
+    measure_point(measure::bitmaps, measure::MeasurementEvent::END);
 
     // Share serialization sizes
     std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
     MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE, serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE, MPI_COMM_WORLD);
+    
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
   } else if (algo_name == "comb") {
+#ifndef NDEBUG
+    if (const char* omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
+      std::cout << "Running comblas with " << omp_num_threads << " threads" << std::endl;
+    } else {
+      std::cout << "COMBLAS is running SINGLE THREADED!" << std::endl;
+    }
+#endif
     C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLASMatrixMultiplication(rank, n_nodes, partitions,
                                                    A_path);
@@ -194,7 +226,9 @@ int main(int argc, char **argv) {
 #endif
 
   // Store the result
-  mult->save_result(C_path);
+  if (persist_results) {
+    mult->save_result(C_path);
+  }
   measure::Measure::get_instance()->save(measurements_path);
 
   MPI_Finalize();

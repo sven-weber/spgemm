@@ -11,10 +11,9 @@ import math
 import matplotlib.pyplot as plt
 
 CMD             = "./build/dphpc"
-RUNS_DIR        = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
+RUNS_DIR        = "_old/af_shell10"  # for plotting: "measurements/viscoplastic2/euler-5-40"
 N_WARMUP        = 5
 N_RUNS          = 10
-N_SECTIONS      = 1
 MAXIMUM_MEMORY  = 128
 FILE_NAME       = "measurements"
 DataFrames      = Dict[int, pd.DataFrame]
@@ -37,7 +36,7 @@ def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
 
 # Does a run of the CMD with mpi using `nodes` nodes and returns
 # the run folder.
-def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool = False) -> str:
+def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool = False, persist: bool = True) -> str:
     if should_skip_run(impl, matrix, nodes):
         print(f"CAUTION: Skipping run with {nodes} nodes!!!")
         return ""
@@ -47,6 +46,10 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
     id = f"{date}-{nodes}"
     folder = join(RUNS_DIR, id)
     pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
+    # Environment variables for the task
+    env = os.environ.copy()
+
+    persist_str = "true" if persist else "false"
 
     if euler:
         mem_per_core = int(math.floor(MAXIMUM_MEMORY/nodes))
@@ -60,33 +63,59 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
             "-n", str(nodes),
             "-N", "1", # 1 node
             "--wrap",
-            f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {N_SECTIONS}"
+            f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str}"
         ]
     elif daint:
-        # Running on broadwell cluster with 2 sockets - 18 cores each per machine 
-        number_of_nodes = int(math.ceil(nodes / 36.0))
-        mem_per_core = 1
-        print(f"Running on {number_of_nodes} machines with {mem_per_core}G memory per core.")
+        # Running on broadwell cluster with 2 sockets - 18 cores each per machine
+        cpus_per_machine = 36
+        total_number_cores = nodes * cpus_per_machine
+        print(f"Running on {nodes} machines with a total of {total_number_cores} cores")
+        
+        algo_conf = []
+
+        if impl != "comb":
+            # All our algorithms use one MPI process per core
+            # Number of tasks = number of processors
+            print("Using MPI placement with 1 process per core")
+            algo_conf = [
+                "-n", str(total_number_cores), # Number of tasks = number of cores
+                "--cpus-per-task=1" # One CPU per MPI process
+            ]
+        else:
+            # COMB uses MPI and OpenMP.
+            # It will have one MPI task per node and as many threads as cores
+            print(f"Using OpenMP placement with {cpus_per_machine} cores per task")
+            algo_conf = [
+                "-n", str(nodes), # Number of tasks = number of nodes!
+                f"--cpus-per-task={cpus_per_machine}" # the whole machine for every task!
+            ]
+
+            # Set the OpenMP env variable to use all cpus per MPI task
+            env.update({
+                "OMP_NUM_THREADS": str(cpus_per_machine)
+            })
+
+        # Sbatch command with the whole config
         cmd = [
             "sbatch",
             "--wait", 
             "--constraint=mc", # Constraint to XC40
-            "-n", str(nodes), # Number of cores
-            "--ntasks-per-core=1",
             "--switches=1", # Make sure we are in the same electircal group
-            f"--mem-per-cpu={mem_per_core}G",
-            "-N", str(number_of_nodes), # 1 node
-            "-A", "g34", # The project we use
+            "--mem=0", # Use all available memory on the node
+            "-N", str(nodes), # Number of machines to use
+            "-A", "g34" # The project we use
+        ] + algo_conf + [
             "--wrap",
-            f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {N_SECTIONS}"
+            f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str}"
         ]
     else:
-        cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), str(N_SECTIONS)]
+        cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), "true"]
     result = subprocess.run(
         cmd,
         cwd=os.getcwd(),
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
 
     output = result.stdout.strip()
@@ -128,7 +157,7 @@ def load_duration_as_numeric(dataframes: DataFrames):
 def group_runs(dataframes: DataFrames) -> pd.DataFrame:
     return pd.concat(dataframes).groupby(level=1).max()
 
-def graph_multiple_runs(folders: List[str]) -> Dict[str, pd.DataFrame]:
+def graph_multiple_runs(folders: List[str], daint: bool = False) -> Dict[str, pd.DataFrame]:
     timings_per_algo = {}
     for folder_path in folders:
         # Load algo and initialize
@@ -141,8 +170,11 @@ def graph_multiple_runs(folders: List[str]) -> Dict[str, pd.DataFrame]:
         load_duration_as_numeric(dataframes)
 
         # Aggregate horizontally timings related to same function
-        grouped_df = group_runs(dataframes)        
-        grouped_df['nodes'] = len(dataframes)
+        grouped_df = group_runs(dataframes)
+        if daint and algo != "comb":
+            grouped_df['nodes'] = len(dataframes) / 36
+        else:
+            grouped_df['nodes'] = len(dataframes)
         timings_per_algo[algo] = pd.concat([timings_per_algo[algo], grouped_df], axis=0)
     
     #Print the results:
@@ -299,6 +331,7 @@ if __name__ == "__main__":
     parser.add_argument('--daint', action="store_true")
     parser.add_argument('--skip_run', action="store_true")
     parser.add_argument('--quadratic', required=False, action="store_true")
+    parser.add_argument('--no_persist', action="store_false")
     parser.add_argument('--plot_linear', required=False, action="store_true")
     args = parser.parse_args()
 
@@ -318,11 +351,11 @@ if __name__ == "__main__":
             for n in range(args.min, args.max+1, args.stride):
                 if args.quadratic:
                     n = n*n
-                run_result = run_mpi(impl, args.matrix, n, args.euler, args.daint)
+                run_result = run_mpi(impl, args.matrix, n, args.euler, args.daint, args.no_persist)
                 if run_result != "":
                     folders.append(run_result)
 
-    (matrix, timings) = graph_multiple_runs(folders)
+    (matrix, timings) = graph_multiple_runs(folders, args.daint)
 
     # Plots to create
     do_plots(timings, matrix, args.plot_linear, args.daint)

@@ -67,12 +67,18 @@ def process_matrices(folder):
     print("Error loading matrices.")
     sys.exit(1)
 
-  C_expected = A.dot(B)
-  C_expected_file = os.path.join(folder, "C_expected.mtx")
-  save_matrix(C_expected, C_expected_file)
-  # Copy as sparsity matrix (for now)
-  # TODO: Compute smth we actual need
-  shutil.copyfile(C_expected_file,  os.path.join(folder, "C_sparsity.mtx"))
+  try:
+    print("Computing expected value")
+    C_expected = A.dot(B)
+    C_expected_file = os.path.join(folder, "C_expected.mtx")
+    save_matrix(C_expected, C_expected_file)
+    # Copy as sparsity matrix (for now)
+    # TODO: Compute smth we actual need
+    shutil.copyfile(C_expected_file,  os.path.join(folder, "C_sparsity.mtx"))
+  except Exception as error:
+    print("Could not compute expected value")
+    print(error)
+    exit(1)
 
 def main():
   if len(sys.argv) <= 1:

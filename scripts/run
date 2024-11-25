@@ -11,4 +11,6 @@ id=$(date +"%Y-%m-%d-%T")
 run_path="runs/$id-$nodes"
 mkdir -p "$run_path" 
 
-mpirun -n "$nodes" "$cmd" "$algorithm" "$matrix" "$run_path" "$n_runs" "$n_warmup" | sort -s -t '[' -k2,2n
+# If we use this script, we always want to persist results!
+# -> Last arg = true
+mpirun -n "$nodes" "$cmd" "$algorithm" "$matrix" "$run_path" "$n_runs" "$n_warmup" "true" | sort -s -t '[' -k2,2n

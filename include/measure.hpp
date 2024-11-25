@@ -13,6 +13,9 @@ namespace measure {
 
 typedef std::chrono::high_resolution_clock::time_point time_point;
 
+static const std::string shuffle = "shuffle";
+static const std::string partition = "partition";
+static const std::string bitmaps = "bitmaps";
 static const std::string gemm = "gemm";
 static const std::string global = "global";
 static const std::string mult = "mult";
