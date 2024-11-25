@@ -30,8 +30,6 @@ int main(int argc, char **argv) {
   std::string matrix_name = argv[2];
   std::string A_path = utils::format("matrices/{}/A.mtx", matrix_name);
   std::string B_path = utils::format("matrices/{}/B.mtx", matrix_name);
-  std::string C_sparsity_path =
-      utils::format("matrices/{}/C_sparsity.mtx", matrix_name);
 
   std::string run_path = argv[3];
   std::string partitions_path = utils::format("{}/partitions.csv", run_path);
@@ -66,25 +64,24 @@ int main(int argc, char **argv) {
   }
 
   // Load sparsity
-  matrix::ManagedCSRMatrix C(C_sparsity_path, false);
-  
+  matrix::Fields A_fields = matrix::utils::read_fields(A_path, false, nullptr, nullptr);
+  matrix::Fields B_fields = matrix::utils::read_fields(B_path, false, nullptr, nullptr);
+
   partition::Partitions partitions(n_nodes);
-  partition::Shuffle A_shuffle(C.height);
-  partition::Shuffle B_shuffle(C.width);
+  partition::Shuffle A_shuffle(A_fields.height);
+  partition::Shuffle B_shuffle(B_fields.width);
   if (rank == MPI_ROOT_ID) {
     matrix::ManagedCSRMatrix A(A_path, false);
 
     // Perform the shuffling
-    A_shuffle = std::move(partition::shuffle_min(C));
-    // A_shuffle = std::move(partition::shuffle(C.height));
-    B_shuffle = std::move(partition::shuffle(C.width));
+    A_shuffle = std::move(partition::shuffle_min(A));
+    B_shuffle = std::move(partition::shuffle(B_fields.width));
 
     partition::save_shuffle(A_shuffle, A_shuffle_path);
     partition::save_shuffle(B_shuffle, B_shuffle_path);
 
     // Do the partitioning
-    partitions = parts::baseline::balanced_partition(C, n_nodes);
-    // partitions = parts::baseline::partition(C, n_nodes);
+    partitions = parts::baseline::balanced_partition(A, n_nodes);
     utils::print_partitions(partitions, n_nodes);
 
     partition::save_partitions(partitions, partitions_path);
