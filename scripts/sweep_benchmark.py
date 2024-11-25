@@ -11,7 +11,7 @@ import math
 import matplotlib.pyplot as plt
 
 CMD             = "./build/dphpc"
-RUNS_DIR        = "_old/af_shell10"  # for plotting: "measurements/viscoplastic2/euler-5-40"
+RUNS_DIR        = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
 N_WARMUP        = 5
 N_RUNS          = 10
 MAXIMUM_MEMORY  = 128
@@ -222,7 +222,7 @@ def plot_increasingnodes(
         if algo in COLOR_MAP:
             color = COLOR_MAP[algo]
 
-        ax.errorbar(timing_data["nodes"], timing_data["avg"],  yerr=eb, fmt='-o', label=algo, color=color)
+        ax.errorbar(timing_data["nodes"], timing_data["avg"], yerr=eb fmt='-o', label=algo, color=color)
 
         if (linear):
             # Calculate a linear progression based on the first timing point
@@ -300,11 +300,23 @@ def plot_mult_times(data: Dict[str, pd.DataFrame], matrix: str, daint: bool):
     ax.legend()
     plt.savefig(join(RUNS_DIR, "mult_plot.png"))
 
+def plot_deserialize(data: Dict[str, pd.DataFrame], matrix: str, daint: bool):
+    _, ax = plt.subplots()
+    plot_increasingnodes(ax, "deserialize", "duration", lambda _: 10**3, data, False, daint)
+
+    # Set labels, title, and legend
+    ax.set_xlabel("Nodes")
+    ax.set_ylabel("Time (μs)")
+    ax.set_title(f"Maximum deserialization time per Node and communication round on {matrix}")
+    ax.legend()
+    plt.savefig(join(RUNS_DIR, "deserialize_plot.png"))
+
 def do_plots(data: Dict[str, pd.DataFrame], matrix: str, linear: bool, daint: bool):
     plot_timings_increasingnodes(timings, matrix, args.plot_linear, daint)
     plot_bytes_increasingnodes(timings, matrix, daint)
     plot_waiting_times(timings, matrix, daint)
     plot_mult_times(timings, matrix, daint)
+    plot_deserialize(timings, matrix, daint)
 
 def get_subfolders(folder_path):
     subfolders = []
