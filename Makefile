@@ -6,7 +6,7 @@ NUMBER_RUNS				= 1
 NUMBER_WARMUP			= 0
 MATRIX_TARGET			= first
 BUILD_DIR         = build
-ALGORITHM					= outer
+ALGORITHM					= drop_at_once
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
 CPP_HEADER_FILES := $(wildcard $(INCLUDE_DIR)/**/**/*.hpp) $(wildcard $(INCLUDE_DIR)/**/*.hpp) $(wildcard $(INCLUDE_DIR)/*.hpp)

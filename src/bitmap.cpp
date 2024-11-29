@@ -6,6 +6,7 @@ namespace bitmap {
 std::bitset<N_SECTIONS> compute_bitmap(matrix::CSRMatrix<> mat) {
   std::cout << "Computing bitmap" << std::endl;
   int section_width = mat.width / N_SECTIONS;
+  assert(section_width > 0);
 
   auto map = std::bitset<N_SECTIONS>();
   for (size_t row = 0; row < mat.height; row++) {

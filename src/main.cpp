@@ -179,6 +179,8 @@ int main(int argc, char **argv) {
     MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
+
+    tmp->compute_alltoall_data(serialized_sizes_B_bytes);
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
