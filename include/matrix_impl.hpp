@@ -10,6 +10,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+#include <atomic>
 
 namespace matrix {
 
@@ -39,17 +40,35 @@ public:
   // Don't use!
   midx_t height;
   midx_t width;
-  std::map<CellPos, T> _cells;
+  std::vector<std::map<midx_t, T>> _cells;
 
 private:
-  std::vector<midx_t> non_zero_per_row;
+  std::atomic<midx_t> _non_zeros;
 
 public:
   // Takes in the number of rows
   Cells(midx_t height, midx_t width, midx_t non_zeros = 0)
-      : height(height), width(width),
-        non_zero_per_row(std::vector<midx_t>(height, 0)) {}
+      : height(height), width(width)
+      , _cells(height)
+      , _non_zeros(non_zeros) {}
   ~Cells() = default;
+
+  Cells(const Cells& cell) {
+    height = cell.height;
+    width = cell.width;
+    _cells = std::vector<std::map<midx_t, T>>(cell._cells);
+    _non_zeros.store(cell.non_zeros());
+  }
+
+  Cells& operator=(const Cells& cell) {
+    if (this != &cell) {
+      this->_cells = cell._cells;
+      this->_non_zeros.store(cell.non_zeros());
+      this->height = cell.height;
+      this->width = cell.width;
+    }
+    return *this;
+  }
 
   size_t expected_data_size() {
     return sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
@@ -61,25 +80,26 @@ public:
   // indexes are 0-based
   // If a cell in {row, col} has already been inserted, the value is summed
   // to the previous
+  // Concurrent accesses to different positions are supported but not on the second one!
   void add(CellPos pos, T val) {
-    assert(pos.first < non_zero_per_row.size());
+    assert(pos.first < _cells.size());
     assert(val != 0);
 
-    if (!_cells.contains(pos))
-      ++non_zero_per_row[pos.first];
-    else
-      val += _cells[pos];
-
-    _cells[pos] = val;
+    if (!_cells[pos.first].contains(pos.second)) {
+      ++_non_zeros;
+      _cells[pos.first].insert(std::make_pair(pos.second, val));
+    } else {
+      _cells[pos.first][pos.second] += val;
+    }
   }
 
   // Returns the amount of cells (i.e., non_zeros)
-  midx_t non_zeros() const { return _cells.size(); }
+  midx_t non_zeros() const { return _non_zeros; }
 
   // Returns the number of cells in a row
   midx_t cells_in_row(midx_t row) const {
-    assert(row < non_zero_per_row.size());
-    return non_zero_per_row[row];
+    assert(row < _cells.size());
+    return _cells[row].size();
   }
 };
 
@@ -258,10 +278,11 @@ public:
         fields(utils::get_fields(data)), height(cells.height),
         width(cells.width), non_zeros(cells.non_zeros()), transposed(tr) {
 #ifndef NDEBUG
-    for (auto [pos, _] : cells._cells) {
-      auto [row, col] = pos;
-      assert(row < height);
-      assert(col < width);
+    for(int row = 0; row < cells._cells.size(); row++) {
+      for (auto [col, _] : cells._cells[row]) {
+        assert(row < height);
+        assert(col < width);
+      }
     }
 #endif
 
@@ -282,13 +303,11 @@ public:
 
     // Fill values and col_index arrays using row_ptr
     auto next_pos_in_row = std::vector<midx_t>(height + 1, 0);
-    for (auto [pos, val] : cells._cells) {
-      auto [row, col] = pos;
-
-      auto index = row_ptr[row] + next_pos_in_row[row];
-      col_idx[index] = col;
-      values[index] = val;
-      next_pos_in_row[row]++;
+    for(int row = 0; row < cells._cells.size(); row++) {
+      for (auto [col, _] : cells._cells[row]) {
+        assert(row < height);
+        assert(col < width);
+      }
     }
   }
 

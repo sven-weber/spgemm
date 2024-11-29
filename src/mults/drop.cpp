@@ -56,19 +56,6 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   int recv_rank = rank != 0 ? rank - 1 : n_nodes - 1;
 
   MPI_Request requests[2];
-
-  std::cout << "CREATING VECTOR" << std::endl;
-  std::cout << std::flush;
-
-  // Create a cell for every thread
-  auto num_threads = omp_get_num_threads();
-  auto parallel_cells = std::vector<matrix::Cells<double>>();
-  for (int i = 0; i < num_threads; i++) {
-    parallel_cells.push_back(matrix::Cells<double>(part_A.height, partitions[n_nodes - 1].end_col));
-  }
-
-  std::cout << "CREATED CELL VECTOR WITH" << parallel_cells.size() << "\n";
-  std::cout << std::flush;
   
   // Do computation. We need n-1 communication rounds
   for (int i = 0; i < n_nodes; i++) {
@@ -87,16 +74,15 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
     measure_point(measure::mult, measure::MeasurementEvent::START);
 
     // Matrix multiplication
-    #pragma omp parallel for
     for (midx_t row = 0; row < part_A.height; row++) {
-      auto id = omp_get_thread_num();
       auto [row_data_A, row_pos_A, row_len_A] = part_A.row(row);
+      #pragma omp parallel for
       for (midx_t row_elem = 0; row_elem < row_len_A; row_elem++) {
         auto [row_data_B, row_pos_B, row_len_B] =
             part_B.row(row_pos_A[row_elem]);
         for (midx_t col_elem = 0; col_elem < row_len_B; col_elem++) {
           double res = row_data_A[row_elem] * row_data_B[col_elem];
-          parallel_cells[id].add(
+          cells.add(
               {row, partitions[current_rank_B].start_col + row_pos_B[col_elem]},
               res);
         }

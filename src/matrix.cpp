@@ -117,9 +117,10 @@ Matrix::Matrix(std::string file_path, bool transposed,
                std::vector<midx_t> *keep_rows, std::vector<midx_t> *keep_cols)
     : Matrix(utils::read_fields(file_path, transposed, keep_rows, keep_cols)) {
   auto cells = get_cells<double>(file_path, transposed, keep_rows, keep_cols);
-  for (auto [pos, val] : cells._cells) {
-    auto [row, col] = pos;
-    data[pos(row, col)] = val;
+  for (int row = 0; row < cells._cells.size(); row++) {
+    for(auto [col, val]: cells._cells[row]) {
+       data[pos(row, col)] = val;
+    }
   }
 }
 
