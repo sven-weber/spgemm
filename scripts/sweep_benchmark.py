@@ -73,7 +73,7 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
         
         algo_conf = []
 
-        if impl != "comb":
+        if impl != "comb" and impl != "drop":
             # All our algorithms use one MPI process per core
             # Number of tasks = number of processors
             print("Using MPI placement with 1 process per core")
