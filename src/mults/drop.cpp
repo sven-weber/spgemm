@@ -76,7 +76,6 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
     // Matrix multiplication
     for (midx_t row = 0; row < part_A.height; row++) {
       auto [row_data_A, row_pos_A, row_len_A] = part_A.row(row);
-      #pragma omp parallel for
       for (midx_t row_elem = 0; row_elem < row_len_A; row_elem++) {
         auto [row_data_B, row_pos_B, row_len_B] =
             part_B.row(row_pos_A[row_elem]);

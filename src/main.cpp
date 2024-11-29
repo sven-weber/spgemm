@@ -49,6 +49,14 @@ int main(int argc, char **argv) {
     persist_results = false;
     std::cout << "CAUTION: NOT PERSISTING RESULTS" << std::endl;
   }
+  
+  #ifndef NDEBUG
+      if (const char* omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
+        std::cout << "Running comblas with " << omp_num_threads << " threads" << std::endl;
+      } else {
+        std::cout << "COMBLAS is running SINGLE THREADED!" << std::endl;
+      }
+  #endif
 
   // Init MPI
   int rank, n_nodes;
@@ -161,13 +169,6 @@ int main(int argc, char **argv) {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
   } else if (algo_name == "comb") {
-#ifndef NDEBUG
-    if (const char* omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
-      std::cout << "Running comblas with " << omp_num_threads << " threads" << std::endl;
-    } else {
-      std::cout << "COMBLAS is running SINGLE THREADED!" << std::endl;
-    }
-#endif
     C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLASMatrixMultiplication(rank, n_nodes, partitions,
                                                    A_path);
