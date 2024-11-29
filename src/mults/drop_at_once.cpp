@@ -1,8 +1,8 @@
 #include "communication.hpp"
 #include "mpi.h"
 #include "mults.hpp"
-#include <cstring>
 #include "utils.hpp"
+#include <cstring>
 #include <measure.hpp>
 #include <unistd.h>
 
@@ -26,9 +26,27 @@ size_t DropAtOnce::get_B_serialization_size() {
 }
 
 std::vector<size_t> DropAtOnce::get_B_serialization_sizes() {
-  serialization_sizes = std::vector<size_t>(n_nodes);
-  for (int i = 0; i < n_nodes; i++)
-    serialization_sizes[i] = first_part_B.filter(bitmaps[i]).size();
+  std::vector<size_t> serialization_sizes(n_nodes);
+
+  for (int i = 0; i < n_nodes; i++) {
+    auto start = send_buf.size();
+    // TODO: can we know the size before hand?
+    // we should be able to since we've alreay done this call in
+    // get_B_serialization_sizes
+    send_displs.push_back(send_buf.size());
+
+    measure_point(measure::filter, measure::MeasurementEvent::START);
+    auto send_blocks = first_part_B.filter(bitmaps[i]);
+    measure_point(measure::filter, measure::MeasurementEvent::END);
+    if (i != rank)
+      send_buf.insert(send_buf.end(), send_blocks.begin(), send_blocks.end());
+
+    serialization_sizes[i] = send_blocks.size();
+    auto end = send_buf.size();
+    send_counts.push_back(end - start);
+    // send_counts.push_back(send_blocks.size());
+  }
+
   return serialization_sizes;
 }
 
@@ -37,41 +55,19 @@ void DropAtOnce::reset() {
       std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
 }
 
-void DropAtOnce::gemm(std::vector<size_t> serialized_sizes_B_bytes,
-                      size_t max_size_B_bytes) {
-  std::vector<std::byte> send_buf;
-  std::vector<int> send_counts;
-  std::vector<int> send_displs;
-
-  // TODO: avoid sending our own data
-
-  for (int i = 0; i < n_nodes; i++) {
-    auto start = send_buf.end();
-    measure_point(measure::filter, measure::MeasurementEvent::START);
-    auto send_blocks = first_part_B.filter(bitmaps[i]);
-    measure_point(measure::filter, measure::MeasurementEvent::END);
-    // TODO: can we know the size before hand?
-    // we should be able to since we've alreay done this call in get_B_serialization_sizes
-    send_displs.push_back(send_buf.size());
-
-    send_buf.insert(send_buf.end(), send_blocks.begin(), send_blocks.end());
-    auto end = send_buf.end();
-    // send_counts.push_back(end - start);
-
-    send_counts.push_back(send_blocks.size());
-  }
-
-  std::vector<std::byte> recv_buf;
-  std::vector<int> recv_counts;
-  std::vector<int> recv_displs;
+void DropAtOnce::compute_alltoall_data(
+    std::vector<size_t> serialized_sizes_B_bytes) {
 
   int displ = 0;
   for (int i = 0; i < n_nodes; i++) {
     recv_displs.push_back(displ);
 
-    size_t b = serialized_sizes_B_bytes[i];
-    recv_buf.resize(recv_buf.size() + b);
-    displ += b;
+    size_t b = 0;
+    if (i != rank) {
+      b = serialized_sizes_B_bytes[i];
+      recv_buf.resize(recv_buf.size() + b);
+      displ += b;
+    }
 
     recv_counts.push_back(b);
   }
@@ -80,15 +76,17 @@ void DropAtOnce::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                            send_displs.data(), MPI_BYTE, recv_buf.data(),
                            recv_counts.data(), recv_displs.data(), MPI_BYTE,
                            MPI_COMM_WORLD);
+}
 
-  utils::print_vector<std::byte>("send_buf", send_buf);
-  utils::print_vector<std::byte>("recv_buf", recv_buf);
-
+void DropAtOnce::gemm(std::vector<size_t> serialized_sizes_B_bytes,
+                      size_t max_size_B_bytes) {
   // Do computation. We need n-1 communication rounds
   for (int i = 0; i < n_nodes; i++) {
     measure_point(measure::deserialize, measure::MeasurementEvent::START);
-    matrix::BlockedCSRMatrix<> part_B(
-        {&recv_buf[recv_displs[i]], recv_counts[i]});
+    matrix::BlockedCSRMatrix<> part_B =
+        (i != rank) ? matrix::BlockedCSRMatrix<>(
+                          {&recv_buf[recv_displs[i]], recv_counts[i]})
+                    : first_part_B;
     measure_point(measure::deserialize, measure::MeasurementEvent::END);
 
     measure_point(measure::mult, measure::MeasurementEvent::START);
