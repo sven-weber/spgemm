@@ -97,7 +97,7 @@ public:
 class Drop : public MatrixMultiplication {
 protected:
   matrix::ManagedCSRMatrix<> part_A;
-  matrix::BlockedCSRMatrix<> first_part_B;
+  matrix::ManagedBlockedCSRMatrix<> first_part_B;
   matrix::Cells<> cells;
   std::vector<size_t> serialization_sizes;
 
@@ -108,6 +108,29 @@ public:
   Drop(int rank, int n_nodes, partition::Partitions partitions,
        std::string path_A, std::vector<midx_t> *keep_rows, std::string path_B,
        std::vector<midx_t> *keep_cols);
+  void gemm(std::vector<size_t> serialized_sizes_B_bytes,
+            size_t max_size_B_bytes) override;
+
+  void save_result(std::string path) override;
+  size_t get_B_serialization_size() override;
+  std::vector<size_t> get_B_serialization_sizes();
+  void reset() override;
+};
+
+class DropAtOnce : public MatrixMultiplication {
+protected:
+  matrix::ManagedCSRMatrix<> part_A;
+  matrix::ManagedBlockedCSRMatrix<> first_part_B;
+  matrix::Cells<> cells;
+  std::vector<size_t> serialization_sizes;
+
+public:
+  std::bitset<N_SECTIONS> bitmap;
+  std::vector<std::bitset<N_SECTIONS>> bitmaps;
+
+  DropAtOnce(int rank, int n_nodes, partition::Partitions partitions,
+             std::string path_A, std::vector<midx_t> *keep_rows,
+             std::string path_B, std::vector<midx_t> *keep_cols);
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
 

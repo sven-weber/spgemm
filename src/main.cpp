@@ -180,6 +180,25 @@ int main(int argc, char **argv) {
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
 
+  } else if (algo_name == "drop_at_once") {
+    auto *tmp = new mults::DropAtOnce(rank, n_nodes, partitions, A_path,
+                                      &keep_rows, B_path, &keep_cols);
+    mult = tmp;
+
+    measure_point(measure::bitmaps, measure::MeasurementEvent::START);
+
+    std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
+    MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+                  bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+                  MPI_COMM_WORLD);
+    tmp->bitmaps = bitmaps;
+    measure_point(measure::bitmaps, measure::MeasurementEvent::END);
+
+    // Share serialization sizes
+    std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
+    MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
+                 serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
+                 MPI_COMM_WORLD);
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
