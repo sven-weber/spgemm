@@ -75,8 +75,10 @@ int main(int argc, char **argv) {
   }
 
   // Load sparsity
-  matrix::Fields A_fields = matrix::utils::read_fields(A_path, false, nullptr, nullptr);
-  matrix::Fields B_fields = matrix::utils::read_fields(B_path, false, nullptr, nullptr);
+  matrix::Fields A_fields =
+      matrix::utils::read_fields(A_path, false, nullptr, nullptr);
+  matrix::Fields B_fields =
+      matrix::utils::read_fields(B_path, false, nullptr, nullptr);
 
   partition::Partitions partitions(n_nodes);
   partition::Shuffle A_shuffle(A_fields.height);
@@ -132,11 +134,11 @@ int main(int argc, char **argv) {
                             B_path, &keep_cols);
   } else if (algo_name == "drop") {
     auto *tmp = new mults::Drop(rank, n_nodes, partitions, A_path, &keep_rows,
-                            B_path, &keep_cols);
+                                B_path, &keep_cols);
     mult = tmp;
 
     measure_point(measure::bitmaps, measure::MeasurementEvent::START);
-    
+
 #ifndef NDEBUG
     // Share bitmaps
     std::cout << "bitmap.count = " << tmp->bitmap.count() << std::endl;
@@ -145,7 +147,8 @@ int main(int argc, char **argv) {
 
     std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
     MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
-              bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE, MPI_COMM_WORLD);
+                  bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+                  MPI_COMM_WORLD);
     tmp->bitmaps = bitmaps;
 #ifndef NDEBUG
     // Share bitmaps
@@ -155,15 +158,18 @@ int main(int argc, char **argv) {
 
     // Share serialization sizes
     std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
-    MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE, serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE, MPI_COMM_WORLD);
-    
+    MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
+                 serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
+                 MPI_COMM_WORLD);
+
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
   } else if (algo_name == "comb") {
 #ifndef NDEBUG
-    if (const char* omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
-      std::cout << "Running comblas with " << omp_num_threads << " threads" << std::endl;
+    if (const char *omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
+      std::cout << "Running comblas with " << omp_num_threads << " threads"
+                << std::endl;
     } else {
       std::cout << "COMBLAS is running SINGLE THREADED!" << std::endl;
     }
@@ -180,8 +186,8 @@ int main(int argc, char **argv) {
   if (algo_name != "drop") {
     size_t B_byte_size = mult->get_B_serialization_size();
     MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE,
-              &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
-              MPI_ROOT_ID, MPI_COMM_WORLD);
+               &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
+               MPI_ROOT_ID, MPI_COMM_WORLD);
     MPI_Bcast(&serialized_sizes_B_bytes[0], sizeof(size_t) * n_nodes, MPI_BYTE,
               MPI_ROOT_ID, MPI_COMM_WORLD);
   }

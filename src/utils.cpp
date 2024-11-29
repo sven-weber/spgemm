@@ -87,8 +87,7 @@ int PrependBuffer::overflow(int ch) {
 // with a custom buffer that prepends the MPI Rank
 CoutWithMPIRank::CoutWithMPIRank(int mpi_rank) {
   originalBuf_ = std::cout.rdbuf();
-  prependBuf_ =
-      new PrependBuffer(originalBuf_, format("[{}]: ", mpi_rank));
+  prependBuf_ = new PrependBuffer(originalBuf_, format("[{}]: ", mpi_rank));
   std::cout.rdbuf(prependBuf_);
 }
 

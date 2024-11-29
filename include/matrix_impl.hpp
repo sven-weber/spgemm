@@ -141,7 +141,8 @@ Cells<T> get_cells(std::string file_path, bool transposed,
 }
 
 template <typename T>
-std::tuple<std::vector<Cells<T>>, size_t> get_cells_sections(std::string file_path, bool transposed,
+std::tuple<std::vector<Cells<T>>, size_t>
+get_cells_sections(std::string file_path, bool transposed,
                    std::vector<std::vector<midx_t>> *keep_rows_sections,
                    std::vector<midx_t> *keep_cols) {
   auto keep_rows_map = std::unordered_map<midx_t, std::tuple<midx_t, size_t>>();
@@ -442,7 +443,8 @@ public:
       keep_rows_sections.push_back(keep_rows);
     }
 
-    auto [cells, sz] = get_cells_sections<T>(file_path, false, &keep_rows_sections, keep_cols);
+    auto [cells, sz] =
+        get_cells_sections<T>(file_path, false, &keep_rows_sections, keep_cols);
     sz += initial_data_size();
 
     data->resize(sz);
@@ -482,7 +484,7 @@ public:
   }
 
   SmallVec<T> row(midx_t i) {
-    auto block_i = std::min(i / section_height(height), (midx_t) N_SECTIONS-1);
+    auto block_i = std::min(i / section_height(height), (midx_t)N_SECTIONS - 1);
     auto start_row = block_i * section_height(height);
     auto rel = i - start_row;
 
@@ -490,7 +492,7 @@ public:
   }
 
   std::shared_ptr<CSRMatrix<T>> block(midx_t i) {
-    auto block_i = std::min(i / section_height(height), (midx_t) N_SECTIONS-1);
+    auto block_i = std::min(i / section_height(height), (midx_t)N_SECTIONS - 1);
     auto start_row = block_i * section_height(height);
 
     return start_row_to_csrs.at(start_row);
@@ -501,8 +503,10 @@ public:
     return {csrs[i], blocked_fields->section_start_row[i]};
   }
 
-  std::shared_ptr<std::vector<std::byte>> filter(std::bitset<N_SECTIONS> bitmap, size_t size = 0) {
-    auto new_data = std::make_shared<std::vector<std::byte>>(initial_data_size());
+  std::shared_ptr<std::vector<std::byte>> filter(std::bitset<N_SECTIONS> bitmap,
+                                                 size_t size = 0) {
+    auto new_data =
+        std::make_shared<std::vector<std::byte>>(initial_data_size());
     new_data->reserve(size != 0 ? size : initial_data_size());
 
     BlockedFields bf;
