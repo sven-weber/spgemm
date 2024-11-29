@@ -90,6 +90,14 @@ void visualize(const matrix::CSRMatrix<T> *csr, const std::string &name)
 }
 #endif
 
+template <typename T>
+void print_vector(const std::string &sv, const std::vector<T> &v) {
+  std::cout << sv << ' ';
+  for (auto i = v.begin(); i != v.end(); ++i)
+    std::cout << ((size_t)*i) << ' ';
+  std::cout << std::endl << std::flush;
+}
+
 /**
  * Prints the given partition to std out for debugging
  */
