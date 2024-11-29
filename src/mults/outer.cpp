@@ -72,7 +72,7 @@ void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
       }
     }
     measure_point(measure::mult, measure::MeasurementEvent::END);
-    
+
     if (i < n_nodes - 1) {
       measure_point(measure::wait_all, measure::MeasurementEvent::START);
       // Wait for the communication to finish

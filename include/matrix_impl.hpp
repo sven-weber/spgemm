@@ -2,6 +2,7 @@
 
 #include "matrix.hpp"
 
+#include <atomic>
 #include <bitset>
 #include <cassert>
 #include <fstream>
@@ -10,7 +11,6 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
-#include <atomic>
 
 namespace matrix {
 
@@ -42,35 +42,13 @@ public:
   midx_t width;
   std::vector<std::map<midx_t, T>> _cells;
 
-private:
-  std::atomic<midx_t> _non_zeros;
-
 public:
   // Takes in the number of rows
   Cells(midx_t height, midx_t width, midx_t non_zeros = 0)
-      : height(height), width(width)
-      , _cells(height)
-      , _non_zeros(non_zeros) {}
+      : height(height), width(width), _cells(height) {}
   ~Cells() = default;
 
-  Cells(const Cells& cell) {
-    height = cell.height;
-    width = cell.width;
-    _cells = std::vector<std::map<midx_t, T>>(cell._cells);
-    _non_zeros.store(cell.non_zeros());
-  }
-
-  Cells& operator=(const Cells& cell) {
-    if (this != &cell) {
-      this->_cells = cell._cells;
-      this->_non_zeros.store(cell.non_zeros());
-      this->height = cell.height;
-      this->width = cell.width;
-    }
-    return *this;
-  }
-
-  size_t expected_data_size() {
+  size_t expected_data_size() const {
     return sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
            (non_zeros() * sizeof(midx_t)) + (non_zeros() * sizeof(T));
   }
@@ -80,21 +58,27 @@ public:
   // indexes are 0-based
   // If a cell in {row, col} has already been inserted, the value is summed
   // to the previous
-  // Concurrent accesses to different positions are supported but not on the second one!
+  // Concurrent accesses to different positions are supported but not on the
+  // second one!
   void add(CellPos pos, T val) {
     assert(pos.first < _cells.size());
     assert(val != 0);
 
     if (!_cells[pos.first].contains(pos.second)) {
-      ++_non_zeros;
-      _cells[pos.first].insert(std::make_pair(pos.second, val));
+      /*++_non_zeros;*/
+      _cells[pos.first].insert({pos.second, val});
     } else {
       _cells[pos.first][pos.second] += val;
     }
   }
 
   // Returns the amount of cells (i.e., non_zeros)
-  midx_t non_zeros() const { return _non_zeros; }
+  midx_t non_zeros() const {
+    auto non_zeros = 0;
+    for (auto m : _cells)
+      non_zeros += m.size();
+    return non_zeros;
+  }
 
   // Returns the number of cells in a row
   midx_t cells_in_row(midx_t row) const {
@@ -161,7 +145,8 @@ Cells<T> get_cells(std::string file_path, bool transposed,
 }
 
 template <typename T>
-std::tuple<std::vector<Cells<T>>, size_t> get_cells_sections(std::string file_path, bool transposed,
+std::tuple<std::vector<Cells<T>>, size_t>
+get_cells_sections(std::string file_path, bool transposed,
                    std::vector<std::vector<midx_t>> *keep_rows_sections,
                    std::vector<midx_t> *keep_cols) {
   auto keep_rows_map = std::unordered_map<midx_t, std::tuple<midx_t, size_t>>();
@@ -278,10 +263,11 @@ public:
         fields(utils::get_fields(data)), height(cells.height),
         width(cells.width), non_zeros(cells.non_zeros()), transposed(tr) {
 #ifndef NDEBUG
-    for(int row = 0; row < cells._cells.size(); row++) {
-      for (auto [col, _] : cells._cells[row]) {
+    for (int row = 0; row < cells._cells.size(); row++) {
+      for (auto [col, val] : cells._cells[row]) {
         assert(row < height);
         assert(col < width);
+        assert(val != 0);
       }
     }
 #endif
@@ -303,10 +289,12 @@ public:
 
     // Fill values and col_index arrays using row_ptr
     auto next_pos_in_row = std::vector<midx_t>(height + 1, 0);
-    for(int row = 0; row < cells._cells.size(); row++) {
-      for (auto [col, _] : cells._cells[row]) {
-        assert(row < height);
-        assert(col < width);
+    for (int row = 0; row < cells._cells.size(); row++) {
+      for (auto [col, val] : cells._cells[row]) {
+        auto index = row_ptr[row] + next_pos_in_row[row];
+        col_idx[index] = col;
+        values[index] = val;
+        next_pos_in_row[row]++;
       }
     }
   }
@@ -362,9 +350,7 @@ public:
 template <typename T = double> class ManagedCSRMatrix : public CSRMatrix<T> {
 private:
   Data alloc_for_cells(const Cells<T> &cells) {
-    auto sz = sizeof(Fields) + ((cells.height + 1) * sizeof(midx_t)) +
-              (cells.non_zeros() * sizeof(midx_t)) +
-              (cells.non_zeros() * sizeof(T));
+    auto sz = cells.expected_data_size();
     auto vec = new std::byte[sz];
     return {vec, sz};
   }
@@ -461,7 +447,8 @@ public:
       keep_rows_sections.push_back(keep_rows);
     }
 
-    auto [cells, sz] = get_cells_sections<T>(file_path, false, &keep_rows_sections, keep_cols);
+    auto [cells, sz] =
+        get_cells_sections<T>(file_path, false, &keep_rows_sections, keep_cols);
     sz += initial_data_size();
 
     data->resize(sz);
@@ -501,7 +488,7 @@ public:
   }
 
   SmallVec<T> row(midx_t i) {
-    auto block_i = std::min(i / section_height(height), (midx_t) N_SECTIONS-1);
+    auto block_i = std::min(i / section_height(height), (midx_t)N_SECTIONS - 1);
     auto start_row = block_i * section_height(height);
     auto rel = i - start_row;
 
@@ -509,7 +496,7 @@ public:
   }
 
   std::shared_ptr<CSRMatrix<T>> block(midx_t i) {
-    auto block_i = std::min(i / section_height(height), (midx_t) N_SECTIONS-1);
+    auto block_i = std::min(i / section_height(height), (midx_t)N_SECTIONS - 1);
     auto start_row = block_i * section_height(height);
 
     return start_row_to_csrs.at(start_row);
@@ -520,8 +507,10 @@ public:
     return {csrs[i], blocked_fields->section_start_row[i]};
   }
 
-  std::shared_ptr<std::vector<std::byte>> filter(std::bitset<N_SECTIONS> bitmap, size_t size = 0) {
-    auto new_data = std::make_shared<std::vector<std::byte>>(initial_data_size());
+  std::shared_ptr<std::vector<std::byte>> filter(std::bitset<N_SECTIONS> bitmap,
+                                                 size_t size = 0) {
+    auto new_data =
+        std::make_shared<std::vector<std::byte>>(initial_data_size());
     new_data->reserve(size != 0 ? size : initial_data_size());
 
     BlockedFields bf;
