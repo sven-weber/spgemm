@@ -21,6 +21,21 @@ int recv(void *buf, int count, MPI_Datatype datatype, int source, int tag,
   return MPI_Irecv(buf, count, datatype, source, tag, comm, request);
 }
 
+int alltoallv(const void *sendbuf, const int sendcounts[], const int sdispls[],
+              MPI_Datatype sendtype, void *recvbuf, const int recvcounts[],
+              const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm) {
+  assert(sendtype == MPI_BYTE);
+  assert(sendtype == recvtype);
+  int cnt = 0, rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  for (size_t i = 0; i < rank; ++i) {
+    cnt += sendcounts[i];
+  }
+  measure::Measure::get_instance()->track_bytes(cnt);
+  return MPI_Alltoallv(sendbuf, sendcounts, sdispls, sendtype, recvbuf,
+                       recvcounts, rdispls, recvtype, comm);
+}
+
 unsigned long serialize_time_to_unsigned_long(
     const std::chrono::system_clock::time_point &time_point) {
   // Convert time_point to milliseconds since the Unix epoch and cast to

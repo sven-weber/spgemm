@@ -4,6 +4,7 @@
 
 #include <bitset>
 #include <cassert>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -138,73 +139,6 @@ Cells<T> get_cells(std::string file_path, bool transposed,
   }
   stream.close();
   return cells;
-}
-
-template <typename T>
-std::tuple<std::vector<Cells<T>>, size_t>
-get_cells_sections(std::string file_path, bool transposed,
-                   std::vector<std::vector<midx_t>> *keep_rows_sections,
-                   std::vector<midx_t> *keep_cols) {
-  auto keep_rows_map = std::unordered_map<midx_t, std::tuple<midx_t, size_t>>();
-  assert(keep_rows_sections != nullptr);
-  for (size_t s = 0; s < N_SECTIONS; ++s) {
-    auto keep_rows = (*keep_rows_sections)[s];
-    for (midx_t i = 0; i < keep_rows.size(); ++i) {
-      keep_rows_map.insert({keep_rows[i], {i, s}});
-    }
-  }
-
-  auto keep_cols_map = std::unordered_map<midx_t, midx_t>();
-  if (keep_cols != nullptr)
-    for (midx_t i = 0; i < keep_cols->size(); ++i) {
-      keep_cols_map.insert({(*keep_cols)[i], i});
-    }
-
-  auto fields = utils::read_fields(file_path, transposed, nullptr, keep_cols);
-  std::ifstream stream(file_path);
-  std::string sink;
-  do {
-    getline(stream, sink);
-  } while (sink.size() > 0 and sink[0] == '%');
-
-  std::vector<Cells<T>> cells_sections;
-  for (size_t s = 0; s < N_SECTIONS; ++s) {
-    auto cells = Cells<T>((*keep_rows_sections)[s].size(), fields.width);
-    cells_sections.push_back(cells);
-  }
-
-  // read non-zeros
-  auto l = fields.non_zeros;
-  while (l--) {
-    midx_t _row, _col;
-    T val;
-    stream >> _row;
-    stream >> _col;
-    stream >> val;
-
-    auto row = transposed ? _col - 1 : _row - 1;
-    auto col = transposed ? _row - 1 : _col - 1;
-
-    if (!keep_rows_map.contains(row))
-      continue;
-    auto [mapped_row, sec] = keep_rows_map[row];
-
-    if (keep_cols != nullptr) {
-      if (!keep_cols_map.contains(col))
-        continue;
-
-      col = keep_cols_map[col];
-    }
-
-    cells_sections[sec].add({mapped_row, col}, val);
-  }
-  stream.close();
-
-  size_t exp_size = 0;
-  for (size_t s = 0; s < N_SECTIONS; ++s) {
-    exp_size += cells_sections[s].expected_data_size();
-  }
-  return {cells_sections, exp_size};
 }
 
 using Data = std::pair<std::byte *, size_t>;
@@ -343,7 +277,7 @@ public:
 
 template <typename T = double> class ManagedCSRMatrix : public CSRMatrix<T> {
 private:
-  Data alloc_for_cells(const Cells<T> &cells) {
+  static Data alloc_for_cells(const Cells<T> &cells) {
     auto sz = sizeof(Fields) + ((cells.height + 1) * sizeof(midx_t)) +
               (cells.non_zeros() * sizeof(midx_t)) +
               (cells.non_zeros() * sizeof(T));
@@ -367,11 +301,14 @@ public:
 #define section_height(height) ((height) / N_SECTIONS)
 
 template <typename T = double> class BlockedCSRMatrix {
-private:
-  std::shared_ptr<std::vector<std::byte>> data;
-  BlockedFields *blocked_fields;
+protected:
+  std::byte *data;
+  size_t size;
 
-  size_t initial_data_size() { return sizeof(BlockedFields); }
+  static size_t initial_data_size() { return sizeof(BlockedFields); }
+
+private:
+  BlockedFields *blocked_fields;
 
   std::vector<std::shared_ptr<CSRMatrix<T>>> csrs;
   std::unordered_map<midx_t, std::shared_ptr<CSRMatrix<T>>> start_row_to_csrs;
@@ -395,7 +332,7 @@ private:
   void compute_blocked_fields_from_csrs() {
     // Here we assume all sections are filled
     size_t sh = section_height(height);
-    std::byte *start = data->data();
+    std::byte *start = data;
     for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
       blocked_fields->section_offst[i] =
           std::get<0>(csrs[i]->serialize()) - start;
@@ -407,11 +344,11 @@ private:
     for (size_t i = 0; i < blocked_fields->n_sections; ++i) {
       auto begin = blocked_fields->section_offst[i];
       auto end = (i == blocked_fields->n_sections - 1)
-                     ? data->size()
+                     ? size
                      : blocked_fields->section_offst[i + 1];
       auto sz = end - begin;
 
-      Data d = {data->data() + begin, sz};
+      Data d = {data + begin, sz};
       csrs.push_back(std::make_shared<CSRMatrix<T>>(d));
     }
   }
@@ -421,47 +358,25 @@ public:
   midx_t width = 0;
   midx_t non_zeros = 0;
 
-  BlockedCSRMatrix(std::string file_path,
-                   std::vector<midx_t> *keep_cols = nullptr)
-      : data(std::make_shared<std::vector<std::byte>>(initial_data_size(),
-                                                      std::byte(0))) {
-    auto fields = utils::read_fields(file_path, false, nullptr, keep_cols);
-
-    static_assert(N_SECTIONS > 1);
-
-    std::cout << "Compute keep_rows & load cells" << std::endl;
-    auto partition_height = section_height(fields.height);
-    std::vector<std::vector<midx_t>> keep_rows_sections;
-    for (size_t i = 0; i < N_SECTIONS; ++i) {
-      std::vector<midx_t> keep_rows;
-      auto start = i * partition_height;
-      auto end =
-          (i == (N_SECTIONS - 1)) ? fields.height : (i + 1) * partition_height;
-      for (size_t j = start; j < end; ++j) {
-        keep_rows.push_back(j);
-      }
-      keep_rows_sections.push_back(keep_rows);
-    }
-
-    auto [cells, sz] =
-        get_cells_sections<T>(file_path, false, &keep_rows_sections, keep_cols);
-    sz += initial_data_size();
-
-    data->resize(sz);
+  BlockedCSRMatrix(std::tuple<Data, std::vector<Cells<T>>, Fields> d)
+      : data(std::get<0>(std::get<0>(d))), size(std::get<1>(std::get<0>(d))) {
+    auto cells = std::get<1>(d);
+    auto fields = std::get<2>(d);
     csrs = std::vector<std::shared_ptr<CSRMatrix<T>>>();
 
-    blocked_fields = utils::get_blocked_fields(data->data());
+    blocked_fields = utils::get_blocked_fields(data);
     blocked_fields->n_sections = N_SECTIONS;
     blocked_fields->height = fields.height;
 
     std::cout << "Make csrs" << std::endl;
+    auto partition_height = section_height(fields.height);
     auto idx = initial_data_size();
     for (size_t i = 0; i < N_SECTIONS; ++i) {
       auto cell = cells[i];
       auto row = i * partition_height;
 
       auto sz = cell.expected_data_size();
-      Data d = {data->data() + idx, sz};
+      Data d = {data + idx, sz};
       idx += sz;
 
       blocked_fields->section_start_row[i] = row;
@@ -477,8 +392,9 @@ public:
     assert(blocked_fields->height == height);
   }
 
-  BlockedCSRMatrix(std::shared_ptr<std::vector<std::byte>> data)
-      : data(data), blocked_fields(utils::get_blocked_fields(data->data())) {
+  BlockedCSRMatrix(const Data &d)
+      : data(std::get<0>(d)), size(std::get<1>(d)),
+        blocked_fields(utils::get_blocked_fields(data)) {
     compute_csrs_from_blocked_fields();
     compute_class_fields();
   }
@@ -503,11 +419,10 @@ public:
     return {csrs[i], blocked_fields->section_start_row[i]};
   }
 
-  std::shared_ptr<std::vector<std::byte>> filter(std::bitset<N_SECTIONS> bitmap,
-                                                 size_t size = 0) {
-    auto new_data =
-        std::make_shared<std::vector<std::byte>>(initial_data_size());
-    new_data->reserve(size != 0 ? size : initial_data_size());
+  std::vector<std::byte> filter(std::bitset<N_SECTIONS> bitmap,
+                                size_t size = 0) {
+    auto new_data = std::vector<std::byte>(initial_data_size());
+    new_data.reserve(size != 0 ? size : initial_data_size());
 
     BlockedFields bf;
     bf.n_sections = bitmap.count();
@@ -520,7 +435,7 @@ public:
         continue;
 
       auto [csr_data, sz_] = csrs[i]->serialize();
-      new_data->insert(new_data->end(), csr_data, csr_data + sz_);
+      new_data.insert(new_data.end(), csr_data, csr_data + sz_);
 
       bf.section_offst[j] = sz;
       bf.section_start_row[j] = blocked_fields->section_start_row[i];
@@ -528,13 +443,120 @@ public:
       sz += sz_;
       ++j;
     }
-    memcpy(new_data->data(), &bf, sizeof(bf));
+    std::memcpy(new_data.data(), &bf, sizeof(bf));
 
     return new_data;
   }
 
   // DO NOT WRITE TO THE OUTPUT OF THIS
-  std::shared_ptr<std::vector<std::byte>> serialize() { return data; }
+  Data serialize() { return {data, size}; }
+};
+
+template <typename T = double>
+class ManagedBlockedCSRMatrix : public BlockedCSRMatrix<T> {
+private:
+  static std::pair<std::vector<Cells<T>>, size_t>
+  get_cells_sections(std::string file_path, bool transposed,
+                     std::vector<std::vector<midx_t>> *keep_rows_sections,
+                     std::vector<midx_t> *keep_cols) {
+    auto keep_rows_map =
+        std::unordered_map<midx_t, std::tuple<midx_t, size_t>>();
+    assert(keep_rows_sections != nullptr);
+    for (size_t s = 0; s < N_SECTIONS; ++s) {
+      auto keep_rows = (*keep_rows_sections)[s];
+      for (midx_t i = 0; i < keep_rows.size(); ++i) {
+        keep_rows_map.insert({keep_rows[i], {i, s}});
+      }
+    }
+
+    auto keep_cols_map = std::unordered_map<midx_t, midx_t>();
+    if (keep_cols != nullptr)
+      for (midx_t i = 0; i < keep_cols->size(); ++i) {
+        keep_cols_map.insert({(*keep_cols)[i], i});
+      }
+
+    auto fields = utils::read_fields(file_path, transposed, nullptr, keep_cols);
+    std::ifstream stream(file_path);
+    std::string sink;
+    do {
+      getline(stream, sink);
+    } while (sink.size() > 0 and sink[0] == '%');
+
+    std::vector<Cells<T>> cells_sections;
+    for (size_t s = 0; s < N_SECTIONS; ++s) {
+      auto cells = Cells<T>((*keep_rows_sections)[s].size(), fields.width);
+      cells_sections.push_back(cells);
+    }
+
+    // read non-zeros
+    auto l = fields.non_zeros;
+    while (l--) {
+      midx_t _row, _col;
+      T val;
+      stream >> _row;
+      stream >> _col;
+      stream >> val;
+
+      auto row = transposed ? _col - 1 : _row - 1;
+      auto col = transposed ? _row - 1 : _col - 1;
+
+      if (!keep_rows_map.contains(row))
+        continue;
+      auto [mapped_row, sec] = keep_rows_map[row];
+
+      if (keep_cols != nullptr) {
+        if (!keep_cols_map.contains(col))
+          continue;
+
+        col = keep_cols_map[col];
+      }
+
+      cells_sections[sec].add({mapped_row, col}, val);
+    }
+    stream.close();
+
+    size_t exp_size = 0;
+    for (size_t s = 0; s < N_SECTIONS; ++s) {
+      exp_size += cells_sections[s].expected_data_size();
+    }
+    return {cells_sections, exp_size};
+  }
+
+  static std::tuple<Data, std::vector<Cells<T>>, Fields>
+  alloc_for_cells(std::string file_path,
+                  std::vector<midx_t> *keep_cols = nullptr) {
+    auto fields = utils::read_fields(file_path, false, nullptr, keep_cols);
+
+    static_assert(N_SECTIONS > 1);
+
+    auto partition_height = section_height(fields.height);
+    std::vector<std::vector<midx_t>> keep_rows_sections;
+    for (size_t i = 0; i < N_SECTIONS; ++i) {
+      std::vector<midx_t> keep_rows;
+      auto start = i * partition_height;
+      auto end =
+          (i == (N_SECTIONS - 1)) ? fields.height : (i + 1) * partition_height;
+      for (size_t j = start; j < end; ++j) {
+        keep_rows.push_back(j);
+      }
+      keep_rows_sections.push_back(keep_rows);
+    }
+
+    auto [cells, sz] =
+        get_cells_sections(file_path, false, &keep_rows_sections, keep_cols);
+    sz += BlockedCSRMatrix<T>::initial_data_size();
+
+    auto vec = new std::byte[sz];
+    Data d = std::make_pair(vec, sz);
+    return std::make_tuple(d, cells, fields);
+  }
+
+public:
+  ManagedBlockedCSRMatrix(std::string file_path,
+                          std::vector<midx_t> *keep_cols = nullptr)
+      : BlockedCSRMatrix<T>(alloc_for_cells(file_path, keep_cols)) {}
+
+  /*~ManagedBlockedCSRMatrix() { delete[] BlockedCSRMatrix<T>::data; }*/
 };
 
 } // namespace matrix

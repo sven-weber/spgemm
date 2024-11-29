@@ -1,46 +1,50 @@
-#include "bitmap.hpp"
 #include "communication.hpp"
 #include "mpi.h"
 #include "mults.hpp"
-#include "utils.hpp"
 #include <cstring>
-#include <iostream>
 #include <measure.hpp>
 #include <unistd.h>
 
 namespace mults {
 
-Drop::Drop(int rank, int n_nodes, partition::Partitions partitions,
-           std::string path_A, std::vector<midx_t> *keep_rows,
-           std::string path_B, std::vector<midx_t> *keep_cols)
+DropAtOnce::DropAtOnce(int rank, int n_nodes, partition::Partitions partitions,
+                       std::string path_A, std::vector<midx_t> *keep_rows,
+                       std::string path_B, std::vector<midx_t> *keep_cols)
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
       bitmap(bitmap::compute_bitmap(part_A)) {}
 
-void Drop::save_result(std::string path) {
+void DropAtOnce::save_result(std::string path) {
   matrix::ManagedCSRMatrix result(cells);
   result.save(path);
 }
 
-size_t Drop::get_B_serialization_size() {
+size_t DropAtOnce::get_B_serialization_size() {
   return std::get<1>(first_part_B.serialize());
 }
 
-std::vector<size_t> Drop::get_B_serialization_sizes() {
+std::vector<size_t> DropAtOnce::get_B_serialization_sizes() {
   serialization_sizes = std::vector<size_t>(n_nodes);
   for (int i = 0; i < n_nodes; i++)
     serialization_sizes[i] = first_part_B.filter(bitmaps[i]).size();
   return serialization_sizes;
 }
 
-void Drop::reset() {
+void DropAtOnce::reset() {
   cells =
       std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
 }
-void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
-                size_t max_size_B_bytes) {
 
+template <typename T> void pv(const std::string &sv, const std::vector<T> &v) {
+  std::cout << sv << ' ';
+  for (auto i = v.begin(); i != v.end(); ++i)
+    std::cout << *i << ' ';
+  std::cout << std::endl << std::flush;
+}
+
+void DropAtOnce::gemm(std::vector<size_t> serialized_sizes_B_bytes,
+                      size_t max_size_B_bytes) {
   // Buffer where the receiving partitions will be stored
   auto receiving_B_buffer =
       std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
@@ -53,21 +57,63 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   int current_rank_B = rank;
   int recv_rank = rank != 0 ? rank - 1 : n_nodes - 1;
 
-  MPI_Request requests[2];
-  // Do computation. We need n-1 communication rounds
+  std::vector<std::byte> send_buf;
+  std::vector<int> send_counts;
+  std::vector<int> send_displs;
+
+  // TODO: avoid sending our own data
+
   for (int i = 0; i < n_nodes; i++) {
     // Resize buffer to the correct size (should not free/alloc memory)
     receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
 
+    auto start = send_buf.end();
     measure_point(measure::filter, measure::MeasurementEvent::START);
     auto send_blocks =
         first_part_B.filter(bitmaps[send_rank], serialization_sizes[send_rank]);
     measure_point(measure::filter, measure::MeasurementEvent::END);
-    communication::send(send_blocks.data(), send_blocks.size(), MPI_BYTE,
-                        send_rank, 0, MPI_COMM_WORLD, &requests[0]);
-    communication::recv(receiving_B_buffer->data(),
-                        serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
-                        recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
+    send_buf.insert(send_buf.end(), send_blocks.begin(), send_blocks.end());
+    auto end = send_buf.end();
+    send_counts.push_back(end - start);
+    send_displs.push_back(send_buf.size());
+
+    if (i < n_nodes - 1) {
+      send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;
+      recv_rank = recv_rank != 0 ? recv_rank - 1 : n_nodes - 1;
+    }
+  }
+
+  std::vector<std::byte> recv_buf;
+  std::vector<int> recv_counts;
+  std::vector<int> recv_displs;
+
+  int displ = 0;
+  for (int i = 0; i < n_nodes; i++) {
+    size_t b = serialized_sizes_B_bytes[i];
+
+    recv_buf.resize(recv_buf.size() + b);
+    displ += b;
+
+    recv_counts.push_back(b);
+    recv_displs.push_back(displ);
+  }
+
+  pv<int>("recv_counts", recv_counts);
+  pv<int>("recv_displs", recv_displs);
+
+  communication::alltoallv(send_buf.data(), send_counts.data(),
+                           send_counts.data(), MPI_BYTE, recv_buf.data(),
+                           recv_counts.data(), recv_counts.data(), MPI_BYTE,
+                           MPI_COMM_WORLD);
+
+  MPI_Request requests[2];
+  // Do computation. We need n-1 communication rounds
+  for (int i = 0; i < n_nodes; i++) {
+    measure_point(measure::deserialize, measure::MeasurementEvent::START);
+    matrix::BlockedCSRMatrix<> received(
+        {&recv_buf[recv_displs[i]], recv_counts[i]});
+    measure_point(measure::deserialize, measure::MeasurementEvent::END);
+    part_B = received;
 
     measure_point(measure::mult, measure::MeasurementEvent::START);
     // Matrix multiplication
@@ -85,26 +131,6 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
       }
     }
     measure_point(measure::mult, measure::MeasurementEvent::END);
-
-    if (i < n_nodes - 1) {
-      measure_point(measure::wait_all, measure::MeasurementEvent::START);
-      // Wait for the communication to finish
-      MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
-      measure_point(measure::wait_all, measure::MeasurementEvent::END);
-
-      // Deserialize Matrix for next round and switch buffer pointers
-      std::swap(received_B_buffer, receiving_B_buffer);
-      measure_point(measure::deserialize, measure::MeasurementEvent::START);
-      matrix::BlockedCSRMatrix received(
-          {received_B_buffer->data(), received_B_buffer->size()});
-      measure_point(measure::deserialize, measure::MeasurementEvent::END);
-      part_B = received;
-
-      // Get next targets
-      send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;
-      current_rank_B = recv_rank;
-      recv_rank = recv_rank != 0 ? recv_rank - 1 : n_nodes - 1;
-    }
   }
 }
 } // namespace mults
