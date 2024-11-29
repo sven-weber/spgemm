@@ -148,6 +148,37 @@ public:
   void reset() override;
 };
 
+class DropAtOnceParallel : public MatrixMultiplication {
+protected:
+  matrix::ManagedCSRMatrix<> part_A;
+  matrix::ManagedBlockedCSRMatrix<> first_part_B;
+  matrix::Cells<> cells;
+  std::vector<size_t> serialization_sizes;
+
+  std::vector<std::byte> send_buf;
+  std::vector<int> send_counts;
+  std::vector<int> send_displs;
+  std::vector<std::byte> recv_buf;
+  std::vector<int> recv_counts;
+  std::vector<int> recv_displs;
+
+public:
+  std::bitset<N_SECTIONS> bitmap;
+  std::vector<std::bitset<N_SECTIONS>> bitmaps;
+
+  DropAtOnceParallel(int rank, int n_nodes, partition::Partitions partitions,
+                     std::string path_A, std::vector<midx_t> *keep_rows,
+                     std::string path_B, std::vector<midx_t> *keep_cols);
+  void gemm(std::vector<size_t> serialized_sizes_B_bytes,
+            size_t max_size_B_bytes) override;
+
+  void save_result(std::string path) override;
+  size_t get_B_serialization_size() override;
+  std::vector<size_t> get_B_serialization_sizes();
+  void compute_alltoall_data(std::vector<size_t> serialized_sizes_B_bytes);
+  void reset() override;
+};
+
 typedef combblas::SpParMat1D<int64_t, double,
                              combblas::SpDCCols<int64_t, double>>
     Sp1D;

@@ -117,11 +117,13 @@ int main(int argc, char **argv) {
   }
 
 #ifndef NDEBUG
-  if (const char *omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
-    std::cout << "Running comblas with " << omp_num_threads << " threads"
-              << std::endl;
-  } else {
-    std::cout << "COMBLAS is running SINGLE THREADED!" << std::endl;
+  if (rank == MPI_ROOT_ID) {
+    if (const char *omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
+      std::cout << "Running with " << omp_num_threads << " threads"
+                << std::endl;
+    } else {
+      std::cout << "Running SINGLE THREADED!" << std::endl;
+    }
   }
 #endif
 
@@ -182,6 +184,26 @@ int main(int argc, char **argv) {
   } else if (algo_name == "drop_at_once") {
     auto *tmp = new mults::DropAtOnce(rank, n_nodes, partitions, A_path,
                                       &keep_rows, B_path, &keep_cols);
+    mult = tmp;
+
+    measure_point(measure::bitmaps, measure::MeasurementEvent::START);
+    std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
+    MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+                  bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+                  MPI_COMM_WORLD);
+    tmp->bitmaps = bitmaps;
+    measure_point(measure::bitmaps, measure::MeasurementEvent::END);
+
+    // Share serialization sizes
+    std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
+    MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
+                 serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
+                 MPI_COMM_WORLD);
+
+    tmp->compute_alltoall_data(serialized_sizes_B_bytes);
+  } else if (algo_name == "drop_at_once_parallel") {
+    auto *tmp = new mults::DropAtOnceParallel(rank, n_nodes, partitions, A_path,
+                                              &keep_rows, B_path, &keep_cols);
     mult = tmp;
 
     measure_point(measure::bitmaps, measure::MeasurementEvent::START);
