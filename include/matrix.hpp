@@ -32,7 +32,7 @@ typedef struct Fields {
 // This is an barebones Matrix class
 class Matrix {
 private:
-  std::shared_ptr<std::vector<char>> raw_data;
+  std::shared_ptr<std::vector<std::byte>> raw_data;
   Fields *fields;
 
   size_t expected_data_size();
@@ -51,15 +51,16 @@ public:
   Matrix(std::string file_path, bool transposed = false,
          std::vector<midx_t> *keep_rows = nullptr,
          std::vector<midx_t> *keep_cols = nullptr);
-  Matrix(std::shared_ptr<std::vector<char>> serialized_data);
+  Matrix(std::shared_ptr<std::vector<std::byte>> serialized_data);
   ~Matrix() = default;
 
   void save(std::string file_path);
   // DO NOT WRITE TO THE OUTPUT OF THIS
-  std::shared_ptr<std::vector<char>> serialize();
+  std::shared_ptr<std::vector<std::byte>> serialize();
 };
 
 typedef struct BlockedFields {
+  size_t height;
   size_t n_sections;
   size_t section_offst[N_SECTIONS];
   size_t section_start_row[N_SECTIONS];

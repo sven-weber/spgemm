@@ -23,59 +23,77 @@ matrices = {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/GHS_indef/cont-300.tar.gz",
     "extract_files": ["cont-300.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cont-300", "cont-300.mtx"),
-    "daint_only": False
+    "daint_only": False,
+    "compute_expected": True
   },
   "cell1" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Lucifora/cell1.tar.gz",
     "extract_files": ["cell1.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cell1", "cell1.mtx"),
-    "daint_only": False
+    "daint_only": False,
+    "compute_expected": True
   },
   "jan99jac060sc" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Hollinger/jan99jac060sc.tar.gz",
     "extract_files": ["jan99jac060sc.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("jan99jac060sc", "jan99jac060sc.mtx"),
-    "daint_only": False
+    "daint_only": False,
+    "compute_expected": True
   },
   "viscoplastic2" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Quaglino/viscoplastic2.tar.gz",
     "extract_files": ["viscoplastic2.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("viscoplastic2", "viscoplastic2.mtx"),
-    "daint_only": False
+    "daint_only": False,
+    "compute_expected": True
   },
+  # 5 million non-zeros - 160 MB uncompressed
   "largebasis": {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/QLi/largebasis.tar.gz",
     "extract_files": ["largebasis.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("largebasis", "largebasis.mtx"),
-    "daint_only": False
+    "daint_only": False,
+    "compute_expected": True
+  },
+  # 50 million non-zeros - ~700 MB uncompressed
+  "af_shell10": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Schenk_AFE/af_shell10.tar.gz",
+    "extract_files": ["af_shell10.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("af_shell10", "af_shell10.mtx"),
+    "daint_only": True,
+    "compute_expected": True
   },
   # # 316 million non-zeros
   # "Queen_4147": {
   #   "target-url": "",
   #   "extract_files": [""],
   #   "post_extract_func": lambda: copy_one_matrix_to_A_and_B("Queen_4147", "largebasis.mtx"),
-  #   "daint_only": True
+  #   "daint_only": True,
+  #    "compute_expected": False
   # },
   # # 440 million non-zeros
   # "nlpkkt200": {
   #   "target-url": "",
   #   "extract_files": [""],
   #   "post_extract_func": lambda: copy_one_matrix_to_A_and_B("nlpkkt200", "largebasis.mtx"),
-  #   "daint_only": True
+  #   "daint_only": True,
+  #    "compute_expected": False
   # },
   # 283 million non-zeros, 10 GB uncompressed
-  "HV15R": {
-   "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Fluorem/HV15R.tar.gz",
-    "extract_files": ["HV15R.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("HV15R", "HV15R.mtx"),
-    "daint_only": True
-  },
+  # "HV15R": {
+  #  "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Fluorem/HV15R.tar.gz",
+  #   "extract_files": ["HV15R.mtx"],
+  #   "post_extract_func": lambda: copy_one_matrix_to_A_and_B("HV15R", "HV15R.mtx"),
+  #   "daint_only": True,
+  #   "compute_expected": False
+  # },
   # # 349 million non-zeros, 8 GB umcompressed
   # "stokes": {
   #   "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/stokes.tar.gz",
   #   "extract_files": ["stokes.mtx"],
   #   "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stokes", "stokes.mtx"),
-  #   "daint_only": True
+  #   "daint_only": True,
+  #    "compute_expected": False
   # },
 }
 
@@ -115,6 +133,9 @@ def fix_file(target):
   mmwrite(target, new_matrix)
 
 def exec_subprocess(CMD, euler, daint):
+  # Environment variables for the task
+  env = os.environ.copy()
+
   if euler:
     print("Submitting job to euler via SLURM")
     # Submit this as a slurm job!
@@ -128,25 +149,38 @@ def exec_subprocess(CMD, euler, daint):
       # 2 sockets - 18 cores each per machine 
       "--constraint=mc", 
       "-n", "36", # 1 whole machine with two sockets
+      "--mem=0", # All memory on the node!
       "-N", "1", # 1 node
       "-A", "g34", # The project we use
       "--wrap",
       " ".join(CMD)
     ]
+    # Set the OpenMP env to enable parallelization
+    env.update({
+      "OMP_NUM_THREADS": "36"
+    })
   else:
     cmd = CMD
+
+  # Set output to unbuffered for python scripts
+  # So we get output on failures.
+  env.update({
+    "PYTHONUNBUFFERED": "YES"
+  })
 
   result = subprocess.run(
     cmd,
     cwd=os.getcwd(),
     capture_output=True,
-    text=True
+    text=True,
+    env=env
   )
   # Print the script output
   output = result.stdout.strip()
   print(output)
   
   return_code = result.returncode
+  print(f"Execution finished with exit code {return_code}")
   assert return_code == 0, "Failed to execute subprocess"
 
 def extract_tar_gz(name, target_folder, temp_file_path, target_files, euler, daint):
@@ -222,18 +256,22 @@ def main(euler: bool, daint: bool):
   print("Fetching missing matrices")
   for name, dict in matrices.items():
     target_path = f"matrices/{name}"
-    if os.path.exists(target_path) and name != "HV15R":
+    if os.path.exists(target_path):
       print(f"Skipped {name} since it already exists.")
     elif dict["daint_only"] == True and daint == False:
       print(f"Skipped {name} since it should only be computed on daint")
     else:
       print(f"-------- {name} --------")
-      #download_and_extract_tar_gz(name, dict, target_path, euler, daint)
+      download_and_extract_tar_gz(name, dict, target_path, euler, daint)
       # Execute post extract func
-      #if dict["post_extract_func"] is not None:
-      #  dict["post_extract_func"]()
-      print("Computing expected output")
-      compute_expected(target_path, euler, daint)
+      if dict["post_extract_func"] is not None:
+        dict["post_extract_func"]()
+      # Compute expected value
+      if dict["compute_expected"] == True:
+        print("Computing expected output")
+        compute_expected(target_path, euler, daint)
+      else:
+        print("Skipped expected value computation")
       print("Processing finished.")
       add_to_gitignore(target_path)
       print(f"-------- {name} --------")

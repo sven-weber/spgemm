@@ -73,9 +73,8 @@ void write_matrix_market(std::string file_path, midx_t height, midx_t width,
   stream.close();
 }
 
-BlockedFields *
-get_blocked_fields(std::shared_ptr<std::vector<char>> serialized_data) {
-  return (BlockedFields *)((void *)serialized_data->data());
+BlockedFields *get_blocked_fields(std::byte *serialized_data) {
+  return (BlockedFields *)((void *)serialized_data);
 }
 
 } // namespace utils
@@ -87,7 +86,7 @@ size_t Matrix::expected_data_size() {
 
 double *Matrix::get_offset() {
   assert(raw_data->size() == expected_data_size());
-  char *data_ptr = raw_data->data();
+  std::byte *data_ptr = raw_data->data();
 
   // Make sure things that come after fields are memory-aligned
   assert(sizeof(Fields) % sizeof(midx_t) == 0);
@@ -105,8 +104,9 @@ Matrix::Matrix(midx_t height, midx_t width, bool transposed)
 // Initializes an empty matrix
 Matrix::Matrix(Fields fs)
     : height(fs.height), width(fs.width), transposed(fs.transposed) {
-  raw_data = std::make_shared<std::vector<char>>(expected_data_size(), 0);
-  fields = utils::get_fields(raw_data);
+  raw_data = std::make_shared<std::vector<std::byte>>(expected_data_size(),
+                                                      std::byte(0));
+  fields = utils::get_fields(raw_data->data());
   memcpy(fields, &fs, sizeof(Fields));
   data = get_offset();
 }
@@ -123,8 +123,9 @@ Matrix::Matrix(std::string file_path, bool transposed,
   }
 }
 
-Matrix::Matrix(std::shared_ptr<std::vector<char>> serialized_data)
-    : raw_data(serialized_data), fields(utils::get_fields(serialized_data)),
+Matrix::Matrix(std::shared_ptr<std::vector<std::byte>> serialized_data)
+    : raw_data(serialized_data),
+      fields(utils::get_fields(serialized_data->data())),
       height(fields->height), width(fields->width),
       transposed(fields->transposed), data(get_offset()) {}
 
@@ -148,6 +149,6 @@ void Matrix::save(std::string file_path) {
 }
 
 // DO NOT WRITE TO THE OUTPUT OF THIS
-std::shared_ptr<std::vector<char>> Matrix::serialize() { return raw_data; }
+std::shared_ptr<std::vector<std::byte>> Matrix::serialize() { return raw_data; }
 
 } // namespace matrix

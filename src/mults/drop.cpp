@@ -2,6 +2,7 @@
 #include "mpi.h"
 #include "mults.hpp"
 #include "utils.hpp"
+#include "bitmap.hpp"
 #include <cstring>
 #include <iostream>
 #include <measure.hpp>
@@ -9,37 +10,46 @@
 
 namespace mults {
 
-Outer::Outer(int rank, int n_nodes, partition::Partitions partitions,
+Drop::Drop(int rank, int n_nodes, partition::Partitions partitions,
              std::string path_A, std::vector<midx_t> *keep_rows,
              std::string path_B, std::vector<midx_t> *keep_cols)
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows),
-      first_part_B(path_B, false, nullptr, keep_cols),
-      cells(part_A.height, partitions[n_nodes - 1].end_col) {}
+      first_part_B(path_B, keep_cols),
+      cells(part_A.height, partitions[n_nodes - 1].end_col),
+      bitmap(bitmap::compute_bitmap(part_A)) {}
 
-void Outer::save_result(std::string path) {
+void Drop::save_result(std::string path) {
   matrix::ManagedCSRMatrix result(cells);
   result.save(path);
 }
 
-size_t Outer::get_B_serialization_size() {
-  return std::get<1>(first_part_B.serialize());
+size_t Drop::get_B_serialization_size() {
+  return first_part_B.serialize()->size();
 }
 
-void Outer::reset() {
+std::vector<size_t> Drop::get_B_serialization_sizes() {
+  serialization_sizes = std::vector<size_t>(n_nodes);
+  for(int i = 0; i < n_nodes; i++)
+    serialization_sizes[i] = first_part_B.filter(bitmaps[i])->size();
+  return serialization_sizes;
+}
+
+
+void Drop::reset() {
   cells =
       std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
 }
-void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
+void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                  size_t max_size_B_bytes) {
 
   // Buffer where the receiving partitions will be stored
-  std::vector<std::byte> receiving_B_buffer(max_size_B_bytes);
-  std::vector<std::byte> received_B_buffer(max_size_B_bytes);
+  auto receiving_B_buffer =
+      std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
+  auto received_B_buffer =
+      std::make_shared<std::vector<std::byte>>(max_size_B_bytes);
 
-  // Zero-copy serialized representation of B to send around
-  auto serialized = first_part_B.serialize();
-  matrix::CSRMatrix<> part_B = first_part_B;
+  matrix::BlockedCSRMatrix<> part_B = first_part_B;
 
   int send_rank = rank != n_nodes - 1 ? rank + 1 : 0;
   int current_rank_B = rank;
@@ -49,10 +59,14 @@ void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   // Do computation. We need n-1 communication rounds
   for (int i = 0; i < n_nodes; i++) {
     // Resize buffer to the correct size (should not free/alloc memory)
-    receiving_B_buffer.resize(serialized_sizes_B_bytes[recv_rank]);
-    communication::send(std::get<0>(serialized), serialized_sizes_B_bytes[rank],
+    receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
+    
+    measure_point(measure::filter, measure::MeasurementEvent::START);
+    auto send_blocks = first_part_B.filter(bitmaps[send_rank], serialization_sizes[send_rank]);
+    measure_point(measure::filter, measure::MeasurementEvent::END);
+    communication::send(send_blocks->data(), send_blocks->size(),
                         MPI_BYTE, send_rank, 0, MPI_COMM_WORLD, &requests[0]);
-    communication::recv(receiving_B_buffer.data(),
+    communication::recv(receiving_B_buffer->data(),
                         serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
                         recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
 
@@ -72,7 +86,7 @@ void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
       }
     }
     measure_point(measure::mult, measure::MeasurementEvent::END);
-    
+
     if (i < n_nodes - 1) {
       measure_point(measure::wait_all, measure::MeasurementEvent::START);
       // Wait for the communication to finish
@@ -81,8 +95,9 @@ void Outer::gemm(std::vector<size_t> serialized_sizes_B_bytes,
 
       // Deserialize Matrix for next round and switch buffer pointers
       std::swap(received_B_buffer, receiving_B_buffer);
-      matrix::CSRMatrix received(
-          {received_B_buffer.data(), received_B_buffer.size()});
+      measure_point(measure::deserialize, measure::MeasurementEvent::START);
+      matrix::BlockedCSRMatrix received(received_B_buffer);
+      measure_point(measure::deserialize, measure::MeasurementEvent::END);
       part_B = received;
 
       // Get next targets

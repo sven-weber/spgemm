@@ -1,12 +1,12 @@
 SRC_DIR  					= src
 INCLUDE_DIR				= include
 TARGET   					= build/dphpc
-TEST_MACHINES 		= 8
+TEST_MACHINES 		= 2
 NUMBER_RUNS				= 1
 NUMBER_WARMUP			= 0
-MATRIX_TARGET			= cell1
+MATRIX_TARGET			= first
 BUILD_DIR         = build
-ALGORITHM					= advanced
+ALGORITHM					= outer
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
 CPP_HEADER_FILES := $(wildcard $(INCLUDE_DIR)/**/**/*.hpp) $(wildcard $(INCLUDE_DIR)/**/*.hpp) $(wildcard $(INCLUDE_DIR)/*.hpp)
