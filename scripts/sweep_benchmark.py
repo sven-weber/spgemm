@@ -22,7 +22,16 @@ COLOR_MAP       = {
     "outer": "black",
     "baseline": "blue",
     "drop": "green",
+    "drop_parallel": "purple",
+    "drop_at_once": "sienna",
+    "drop_at_once_parallel": "teal"
 }
+
+# Which algorithms should be run using OpenMP Threads
+# in addition to MPI
+OMP_ALGOS = [
+    "comb", "drop_at_once_parallel", "drop_parallel"
+]
 
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
     if impl == "comb" and matrix == "viscoplastic2" and nodes == 9:
@@ -73,7 +82,7 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
         
         algo_conf = []
 
-        if impl != "comb" and impl != "drop":
+        if impl not in OMP_ALGOS:
             # All our algorithms use one MPI process per core
             # Number of tasks = number of processors
             print("Using MPI placement with 1 process per core")
@@ -171,7 +180,7 @@ def graph_multiple_runs(folders: List[str], daint: bool = False) -> Dict[str, pd
 
         # Aggregate horizontally timings related to same function
         grouped_df = group_runs(dataframes)
-        if daint and algo != "comb":
+        if daint and algo not in OMP_ALGOS:
             grouped_df['nodes'] = len(dataframes) / 36
         else:
             grouped_df['nodes'] = len(dataframes)

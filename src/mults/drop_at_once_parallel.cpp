@@ -74,16 +74,19 @@ void DropAtOnceParallel::compute_alltoall_data(
 
     recv_counts.push_back(b);
   }
-
-  communication::alltoallv(send_buf.data(), send_counts.data(),
-                           send_displs.data(), MPI_BYTE, recv_buf.data(),
-                           recv_counts.data(), recv_displs.data(), MPI_BYTE,
-                           MPI_COMM_WORLD);
 }
 
 void DropAtOnceParallel::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                               size_t max_size_B_bytes) {
-  // Do computation. We need n-1 communication rounds
+  // Communication
+  measure_point(measure::wait_all, measure::MeasurementEvent::START);
+  communication::alltoallv(send_buf.data(), send_counts.data(),
+                           send_displs.data(), MPI_BYTE, recv_buf.data(),
+                           recv_counts.data(), recv_displs.data(), MPI_BYTE,
+                           MPI_COMM_WORLD);
+  measure_point(measure::wait_all, measure::MeasurementEvent::END);
+
+  // Do computation. We need n-1 computation rounds
   for (int i = 0; i < n_nodes; i++) {
     measure_point(measure::deserialize, measure::MeasurementEvent::START);
     matrix::BlockedCSRMatrix<> part_B =

@@ -10,36 +10,38 @@
 
 namespace mults {
 
-Drop::Drop(int rank, int n_nodes, partition::Partitions partitions,
-           std::string path_A, std::vector<midx_t> *keep_rows,
-           std::string path_B, std::vector<midx_t> *keep_cols)
+DropParallel::DropParallel(int rank, int n_nodes,
+                           partition::Partitions partitions, std::string path_A,
+                           std::vector<midx_t> *keep_rows, std::string path_B,
+                           std::vector<midx_t> *keep_cols)
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
       bitmap(bitmap::compute_bitmap(part_A)) {}
 
-void Drop::save_result(std::string path) {
+void DropParallel::save_result(std::string path) {
   matrix::ManagedCSRMatrix result(cells);
   result.save(path);
 }
 
-size_t Drop::get_B_serialization_size() {
+size_t DropParallel::get_B_serialization_size() {
   return std::get<1>(first_part_B.serialize());
 }
 
-std::vector<size_t> Drop::get_B_serialization_sizes() {
+std::vector<size_t> DropParallel::get_B_serialization_sizes() {
   serialization_sizes = std::vector<size_t>(n_nodes);
   for (int i = 0; i < n_nodes; i++)
     serialization_sizes[i] = first_part_B.filter(bitmaps[i]).size();
   return serialization_sizes;
 }
 
-void Drop::reset() {
+void DropParallel::reset() {
   cells =
       std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
 }
-void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
-                size_t max_size_B_bytes) {
+
+void DropParallel::gemm(std::vector<size_t> serialized_sizes_B_bytes,
+                        size_t max_size_B_bytes) {
 
   // Buffer where the receiving partitions will be stored
   auto receiving_B_buffer =
@@ -73,6 +75,7 @@ void Drop::gemm(std::vector<size_t> serialized_sizes_B_bytes,
     measure_point(measure::mult, measure::MeasurementEvent::START);
 
     // Matrix multiplication
+#pragma omp parallel for
     for (midx_t row = 0; row < part_A.height; row++) {
       auto [row_data_A, row_pos_A, row_len_A] = part_A.row(row);
       for (midx_t row_elem = 0; row_elem < row_len_A; row_elem++) {

@@ -50,15 +50,6 @@ int main(int argc, char **argv) {
     std::cout << "CAUTION: NOT PERSISTING RESULTS" << std::endl;
   }
 
-#ifndef NDEBUG
-  if (const char *omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
-    std::cout << "Running comblas with " << omp_num_threads << " threads"
-              << std::endl;
-  } else {
-    std::cout << "COMBLAS is running SINGLE THREADED!" << std::endl;
-  }
-#endif
-
   // Init MPI
   int rank, n_nodes;
   MPI_Init(&argc, &argv);
@@ -97,14 +88,17 @@ int main(int argc, char **argv) {
 
     // Perform the shuffling
     measure_point(measure::shuffle, measure::MeasurementEvent::START);
-    // A_shuffle = std::move(partition::shuffle_min(C));
-    // B_shuffle = std::move(partition::shuffle(B_fields.width));
-    auto [A_shuffle, B_shuffle] = partition::iterative_shuffle(C, C_sparsity_path, 25);
-    // TODO : add N_ITERATIONS for iterative shuffle
-    //        OR: do shuffling for X minutes at most
-    // TODO : add logic for: if shuffled already computed, load it; else, compute it
-    //        OR: load previous shuffle if exists, and run it for some computations before moving on
-    // REMARK : a shuffle can be continued from a previous one, and improved
+    A_shuffle = std::move(partition::shuffle_min(C));
+    B_shuffle = std::move(partition::shuffle(B_fields.width));
+    // auto [A_shuffle, B_shuffle] = partition::iterative_shuffle(C,
+    // C_sparsity_path, 25);
+    //  TODO : add N_ITERATIONS for iterative shuffle
+    //         OR: do shuffling for X minutes at most
+    //  TODO : add logic for: if shuffled already computed, load it; else,
+    //  compute it
+    //         OR: load previous shuffle if exists, and run it for some
+    //         computations before moving on
+    //  REMARK : a shuffle can be continued from a previous one, and improved
 
     if (persist_results) {
       partition::save_shuffle(A_shuffle, A_shuffle_path);
@@ -187,6 +181,35 @@ int main(int argc, char **argv) {
     MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
+  } else if (algo_name == "drop_parallel") {
+    auto *tmp = new mults::DropParallel(rank, n_nodes, partitions, A_path,
+                                        &keep_rows, B_path, &keep_cols);
+    mult = tmp;
+
+    measure_point(measure::bitmaps, measure::MeasurementEvent::START);
+
+#ifndef NDEBUG
+    // Share bitmaps
+    std::cout << "bitmap.count = " << tmp->bitmap.count() << std::endl;
+    std::cout << "bitmap = " << tmp->bitmap << std::endl;
+#endif
+
+    std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
+    MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+                  bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
+                  MPI_COMM_WORLD);
+    tmp->bitmaps = bitmaps;
+#ifndef NDEBUG
+    // Share bitmaps
+    std::cout << "Bitmaps shared" << std::endl;
+#endif
+    measure_point(measure::bitmaps, measure::MeasurementEvent::END);
+
+    // Share serialization sizes
+    std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
+    MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
+                 serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
+                 MPI_COMM_WORLD);
   } else if (algo_name == "drop_at_once") {
     auto *tmp = new mults::DropAtOnce(rank, n_nodes, partitions, A_path,
                                       &keep_rows, B_path, &keep_cols);
@@ -240,7 +263,8 @@ int main(int argc, char **argv) {
   }
 
   // Share serialization sizes
-  if (algo_name != "drop" && algo_name != "drop_at_once") {
+  if (algo_name != "drop" && algo_name != "drop_at_once" &&
+      algo_name != "drop_parallel" && algo_name != "drop_at_once_parallel") {
     size_t B_byte_size = mult->get_B_serialization_size();
     MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE,
                &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,
