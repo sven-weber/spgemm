@@ -10,14 +10,14 @@ import os
 import math
 import matplotlib.pyplot as plt
 
-CMD             = "./build/dphpc"
-RUNS_DIR        = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
-N_WARMUP        = 5
-N_RUNS          = 10
-MAXIMUM_MEMORY  = 128
-FILE_NAME       = "measurements"
-DataFrames      = Dict[int, pd.DataFrame]
-COLOR_MAP       = {
+CMD                     = "./build/dphpc"
+RUNS_DIR                = "_old/af_shell10/no_shuffle"  # for plotting: "measurements/viscoplastic2/euler-5-40"
+N_WARMUP                = 5
+N_RUNS                  = 10
+MAXIMUM_MEMORY          = 128
+FILE_NAME               = "measurements"
+DataFrames              = Dict[int, pd.DataFrame]
+COLOR_MAP               = {
     "comb": "orange", 
     "outer": "black",
     "baseline": "blue",
@@ -26,10 +26,11 @@ COLOR_MAP       = {
     "drop_at_once": "sienna",
     "drop_at_once_parallel": "teal"
 }
+SBATCH_TIME_LIMIT_MIN   = 45
 
 # Which algorithms should be run using OpenMP Threads
 # in addition to MPI
-OMP_ALGOS = [
+OMP_ALGOS               = [
     "comb", "drop_at_once_parallel", "drop_parallel"
 ]
 
@@ -107,7 +108,8 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
         # Sbatch command with the whole config
         cmd = [
             "sbatch",
-            "--wait", 
+            "--wait",
+            f"--time=00:{SBATCH_TIME_LIMIT_MIN}:00",
             "--constraint=mc", # Constraint to XC40
             "--switches=1", # Make sure we are in the same electircal group
             "--mem=0", # Use all available memory on the node
@@ -240,24 +242,6 @@ def plot_increasingnodes(
 
             # Plot the linear progression line
             ax.plot(timing_data["nodes"], linear_progression, linestyle='--', color=color, label="Linear Speedup")
-
-    if (daint):
-        # Add vertical lines for the machine borders
-        # Get the current x-axis limits
-        x_min, x_max = ax.get_xlim()
-        
-        # cores per machien on daint
-        cores_per_machine = 36
-
-        # Calculate multiples of 36 within the limits
-        machine_borders = np.arange(np.ceil(x_min / cores_per_machine) * cores_per_machine, x_max, cores_per_machine)
-
-        # Add vertical lines at the multiples of 36
-        for i, x_pos in enumerate(machine_borders):
-            label = None
-            if i == 0:
-                label = "Machine border"
-            plt.axvline(x=x_pos, color='red', linestyle='--', linewidth=0.8, label=label)
 
 def plot_timings_increasingnodes(
     data: Dict[str, pd.DataFrame], matrix: str,
