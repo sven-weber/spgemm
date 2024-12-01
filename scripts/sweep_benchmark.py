@@ -34,6 +34,11 @@ OMP_ALGOS               = [
     "comb", "drop_at_once_parallel", "drop_parallel"
 ]
 
+# Allows us to easily remove data from a graph
+ALGOS_TO_SKIP_WHILE_PLOTTING = [
+
+]
+
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
     if impl == "comb" and matrix == "viscoplastic2" and nodes == 9:
         # Segfaults for unknown reason
@@ -140,7 +145,8 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
     assert return_code == 0, f"Slurm job execution with {nodes} nodes failed" if euler else f"Running {CMD} with {nodes} nodes failed"
     return folder
 
-def load_timings(folder_path: str) -> DataFrames:
+# Returns a dict of dataframes
+def load_timings(folder_path: str):
     dataframes = dict()
     for file in os.listdir(folder_path):
         if file.startswith(FILE_NAME) and file.endswith(".csv"):
@@ -165,8 +171,28 @@ def load_duration_as_numeric(dataframes: DataFrames):
 
 # Groups the runs of all nodes together to get the maximu
 # for each line in the CSV (the slowest node)
-def group_runs(dataframes: DataFrames) -> pd.DataFrame:
-    return pd.concat(dataframes).groupby(level=1).max()
+def group_runs(node_dict: dict) -> pd.DataFrame:
+    # Find all the functions that exists in the files
+    functions = []
+    for node_id in node_dict:
+        functions += node_dict[node_id]["func"].unique().tolist()
+    functions = list(set(functions))
+
+    # For each of the functions, do a grouping!
+    result = []
+    for function in functions:
+        groups = {}
+        for node_id in node_dict:
+            df = node_dict[node_id][node_dict[node_id]["func"] == function]
+            # This ensures the functions are in the same order, no matter
+            # which order they where in in the original file
+            groups[node_id] = df.reset_index(drop=True)
+        
+        # Group by the same index!
+        result.append(pd.concat(groups).groupby(level=1).max())
+        
+    # Return new dataframe with all the functions grouped!
+    return pd.concat(result)
 
 def graph_multiple_runs(folders: List[str], daint: bool = False) -> Dict[str, pd.DataFrame]:
     timings_per_algo = {}
@@ -177,15 +203,14 @@ def graph_multiple_runs(folders: List[str], daint: bool = False) -> Dict[str, pd
             timings_per_algo[algo] = pd.DataFrame()
 
         # Load DFs
-        dataframes = load_timings(folder_path)
-        load_duration_as_numeric(dataframes)
+        node_dict = load_timings(folder_path)
+        load_duration_as_numeric(node_dict)
+        grouped_df = group_runs(node_dict)
 
-        # Aggregate horizontally timings related to same function
-        grouped_df = group_runs(dataframes)
         if daint and algo not in OMP_ALGOS:
-            grouped_df['nodes'] = len(dataframes) / 36
+            grouped_df['nodes'] = len(node_dict) / 36
         else:
-            grouped_df['nodes'] = len(dataframes)
+            grouped_df['nodes'] = len(node_dict)
         timings_per_algo[algo] = pd.concat([timings_per_algo[algo], grouped_df], axis=0)
     
     #Print the results:
@@ -203,6 +228,9 @@ def plot_increasingnodes(
     daint: bool
 ):
     for algo in data:
+        if algo in ALGOS_TO_SKIP_WHILE_PLOTTING:
+            continue
+
         timings = data[algo]
         func_data = timings[timings["func"] == function]
         

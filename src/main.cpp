@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
     measure_point(measure::shuffle, measure::MeasurementEvent::START);
     // A_shuffle = std::move(partition::shuffle_min(C));
     // B_shuffle = std::move(partition::shuffle(B_fields.width));
-    partition::iterative_shuffle(C, C_sparsity_path, 25, &A_shuffle,
+    partition::iterative_shuffle(C, C_sparsity_path, 10, &A_shuffle,
                                  &B_shuffle);
     // TODO : add N_ITERATIONS for iterative shuffle
     //        OR: do shuffling for X minutes at most
