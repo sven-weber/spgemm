@@ -22,6 +22,14 @@ FetchContent_Declare(
 
 find_package(CombBLAS)
 
+FetchContent_Declare(
+  TBB
+  GIT_REPOSITORY https://github.com/wjakob/tbb
+  OVERRIDE_FIND_PACKAGE
+)
+
+find_package(TBB)
+
 set(CMAKE_CXX_STANDARD 20)
 set(GCC_COVERAGE_COMPILE_FLAGS "-Wall -Wextra -Werror -pedantic -lm -O3 -funroll-loops")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}") #-DNSHUFFLE
@@ -49,3 +57,4 @@ target_compile_definitions(dphpc PUBLIC N_SECTIONS=${N_SECTIONS})
 
 target_link_libraries(dphpc PUBLIC MPI::MPI_CXX)
 target_link_libraries(dphpc PUBLIC CombBLAS)
+target_link_libraries(dphpc PUBLIC TBB)
