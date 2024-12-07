@@ -1,6 +1,9 @@
 #include "bitmap.hpp"
 #include <bitset>
 #include <iostream>
+#include <omp.h>
+
+#pragma omp declare reduction(or : std::bitset<N_SECTIONS> : omp_out |= omp_in) initializer(omp_priv = std::bitset<N_SECTIONS>())
 
 namespace bitmap {
 std::bitset<N_SECTIONS> compute_bitmap(matrix::CSRMatrix<> mat) {
@@ -9,6 +12,7 @@ std::bitset<N_SECTIONS> compute_bitmap(matrix::CSRMatrix<> mat) {
   assert(section_width > 0);
 
   auto map = std::bitset<N_SECTIONS>();
+#pragma omp parallel for reduction(or : map)
   for (size_t row = 0; row < mat.height; row++) {
     auto [row_data, row_pos, row_len] = mat.row(row);
     for (size_t index = 0; index < row_len; index++) {
