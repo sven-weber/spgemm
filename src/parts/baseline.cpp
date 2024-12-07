@@ -7,15 +7,15 @@
 
 namespace parts {
 namespace baseline {
-partition::Partitions partition(matrix::CSRMatrix<> &C, int mpi_size) {
+partition::Partitions partition(matrix::Fields matrix_fields, int mpi_size) {
   partition::Partitions p(mpi_size);
 
-  int rows_per_partition = C.height / mpi_size;
-  int n_extra_row = C.height % mpi_size;
+  int rows_per_partition = matrix_fields.height / mpi_size;
+  int n_extra_row = matrix_fields.height % mpi_size;
   int curr_row = 0;
 
-  int cols_per_partition = C.width / mpi_size;
-  int n_extra_col = C.width % mpi_size;
+  int cols_per_partition = matrix_fields.width / mpi_size;
+  int n_extra_col = matrix_fields.width % mpi_size;
   int curr_col = 0;
 
   for (int i = 0; i < mpi_size; i++) {
