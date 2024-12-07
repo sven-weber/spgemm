@@ -47,11 +47,9 @@ Shuffle shuffle_avg(matrix::CSRMatrix<> matrix) {
   }
 
   std::vector<midx_t> indices(values.size());
-  for (int i = 0; i < indices.size(); ++i) {
-    indices[i] = i;
-  }
+  std::iota(indices.begin(), indices.end(), 0);
 
-  std::sort(indices.begin(), indices.end(),
+  tbb::parallel_sort(indices.begin(), indices.end(),
             [&](int a, int b) { return values[a] > values[b]; });
   return indices;
 }
@@ -64,11 +62,9 @@ Shuffle shuffle_min(matrix::CSRMatrix<> matrix) {
   }
 
   std::vector<midx_t> indices(values.size());
-  for (int i = 0; i < indices.size(); ++i) {
-    indices[i] = i;
-  }
+  std::iota(indices.begin(), indices.end(), 0);
 
-  std::sort(indices.begin(), indices.end(),
+  tbb::parallel_sort(indices.begin(), indices.end(),
             [&](int a, int b) { return values[a] > values[b]; });
   return indices;
 }
