@@ -90,15 +90,13 @@ int main(int argc, char **argv) {
   partition::Shuffle A_shuffle(A_fields.height);
   partition::Shuffle B_shuffle(B_fields.width);
   if (rank == MPI_ROOT_ID && algo_name != "comb") {
-    matrix::ManagedCSRMatrix C(C_sparsity_path, false);
-
     // Perform the shuffling
     measure_point(measure::shuffle, measure::MeasurementEvent::START);
     bool loaded_A = partition::load_shuffle(A_shuffle_path, A_shuffle);
     bool loaded_B = partition::load_shuffle(B_shuffle_path, B_shuffle);
 
     if (!loaded_A || !loaded_B) {
-      partition::iterative_shuffle(C_sparsity_path, 5, &A_shuffle, &B_shuffle);
+      partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
       // TODO : add N_ITERATIONS for iterative shuffle
       //        OR: do shuffling for X minutes at most
       // TODO : add logic for: if shuffled already computed, load it; else,
