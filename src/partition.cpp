@@ -69,8 +69,9 @@ Shuffle shuffle_min(matrix::CSRMatrix<> matrix) {
   return indices;
 }
 
+template <typename T>
 std::vector<std::pair<float, midx_t>>
-calculate_avg_indices_col(matrix::CSRMatrix<> matrix, Shuffle *shuffled_rows,
+calculate_avg_indices_col(matrix::CSRMatrix<T> matrix, Shuffle *shuffled_rows,
                           Shuffle *shuffled_cols) {
   std::vector<std::pair<float, midx_t>> indices(matrix.height);
 
@@ -93,8 +94,9 @@ calculate_avg_indices_col(matrix::CSRMatrix<> matrix, Shuffle *shuffled_rows,
   return indices;
 }
 
+template <typename T>
 std::vector<std::pair<float, midx_t>>
-calculate_avg_indices_row(matrix::CSRMatrix<> matrix, Shuffle *shuffled_rows,
+calculate_avg_indices_row(matrix::CSRMatrix<T> matrix, Shuffle *shuffled_rows,
                           Shuffle *shuffled_cols) {
   std::vector<std::pair<float, midx_t>> indices(matrix.height);
 
@@ -123,9 +125,9 @@ void iterative_shuffle(std::string C_sparsity_path,
   std::iota(shuffled_rows->begin(), shuffled_rows->end(), 0);
   std::iota(shuffled_cols->begin(), shuffled_cols->end(), 0);
 
-  matrix::ManagedCSRMatrix<> C_transposed(C_sparsity_path, true, nullptr,
+  matrix::ManagedCSRMatrix<short> C_transposed(C_sparsity_path, true, nullptr,
                                           nullptr);
-  matrix::ManagedCSRMatrix<> C(C_sparsity_path, false, nullptr, nullptr);
+  matrix::ManagedCSRMatrix<short> C(C_sparsity_path, false, nullptr, nullptr);
 
   float variance = 0;
   float stopping_variance = -1;

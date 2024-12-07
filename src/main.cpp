@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
 
     // Do the partitioning
     measure_point(measure::partition, measure::MeasurementEvent::START);
-    matrix::ManagedCSRMatrix<> mat(C_sparsity_path, false, &A_shuffle,
+    matrix::ManagedCSRMatrix<short> mat(C_sparsity_path, false, &A_shuffle,
                                    &B_shuffle);
     partitions = parts::baseline::balanced_partition(mat, n_nodes);
     utils::print_partitions(partitions, n_nodes);

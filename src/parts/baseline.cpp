@@ -41,7 +41,7 @@ partition::Partitions partition(matrix::Fields matrix_fields, int mpi_size) {
   return p;
 }
 
-partition::Partitions balanced_partition(matrix::CSRMatrix<> &C, int mpi_size) {
+partition::Partitions balanced_partition(matrix::CSRMatrix<short> &C, int mpi_size) {
   partition::Partitions p(mpi_size);
 
   midx_t non_zeros_per_partition = C.non_zeros / mpi_size;
