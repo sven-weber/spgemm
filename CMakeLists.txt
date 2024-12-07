@@ -26,7 +26,14 @@ FetchContent_Declare(
   TBB
   GIT_REPOSITORY https://github.com/wjakob/tbb
   OVERRIDE_FIND_PACKAGE
+  TBB_BUILD_TESTS OFF
 )
+
+set(TBB_BUILD_STATIC CACHE INTERNAL OFF)
+set(TBB_BUILD_TBBMALLOC CACHE INTERNAL OFF)
+set(TBB_BUILD_TBBMALLOC_PROXY CACHE INTERNAL OFF)
+set(TBB_BUILD_TESTS CACHE INTERNAL OFF)
+FetchContent_MakeAvailable(TBB)
 
 find_package(TBB)
 
@@ -57,4 +64,4 @@ target_compile_definitions(dphpc PUBLIC N_SECTIONS=${N_SECTIONS})
 
 target_link_libraries(dphpc PUBLIC MPI::MPI_CXX)
 target_link_libraries(dphpc PUBLIC CombBLAS)
-target_link_libraries(dphpc PUBLIC TBB)
+target_link_libraries(dphpc PUBLIC tbb)
