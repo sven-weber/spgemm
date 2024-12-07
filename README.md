@@ -110,7 +110,7 @@ python3 scripts/fetch_matrices.py --daint
 Build for release:
 
 ```console
-make optimize
+MAKEFLAGS="-j32" make optimize
 ```
 
 Run the benchmark:

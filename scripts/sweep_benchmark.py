@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 
 CMD                     = "./build/dphpc"
 RUNS_DIR                = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
-N_WARMUP                = 2
-N_RUNS                  = 5
+N_WARMUP                = 5
+N_RUNS                  = 10
 MAXIMUM_MEMORY          = 128
 FILE_NAME               = "measurements"
 DataFrames              = Dict[int, pd.DataFrame]
@@ -41,10 +41,6 @@ ALGOS_TO_SKIP_WHILE_PLOTTING = [
 ]
 
 MPI_OPEN_MP_CONFIG = [
-    # {
-    #     "nodes": 8,
-    #     "mpi": 16
-    # },
     {
         "nodes": 16,
         "mpi": 16
@@ -58,6 +54,10 @@ MPI_OPEN_MP_CONFIG = [
         "mpi": 64
     },
     {
+        "nodes": 64,
+        "mpi": 256
+    },
+    {
         "nodes": 128,
         "mpi": 256
     },
@@ -65,10 +65,10 @@ MPI_OPEN_MP_CONFIG = [
         "nodes": 256,
         "mpi": 256
     },
-    # {
-    #     "nodes": 512,
-    #     "mpi": 1024
-    # },
+    {
+        "nodes": 512,
+        "mpi": 1024
+    },
 ]
 
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:

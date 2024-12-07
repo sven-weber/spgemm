@@ -33,11 +33,11 @@ int main(int argc, char **argv) {
   std::string A_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
   std::string B_path = utils::format("{}/{}/B.mtx", matrix_path, matrix_name);
   std::string C_sparsity_path =
-      utils::format("matrices/{}/C_sparsity.mtx", matrix_name);
+      utils::format("{}/{}/C_sparsity.mtx", matrix_path, matrix_name);
   std::string A_shuffle_path =
-      utils::format("matrices/{}/A_shuffle", matrix_name);
+      utils::format("{}/{}/A_shuffle", matrix_path, matrix_name);
   std::string B_shuffle_path =
-      utils::format("matrices/{}/B_shuffle", matrix_name);
+      utils::format("{}/{}/B_shuffle", matrix_path, matrix_name);
 
   std::string run_path = argv[3];
   std::string partitions_path = utils::format("{}/partitions.csv", run_path);
