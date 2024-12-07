@@ -26,10 +26,11 @@ Shuffle shuffle_avg(matrix::CSRMatrix<> matrix);
 
 Shuffle shuffle_min(matrix::CSRMatrix<> matrix);
 
-void iterative_shuffle(matrix::CSRMatrix<> C, std::string C_sparsity_path,
-                       const int iterations, Shuffle *shuffled_rows,
-                       Shuffle *shuffled_cols);
+void iterative_shuffle(std::string C_sparsity_path, const int iterations,
+                       Shuffle *shuffled_rows, Shuffle *shuffled_cols);
 
 void save_shuffle(Shuffle &shuffle, std::string file);
+
+bool load_shuffle(std::string file, Shuffle &shuffle);
 
 } // namespace partition
