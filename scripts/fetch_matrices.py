@@ -22,28 +22,28 @@ matrices = {
   "cont-300" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/GHS_indef/cont-300.tar.gz",
     "extract_files": ["cont-300.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cont-300", "cont-300.mtx"),
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cont-300.mtx"),
     "daint_only": False,
     "compute_expected": True
   },
   "cell1" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Lucifora/cell1.tar.gz",
     "extract_files": ["cell1.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cell1", "cell1.mtx"),
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cell1.mtx"),
     "daint_only": False,
     "compute_expected": True
   },
   "jan99jac060sc" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Hollinger/jan99jac060sc.tar.gz",
     "extract_files": ["jan99jac060sc.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("jan99jac060sc", "jan99jac060sc.mtx"),
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("jan99jac060sc.mtx"),
     "daint_only": False,
     "compute_expected": True
   },
   "viscoplastic2" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Quaglino/viscoplastic2.tar.gz",
     "extract_files": ["viscoplastic2.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("viscoplastic2", "viscoplastic2.mtx"),
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("viscoplastic2.mtx"),
     "daint_only": False,
     "compute_expected": True
   },
@@ -51,7 +51,7 @@ matrices = {
   "largebasis": {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/QLi/largebasis.tar.gz",
     "extract_files": ["largebasis.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("largebasis", "largebasis.mtx"),
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("largebasis.mtx"),
     "daint_only": False,
     "compute_expected": True
   },
@@ -59,55 +59,63 @@ matrices = {
   "af_shell10": {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Schenk_AFE/af_shell10.tar.gz",
     "extract_files": ["af_shell10.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("af_shell10", "af_shell10.mtx"),
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("af_shell10.mtx"),
     "daint_only": True,
     "compute_expected": True
   },
-  # # 316 million non-zeros
-  # "Queen_4147": {
-  #   "target-url": "",
-  #   "extract_files": [""],
-  #   "post_extract_func": lambda: copy_one_matrix_to_A_and_B("Queen_4147", "largebasis.mtx"),
-  #   "daint_only": True,
-  #    "compute_expected": False
-  # },
-  # # 440 million non-zeros
-  # "nlpkkt200": {
-  #   "target-url": "",
-  #   "extract_files": [""],
-  #   "post_extract_func": lambda: copy_one_matrix_to_A_and_B("nlpkkt200", "largebasis.mtx"),
-  #   "daint_only": True,
-  #    "compute_expected": False
-  # },
+  # 316 million non-zeros
+  "Queen_4147": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Janna/Queen_4147.tar.gz",
+    "extract_files": ["Queen_4147.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("Queen_4147.mtx"),
+    "daint_only": True,
+    "compute_expected": True
+  },
+  # 440 million non-zeros
+  "nlpkkt200": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Schenk/nlpkkt200.tar.gz",
+    "extract_files": ["nlpkkt200.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("nlpkkt200.mtx"),
+    "daint_only": True,
+    "compute_expected": False
+  },
   # 283 million non-zeros, 10 GB uncompressed
-  # "HV15R": {
-  #  "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Fluorem/HV15R.tar.gz",
-  #   "extract_files": ["HV15R.mtx"],
-  #   "post_extract_func": lambda: copy_one_matrix_to_A_and_B("HV15R", "HV15R.mtx"),
-  #   "daint_only": True,
-  #   "compute_expected": False
-  # },
+  "HV15R": {
+   "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Fluorem/HV15R.tar.gz",
+    "extract_files": ["HV15R.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("HV15R.mtx"),
+    "daint_only": True,
+    "compute_expected": True
+  },
   # # 349 million non-zeros, 8 GB umcompressed
-  # "stokes": {
-  #   "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/stokes.tar.gz",
-  #   "extract_files": ["stokes.mtx"],
-  #   "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stokes", "stokes.mtx"),
-  #   "daint_only": True,
-  #    "compute_expected": False
-  # },
+  "stokes": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/stokes.tar.gz",
+    "extract_files": ["stokes.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stokes.mtx"),
+    "daint_only": True,
+    # Too large to be computed with our script
+    # We have to manually compute the expected result using comb
+    "compute_expected": True
+  },
 }
 
-def copy_one_matrix_to_A_and_B(folder, source_name):
+TARGET_PATH = ""
+
+def copy_one_matrix_to_A_and_B(source_name):
+  global TARGET_PATH
+  assert(TARGET_PATH != "")
   try:
     # Rename or move the file
-    source = os.path.join("matrices", folder, source_name)
+    source = os.path.join(TARGET_PATH, source_name)
+    print(f"Renaming matrix at {source}")
     fix_file(source)
-    target_A = os.path.join("matrices", folder, "A.mtx")
-    target_B = os.path.join("matrices", folder, "B.mtx")
+    target_A = os.path.join(TARGET_PATH, "A.mtx")
+    target_B = os.path.join(TARGET_PATH, "B.mtx")
     os.rename(source, target_A)
     shutil.copyfile(target_A, target_B)
   except Exception as e:
     print(f"Renaming {source_name} failed: {e}")
+    raise e
 
 def fix_file(target):
   # Check and correct the file header
@@ -252,28 +260,43 @@ def add_to_gitignore(target, gitignore_path=".gitignore"):
   
   print(f"'{target}' has been added to {gitignore_path}.")
 
+def get_target_folder(name, euler, daint) -> str:
+  if daint:
+    # On daint, we store the matrices in scratch storage!
+    scratch = os.getenv("SCRATCH")
+    assert(scratch != "")
+    return f"{scratch}/matrices/{name}"
+  else:
+    return f"matrices/{name}"
+
+
 def main(euler: bool, daint: bool):
+  global TARGET_PATH
   print("Fetching missing matrices")
   for name, dict in matrices.items():
-    target_path = f"matrices/{name}"
-    if os.path.exists(target_path):
+    TARGET_PATH = get_target_folder(name, euler, daint)
+    assert(TARGET_PATH != "")
+    print(f"Downloading to target path: {TARGET_PATH}")
+    if os.path.exists(TARGET_PATH) and name:
       print(f"Skipped {name} since it already exists.")
     elif dict["daint_only"] == True and daint == False:
       print(f"Skipped {name} since it should only be computed on daint")
     else:
       print(f"-------- {name} --------")
-      download_and_extract_tar_gz(name, dict, target_path, euler, daint)
+      download_and_extract_tar_gz(name, dict, TARGET_PATH, euler, daint)
       # Execute post extract func
       if dict["post_extract_func"] is not None:
         dict["post_extract_func"]()
       # Compute expected value
       if dict["compute_expected"] == True:
         print("Computing expected output")
-        compute_expected(target_path, euler, daint)
+        compute_expected(TARGET_PATH, euler, daint)
       else:
         print("Skipped expected value computation")
       print("Processing finished.")
-      add_to_gitignore(target_path)
+      if not daint:
+        # Daint uses scratch storage that is not part of the repo!
+        add_to_gitignore(TARGET_PATH)
       print(f"-------- {name} --------")
   print("Fetching done.")
 

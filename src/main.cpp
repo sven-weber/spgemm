@@ -19,7 +19,7 @@ void write_to_file(std::string name, std::string path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc < 7) {
+  if (argc < 8) {
     std::cerr
         << "Did not get enough arguments. Expected <matrix_path> <run_path>"
         << std::endl;
@@ -28,10 +28,11 @@ int main(int argc, char **argv) {
 
   std::string algo_name = argv[1];
   std::string matrix_name = argv[2];
-  std::string A_path = utils::format("matrices/{}/A.mtx", matrix_name);
-  std::string B_path = utils::format("matrices/{}/B.mtx", matrix_name);
+  std::string matrix_path = argv[7];
+  std::string A_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
+  std::string B_path = utils::format("{}/{}/B.mtx", matrix_path, matrix_name);
   std::string C_sparsity_path =
-      utils::format("matrices/{}/C_sparsity.mtx", matrix_name);
+      utils::format("{}/{}/C_sparsity.mtx", matrix_path, matrix_name);
 
   std::string run_path = argv[3];
   std::string partitions_path = utils::format("{}/partitions.csv", run_path);
@@ -83,7 +84,7 @@ int main(int argc, char **argv) {
   partition::Partitions partitions(n_nodes);
   partition::Shuffle A_shuffle(A_fields.height);
   partition::Shuffle B_shuffle(B_fields.width);
-  if (rank == MPI_ROOT_ID) {
+  if (rank == MPI_ROOT_ID && algo_name != "comb") {
     matrix::ManagedCSRMatrix C(C_sparsity_path, false);
 
     // Perform the shuffling
@@ -254,7 +255,7 @@ int main(int argc, char **argv) {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
   } else if (algo_name == "comb") {
-    C_path = utils::format("{}/C.mtx", run_path);
+    C_path =C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLASMatrixMultiplication(rank, n_nodes, partitions,
                                                    A_path);
   } else {

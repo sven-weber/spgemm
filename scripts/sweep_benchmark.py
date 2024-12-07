@@ -6,6 +6,7 @@ import numpy as np
 import subprocess
 import pathlib
 import argparse
+import shutil
 import os
 import math
 import matplotlib.pyplot as plt
@@ -59,7 +60,8 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
     print(f"Running with {nodes} cores")
     date = datetime.now().strftime("%Y-%m-%d-%T")
     id = f"{date}-{nodes}"
-    folder = join(RUNS_DIR, id)
+    cwd = os.getcwd()
+    folder = join(cwd, RUNS_DIR, id)
     pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
     # Environment variables for the task
     env = os.environ.copy()
@@ -78,7 +80,7 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
             "-n", str(nodes),
             "-N", "1", # 1 node
             "--wrap",
-            f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str}"
+            f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str} matrices"
         ]
     elif daint:
         # Running on broadwell cluster with 2 sockets - 18 cores each per machine
@@ -110,6 +112,8 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
                 "OMP_NUM_THREADS": str(cpus_per_machine)
             })
 
+        matrix_path = os.path.join(os.getenv("SCRATCH"), "matrices")
+
         # Sbatch command with the whole config
         cmd = [
             "sbatch",
@@ -122,10 +126,10 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
             "-A", "g34" # The project we use
         ] + algo_conf + [
             "--wrap",
-            f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str}"
+            f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str} {matrix_path}"
         ]
     else:
-        cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), "true"]
+        cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), "true", "matrices"]
     result = subprocess.run(
         cmd,
         cwd=os.getcwd(),
@@ -363,6 +367,16 @@ def get_subfolders(folder_path):
     subfolders.sort()
     return subfolders
 
+def prepare_daint():
+    global CMD
+    # Copy the executable to SCRATCH storage
+    # and update the CMD to run from there
+    scratch_target = os.path.join(os.getenv("SCRATCH"), "dphpc")
+    print(f"Copying binary to target{scratch_target}")
+    shutil.copyfile(CMD, scratch_target)
+    os.system(f"chmod +x {scratch_target}")
+    CMD = scratch_target
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
                     prog='sweep_benchmark',
@@ -389,6 +403,9 @@ if __name__ == "__main__":
         # only do the visualization!
         folders = get_subfolders(RUNS_DIR)
     else:
+        if args.daint:
+            prepare_daint()
+
         # Check if multiple implementations where provided
         impls = args.impl.split(',')
         for impl in impls:
