@@ -93,9 +93,16 @@ matrices = {
     "extract_files": ["stokes.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stokes.mtx"),
     "daint_only": True,
-    # Too large to be computed with our script
-    # We have to manually compute the expected result using comb
-    "compute_expected": True
+    # TOO big for daint, we computed this outside on a bigger machine..
+    "compute_expected": False
+  },
+  "nlpkkt240": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Schenk/nlpkkt240.tar.gz",
+    "extract_files": ["nlpkkt240.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("nlpkkt240.mtx"),
+    "daint_only": True,
+    # TOO big for daint, we computed this outside on a bigger machine..
+    "compute_expected": False
   },
 }
 

@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 
 CMD                     = "./build/dphpc"
 RUNS_DIR                = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
-N_WARMUP                = 5
-N_RUNS                  = 10
+N_WARMUP                = 2
+N_RUNS                  = 5
 MAXIMUM_MEMORY          = 128
 FILE_NAME               = "measurements"
 DataFrames              = Dict[int, pd.DataFrame]
@@ -40,6 +40,37 @@ ALGOS_TO_SKIP_WHILE_PLOTTING = [
 
 ]
 
+MPI_OPEN_MP_CONFIG = [
+    # {
+    #     "nodes": 8,
+    #     "mpi": 16
+    # },
+    {
+        "nodes": 16,
+        "mpi": 16
+    },
+    {
+        "nodes": 32,
+        "mpi": 64
+    },
+    {
+        "nodes": 64,
+        "mpi": 64
+    },
+    {
+        "nodes": 128,
+        "mpi": 256
+    },
+    {
+        "nodes": 256,
+        "mpi": 256
+    },
+    # {
+    #     "nodes": 512,
+    #     "mpi": 1024
+    # },
+]
+
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
     if impl == "comb" and matrix == "viscoplastic2" and nodes == 9:
         # Segfaults for unknown reason
@@ -58,11 +89,7 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
         return ""
     
     print(f"Running with {nodes} cores")
-    date = datetime.now().strftime("%Y-%m-%d-%T")
-    id = f"{date}-{nodes}"
-    cwd = os.getcwd()
-    folder = join(cwd, RUNS_DIR, id)
-    pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
+    folder = create_runs_dir(nodes, nodes)
     # Environment variables for the task
     env = os.environ.copy()
 
@@ -147,6 +174,72 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
 
     return_code = result.returncode
     assert return_code == 0, f"Slurm job execution with {nodes} nodes failed" if euler else f"Running {CMD} with {nodes} nodes failed"
+    return folder
+
+def create_runs_dir(nodes, mpi) -> str:
+    date = datetime.now().strftime("%Y-%m-%d-%T")
+    id = f"{date}-{nodes}-{mpi}"
+    cwd = os.getcwd()
+    folder = join(cwd, RUNS_DIR, id)
+    pathlib.Path(folder).mkdir(parents=True, exist_ok=True)
+    return folder
+
+# Special benchmarking target for the paper
+# Runs the implementation with MPI & OpenMP
+def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_machines: int,  persist: bool = True) -> str:
+    # Calculate the distribution
+    cpus_per_machine = 36
+    total_number_cores = n_machines * cpus_per_machine
+    assert(total_number_cores % mpi_processes == 0)
+    processes_per_mpi = int(total_number_cores / mpi_processes)
+    print(f"Running with {mpi_processes} mpi processes with {processes_per_mpi} cores each, on {n_machines} machines using a total of {total_number_cores} cores.")
+    
+    folder = create_runs_dir(n_machines, mpi_processes)
+    # Environment variables for the task
+    env = os.environ.copy()
+
+    persist_str = "true" if persist else "false"
+
+    # Set the OpenMP env variable to use all cpus per MPI task
+    env.update({
+        "OMP_NUM_THREADS": str(processes_per_mpi)
+    })
+
+    matrix_path = os.path.join(os.getenv("SCRATCH"), "matrices")
+
+    # Sbatch command with the whole config
+    cmd = [
+        "sbatch",
+        "--wait",
+        f"--time=00:{SBATCH_TIME_LIMIT_MIN}:00",
+        "--constraint=mc", # Constraint to XC40
+        "--switches=1", # Make sure we are in the same electircal group
+        "--mem=0", # Use all available memory on the node
+        "-N", str(n_machines), # Number of machines
+        "-n", str(mpi_processes), # Number of tasks = MPI processes
+        f"--cpus-per-task={processes_per_mpi}",
+        "-A", "g34", # The project we use
+        "--wrap",
+        f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str} {matrix_path}"
+    ]
+
+    result = subprocess.run(
+        cmd,
+        cwd=os.getcwd(),
+        capture_output=True,
+        text=True,
+        env=env
+    )
+
+    output = result.stdout.strip()
+    error = result.stderr.strip()
+    if output != "":
+        print(output)
+    if error != "":
+        print(error)
+
+    return_code = result.returncode
+    assert return_code == 0, f"Slurm job execution with {n_machines} machines failed"
     return folder
 
 # Returns a dict of dataframes
@@ -392,6 +485,7 @@ if __name__ == "__main__":
     parser.add_argument('--quadratic', required=False, action="store_true")
     parser.add_argument('--no_persist', action="store_false")
     parser.add_argument('--plot_linear', required=False, action="store_true")
+    parser.add_argument('--mpi_run_paper', required=False, action="store_true")
     args = parser.parse_args()
 
     assert not (args.euler and args.daint)
@@ -409,13 +503,21 @@ if __name__ == "__main__":
         # Check if multiple implementations where provided
         impls = args.impl.split(',')
         for impl in impls:
-            print(f"Executing implementation {impl}")
-            for n in range(args.min, args.max+1, args.stride):
-                if args.quadratic:
-                    n = n*n
-                run_result = run_mpi(impl, args.matrix, n, args.euler, args.daint, args.no_persist)
-                if run_result != "":
-                    folders.append(run_result)
+            print(f"Executing implementation {impl} on {args.matrix}")
+            if args.mpi_run_paper:
+                for key in MPI_OPEN_MP_CONFIG:
+                    # Special case of the paper benchmarks
+                    assert(args.daint)
+                    run_result = run_mpi_with_open_mp_on_daint(impl, args.matrix, key["mpi"], key["nodes"], args.no_persist)
+                    if run_result != "":
+                        folders.append(run_result)
+            else:
+                for n in range(args.min, args.max+1, args.stride):
+                    if args.quadratic:
+                        n = n*n
+                    run_result = run_mpi(impl, args.matrix, n, args.euler, args.daint, args.no_persist)
+                    if run_result != "":
+                        folders.append(run_result)
 
     (matrix, timings) = graph_multiple_runs(folders, args.daint)
 
