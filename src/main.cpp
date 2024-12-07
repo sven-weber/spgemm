@@ -90,8 +90,7 @@ int main(int argc, char **argv) {
     measure_point(measure::shuffle, measure::MeasurementEvent::START);
     // A_shuffle = std::move(partition::shuffle_min(C));
     // B_shuffle = std::move(partition::shuffle(B_fields.width));
-    partition::iterative_shuffle(C, C_sparsity_path, 10, &A_shuffle,
-                                 &B_shuffle);
+    partition::iterative_shuffle(C_sparsity_path, 10, &A_shuffle, &B_shuffle);
     // TODO : add N_ITERATIONS for iterative shuffle
     //        OR: do shuffling for X minutes at most
     // TODO : add logic for: if shuffled already computed, load it; else,
@@ -108,7 +107,9 @@ int main(int argc, char **argv) {
 
     // Do the partitioning
     measure_point(measure::partition, measure::MeasurementEvent::START);
-    partitions = parts::baseline::balanced_partition(C, n_nodes);
+    matrix::ManagedCSRMatrix<> mat(C_sparsity_path, false, &A_shuffle,
+                                   &B_shuffle);
+    partitions = parts::baseline::balanced_partition(mat, n_nodes);
     utils::print_partitions(partitions, n_nodes);
     if (persist_results) {
       partition::save_partitions(partitions, partitions_path);

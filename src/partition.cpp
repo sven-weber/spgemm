@@ -112,17 +112,19 @@ calculate_avg_indices_row(matrix::CSRMatrix<> matrix) {
   return indices;
 }
 
-void iterative_shuffle(matrix::CSRMatrix<> C, std::string C_sparsity_path,
-                       const int iterations, std::vector<midx_t> *shuffled_rows,
+void iterative_shuffle(std::string C_sparsity_path, const int iterations,
+                       std::vector<midx_t> *shuffled_rows,
                        std::vector<midx_t> *shuffled_cols) {
   std::iota(shuffled_rows->begin(), shuffled_rows->end(), 0);
   std::iota(shuffled_cols->begin(), shuffled_cols->end(), 0);
 
-  std::vector<std::pair<float, midx_t>> prev_avg_indices_cols(shuffled_cols->size());
-  std::vector<std::pair<float, midx_t>> prev_avg_indices_rows(shuffled_rows->size());
+  std::vector<std::pair<float, midx_t>> prev_avg_indices_cols(
+      shuffled_cols->size());
+  std::vector<std::pair<float, midx_t>> prev_avg_indices_rows(
+      shuffled_rows->size());
 
   for (int i = 0; i < iterations; i++) {
-    midx_t changes = 0; 
+    midx_t changes = 0;
     bool transpose = i % 2 != 0;
 
     if (transpose) {
@@ -133,7 +135,8 @@ void iterative_shuffle(matrix::CSRMatrix<> C, std::string C_sparsity_path,
 
       Shuffle tmp_shuffled_cols(shuffled_cols->size());
       for (int i = 0; i < shuffled_cols->size(); i++) {
-        if(prev_avg_indices_cols[i].first != avg_indices[i].first) changes++;
+        if (prev_avg_indices_cols[i].first != avg_indices[i].first)
+          changes++;
         tmp_shuffled_cols[i] = (*shuffled_cols)[avg_indices[i].second];
       }
       shuffled_cols = &tmp_shuffled_cols;
@@ -146,7 +149,8 @@ void iterative_shuffle(matrix::CSRMatrix<> C, std::string C_sparsity_path,
 
       Shuffle tmp_shuffled_rows(shuffled_rows->size());
       for (int i = 0; i < shuffled_rows->size(); i++) {
-        if(prev_avg_indices_rows[i].first != avg_indices[i].first) changes++;
+        if (prev_avg_indices_rows[i].first != avg_indices[i].first)
+          changes++;
         tmp_shuffled_rows[i] = (*shuffled_rows)[avg_indices[i].second];
       }
       shuffled_rows = &tmp_shuffled_rows;
