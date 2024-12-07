@@ -5,6 +5,7 @@
 #include <random>
 #include <execution>
 #include <omp.h>
+#include <tbb/parallel_sort.h>
 
 #include "partition.hpp"
 
@@ -90,7 +91,7 @@ calculate_avg_indices_col(matrix::CSRMatrix<> matrix) {
     }
     indices[col] = {avg, col};
   }
-  std::sort(indices.begin(), indices.end(),
+  tbb::parallel_sort(indices.begin(), indices.end(),
             [&](auto a, auto b) { return a.first < b.first; });
   return indices;
 }
@@ -113,11 +114,8 @@ calculate_avg_indices_row(matrix::CSRMatrix<> matrix) {
     }
     indices[row] = {avg, row};
   }
-  double start = omp_get_wtime();
-  std::sort(indices.begin(), indices.end(),
+  tbb::parallel_sort(indices.begin(), indices.end(),
             [&](auto a, auto b) { return a.first < b.first; });
-  double end = omp_get_wtime();
-  std::cout << "Time to sort: " << end - start << std::endl;
   return indices;
 }
 

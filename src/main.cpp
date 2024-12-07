@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
     bool loaded_A = partition::load_shuffle(A_shuffle_path, A_shuffle);
     bool loaded_B = partition::load_shuffle(B_shuffle_path, B_shuffle);
 
-    if (true || !loaded_A || !loaded_B) {
+    if (!loaded_A || !loaded_B) {
       partition::iterative_shuffle(C_sparsity_path, 5, &A_shuffle, &B_shuffle);
       // TODO : add N_ITERATIONS for iterative shuffle
       //        OR: do shuffling for X minutes at most
