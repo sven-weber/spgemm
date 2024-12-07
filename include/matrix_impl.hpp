@@ -9,6 +9,8 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <mio/mmap.hpp>
+#include <sstream>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -91,6 +93,52 @@ public:
   }
 };
 
+template <typename Iterator> class IteratorStreambuf : public std::streambuf {
+public:
+  IteratorStreambuf(Iterator begin, Iterator end) : current(begin), last(end) {}
+
+protected:
+  // Called when more characters are needed
+  int_type underflow() override {
+    if (current == last) {
+      return traits_type::eof(); // End of input
+    }
+    return traits_type::to_int_type(*current);
+  }
+
+  // Called when characters are consumed (reading or extracting)
+  int_type uflow() override {
+    if (current == last) {
+      return traits_type::eof(); // End of input
+    }
+    return traits_type::to_int_type(*current++);
+  }
+
+  // Called for unget (putting back a character)
+  int_type pbackfail(int_type ch) override {
+    if (current == last || ch != traits_type::to_int_type(*(--current))) {
+      return traits_type::eof(); // No character to unget
+    }
+    return ch;
+  }
+
+  std::streamsize showmanyc() override {
+    return std::distance(current, last); // Number of characters left
+  }
+
+private:
+  Iterator current, last;
+};
+
+template <typename Iterator> class IteratorInputStream : public std::istream {
+public:
+  IteratorInputStream(Iterator begin, Iterator end)
+      : std::istream(&buffer), buffer(begin, end) {}
+
+private:
+  IteratorStreambuf<Iterator> buffer;
+};
+
 template <typename T>
 Cells<T> get_cells(std::string file_path, bool transposed,
                    std::vector<midx_t> *keep_rows,
@@ -108,7 +156,12 @@ Cells<T> get_cells(std::string file_path, bool transposed,
   bool full = keep_rows == nullptr && keep_cols == nullptr;
 
   auto fields = utils::read_fields(file_path, transposed, keep_rows, keep_cols);
-  std::ifstream stream(file_path);
+
+  std::error_code error;
+  mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
+  assert(!error);
+  IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
+
   std::string sink;
   do {
     getline(stream, sink);
@@ -144,7 +197,7 @@ Cells<T> get_cells(std::string file_path, bool transposed,
 
     cells.add({row, col}, val);
   }
-  stream.close();
+  ro_mmap.unmap();
   return cells;
 }
 
@@ -483,7 +536,11 @@ private:
       }
 
     auto fields = utils::read_fields(file_path, transposed, nullptr, keep_cols);
-    std::ifstream stream(file_path);
+    std::error_code error;
+    mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
+    assert(!error);
+    IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
+
     std::string sink;
     do {
       getline(stream, sink);
@@ -520,7 +577,7 @@ private:
 
       cells_sections[sec].add({mapped_row, col}, val);
     }
-    stream.close();
+    ro_mmap.unmap();
 
     size_t exp_size = 0;
     for (size_t s = 0; s < N_SECTIONS; ++s) {

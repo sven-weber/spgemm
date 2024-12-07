@@ -23,6 +23,14 @@ FetchContent_Declare(
 find_package(CombBLAS)
 
 FetchContent_Declare(
+  mio
+  GIT_REPOSITORY https://github.com/vimpunk/mio
+  OVERRIDE_FIND_PACKAGE
+)
+
+find_package(mio)
+
+FetchContent_Declare(
   TBB
   GIT_REPOSITORY https://github.com/wjakob/tbb
   OVERRIDE_FIND_PACKAGE
@@ -65,3 +73,4 @@ target_compile_definitions(dphpc PUBLIC N_SECTIONS=${N_SECTIONS})
 target_link_libraries(dphpc PUBLIC MPI::MPI_CXX)
 target_link_libraries(dphpc PUBLIC CombBLAS)
 target_link_libraries(dphpc PUBLIC tbb)
+target_link_libraries(dphpc PUBLIC mio::mio)

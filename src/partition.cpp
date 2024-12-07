@@ -98,7 +98,7 @@ calculate_avg_indices_row(matrix::CSRMatrix<> matrix, Shuffle *shuffled_rows,
                           Shuffle *shuffled_cols) {
   std::vector<std::pair<float, midx_t>> indices(matrix.height);
 
-  #pragma omp parallel
+#pragma omp parallel
   for (size_t row = 0; row < indices.size(); row++) {
     auto [row_data, row_pos, row_len] = matrix.row(row);
     float avg = 0.0;
@@ -178,15 +178,15 @@ void iterative_shuffle(std::string C_sparsity_path,
   }
 
   Shuffle tmp_shuffled_rows(shuffled_rows->size());
-  #pragma omp parallel for
-  for(int i = 0; i < shuffled_rows->size(); i++) {
+#pragma omp parallel for
+  for (int i = 0; i < shuffled_rows->size(); i++) {
     tmp_shuffled_rows[(*shuffled_rows)[i]] = i;
   }
   (*shuffled_rows) = tmp_shuffled_rows;
 
   Shuffle tmp_shuffled_cols(shuffled_cols->size());
-  #pragma omp parallel for
-  for(int i = 0; i < shuffled_cols->size(); i++) {
+#pragma omp parallel for
+  for (int i = 0; i < shuffled_cols->size(); i++) {
     tmp_shuffled_cols[(*shuffled_cols)[i]] = i;
   }
   (*shuffled_cols) = tmp_shuffled_cols;
@@ -218,8 +218,10 @@ void save_shuffle(Shuffle &shuffle, std::string file) {
 }
 
 bool load_shuffle(std::string file, Shuffle &shuffle) {
-  auto map = std::ifstream(file);
-  if (map) {
+  std::error_code error;
+  mio::mmap_sink ro_mmap = mio::make_mmap_sink(file, error);
+  matrix::IteratorInputStream map(ro_mmap.begin(), ro_mmap.end());
+  if (!error) {
     assert(!map.fail());
 
     std::string line;
@@ -233,7 +235,7 @@ bool load_shuffle(std::string file, Shuffle &shuffle) {
       }
     }
 
-    map.close();
+    ro_mmap.unmap();
     return true;
   } else {
     return false;
