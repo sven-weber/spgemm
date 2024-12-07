@@ -13,4 +13,4 @@ mkdir -p "$run_path"
 
 # If we use this script, we always want to persist results!
 # -> Last arg = true
-mpirun -n "$nodes" "$cmd" "$algorithm" "$matrix" "$run_path" "$n_runs" "$n_warmup" "true" | sort -s -t '[' -k2,2n
+mpirun -n "$nodes" "$cmd" "$algorithm" "$matrix" "$run_path" "$n_runs" "$n_warmup" "true" "matrices" | sort -s -t '[' -k2,2n

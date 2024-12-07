@@ -31,5 +31,5 @@ format:
 	clang-format -i $(CPP_FILES) $(CPP_HEADER_FILES)
 
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET) runs slurm-*.out
+	rm -rf $(BUILD_DIR) $(TARGET) runs slurm-*.out core.*
 	

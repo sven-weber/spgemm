@@ -41,7 +41,7 @@ public:
   // Don't use!
   midx_t height;
   midx_t width;
-  std::vector<std::map<midx_t, T>> _cells;
+  std::vector<std::unordered_map<midx_t, T>> _cells;
 
 public:
   // Takes in the number of rows
@@ -70,6 +70,9 @@ public:
       _cells[pos.first].insert({pos.second, val});
     } else {
       _cells[pos.first][pos.second] += val;
+      if (_cells[pos.first][pos.second] == 0) {
+        _cells[pos.first].erase(pos.second);
+      }
     }
   }
 
