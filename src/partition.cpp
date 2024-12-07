@@ -3,6 +3,8 @@
 #include <fstream>
 #include <iostream>
 #include <random>
+#include <execution>
+#include <omp.h>
 
 #include "partition.hpp"
 
@@ -73,6 +75,8 @@ Shuffle shuffle_min(matrix::CSRMatrix<> matrix) {
 std::vector<std::pair<float, midx_t>>
 calculate_avg_indices_col(matrix::CSRMatrix<> matrix) {
   std::vector<std::pair<float, midx_t>> indices(matrix.width);
+
+  #pragma omp parallel
   for (size_t col = 0; col < indices.size(); col++) {
     auto [col_data, col_pos, col_len] = matrix.col(col);
     float avg = 0.0;
@@ -94,6 +98,8 @@ calculate_avg_indices_col(matrix::CSRMatrix<> matrix) {
 std::vector<std::pair<float, midx_t>>
 calculate_avg_indices_row(matrix::CSRMatrix<> matrix) {
   std::vector<std::pair<float, midx_t>> indices(matrix.height);
+
+  #pragma omp parallel
   for (size_t row = 0; row < indices.size(); row++) {
     auto [row_data, row_pos, row_len] = matrix.row(row);
     float avg = 0.0;
@@ -107,8 +113,11 @@ calculate_avg_indices_row(matrix::CSRMatrix<> matrix) {
     }
     indices[row] = {avg, row};
   }
+  double start = omp_get_wtime();
   std::sort(indices.begin(), indices.end(),
             [&](auto a, auto b) { return a.first < b.first; });
+  double end = omp_get_wtime();
+  std::cout << "Time to sort: " << end - start << std::endl;
   return indices;
 }
 
@@ -134,12 +143,19 @@ void iterative_shuffle(std::string C_sparsity_path, const int iterations,
           calculate_avg_indices_col(mat);
 
       Shuffle tmp_shuffled_cols(shuffled_cols->size());
+
+      #pragma omp parallel for
       for (int i = 0; i < shuffled_cols->size(); i++) {
         if (prev_avg_indices_cols[i].first != avg_indices[i].first)
           changes++;
         tmp_shuffled_cols[i] = (*shuffled_cols)[avg_indices[i].second];
       }
-      shuffled_cols = &tmp_shuffled_cols;
+
+      #pragma omp parallel for
+      for (int i = 0; i < shuffled_cols->size(); i++) {
+        (*shuffled_cols)[i] = tmp_shuffled_cols[i];
+      }
+
       prev_avg_indices_cols = avg_indices;
     } else {
       matrix::ManagedCSRMatrix<> mat(C_sparsity_path, transpose, shuffled_rows,
@@ -148,12 +164,19 @@ void iterative_shuffle(std::string C_sparsity_path, const int iterations,
           calculate_avg_indices_row(mat);
 
       Shuffle tmp_shuffled_rows(shuffled_rows->size());
+
+      #pragma omp parallel for
       for (int i = 0; i < shuffled_rows->size(); i++) {
         if (prev_avg_indices_rows[i].first != avg_indices[i].first)
           changes++;
         tmp_shuffled_rows[i] = (*shuffled_rows)[avg_indices[i].second];
       }
-      shuffled_rows = &tmp_shuffled_rows;
+
+      #pragma omp parallel for
+      for (int i = 0; i < shuffled_rows->size(); i++) {
+        (*shuffled_rows)[i] = tmp_shuffled_rows[i];
+      }
+
       prev_avg_indices_rows = avg_indices;
     }
     std::cout << "Changes at iteration " << i << ": " << changes << std::endl;
