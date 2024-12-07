@@ -185,4 +185,27 @@ void save_shuffle(Shuffle &shuffle, std::string file) {
   map.close();
 }
 
+bool load_shuffle(std::string file, Shuffle &shuffle) {
+  auto map = std::ifstream(file);
+  if (map) {
+    assert(!map.fail());
+
+    std::string line;
+    int index = 0;
+    while (std::getline(map, line)) {
+      try {
+        shuffle[index] = std::stoi(line);
+        index++;
+      } catch (const std::invalid_argument &e) {
+        std::cerr << "Invalid number in file: " << line << std::endl;
+      }
+    }
+
+    map.close();
+    return true;
+  } else {
+    return false;
+  }
+}
+
 } // namespace partition

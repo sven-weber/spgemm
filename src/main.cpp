@@ -8,6 +8,7 @@
 #include "utils.hpp"
 
 #include <algorithm>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <mpi.h>
@@ -32,12 +33,16 @@ int main(int argc, char **argv) {
   std::string A_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
   std::string B_path = utils::format("{}/{}/B.mtx", matrix_path, matrix_name);
   std::string C_sparsity_path =
-      utils::format("{}/{}/C_sparsity.mtx", matrix_path, matrix_name);
+      utils::format("matrices/{}/C_sparsity.mtx", matrix_name);
+  std::string A_shuffle_path =
+      utils::format("matrices/{}/A_shuffle", matrix_name);
+  std::string B_shuffle_path =
+      utils::format("matrices/{}/B_shuffle", matrix_name);
 
   std::string run_path = argv[3];
   std::string partitions_path = utils::format("{}/partitions.csv", run_path);
-  std::string A_shuffle_path = utils::format("{}/A_shuffle", run_path);
-  std::string B_shuffle_path = utils::format("{}/B_shuffle", run_path);
+  std::string A_shuffle_link_path = utils::format("{}/A_shuffle", run_path);
+  std::string B_shuffle_link_path = utils::format("{}/B_shuffle", run_path);
 
   int n_runs = std::stoi(argv[4]);
   int n_warmup = std::stoi(argv[5]);
@@ -89,20 +94,35 @@ int main(int argc, char **argv) {
 
     // Perform the shuffling
     measure_point(measure::shuffle, measure::MeasurementEvent::START);
-    // A_shuffle = std::move(partition::shuffle_min(C));
-    // B_shuffle = std::move(partition::shuffle(B_fields.width));
-    partition::iterative_shuffle(C_sparsity_path, 10, &A_shuffle, &B_shuffle);
-    // TODO : add N_ITERATIONS for iterative shuffle
-    //        OR: do shuffling for X minutes at most
-    // TODO : add logic for: if shuffled already computed, load it; else,
-    // compute it
-    //        OR: load previous shuffle if exists, and run it for some
-    //        computations before moving on
-    // REMARK : a shuffle can be continued from a previous one, and improved
+    bool loaded_A = partition::load_shuffle(A_shuffle_path, A_shuffle);
+    bool loaded_B = partition::load_shuffle(B_shuffle_path, B_shuffle);
+
+    if (!loaded_A || !loaded_B) {
+      partition::iterative_shuffle(C_sparsity_path, 5, &A_shuffle, &B_shuffle);
+      // TODO : add N_ITERATIONS for iterative shuffle
+      //        OR: do shuffling for X minutes at most
+      // TODO : add logic for: if shuffled already computed, load it; else,
+      // compute it
+      //        OR: load previous shuffle if exists, and run it for some
+      //        computations before moving on
+      // REMARK : a shuffle can be continued from a previous one, and improved
+
+      if (persist_results) {
+        partition::save_shuffle(A_shuffle, A_shuffle_path);
+        partition::save_shuffle(B_shuffle, B_shuffle_path);
+      }
+    }
 
     if (persist_results) {
-      partition::save_shuffle(A_shuffle, A_shuffle_path);
-      partition::save_shuffle(B_shuffle, B_shuffle_path);
+      try {
+        std::filesystem::create_symlink("../../" + A_shuffle_path,
+                                        A_shuffle_link_path);
+        std::filesystem::create_symlink("../../" + B_shuffle_path,
+                                        B_shuffle_link_path);
+        std::cout << "Symbolic links created successfully." << std::endl;
+      } catch (const std::filesystem::filesystem_error &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+      }
     }
     measure_point(measure::shuffle, measure::MeasurementEvent::END);
 
@@ -256,7 +276,7 @@ int main(int argc, char **argv) {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
   } else if (algo_name == "comb") {
-    C_path =C_path = utils::format("{}/C.mtx", run_path);
+    C_path = C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLASMatrixMultiplication(rank, n_nodes, partitions,
                                                    A_path);
   } else {

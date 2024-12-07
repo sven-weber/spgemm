@@ -31,4 +31,6 @@ void iterative_shuffle(std::string C_sparsity_path, const int iterations,
 
 void save_shuffle(Shuffle &shuffle, std::string file);
 
+bool load_shuffle(std::string file, Shuffle &shuffle);
+
 } // namespace partition
