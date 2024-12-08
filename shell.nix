@@ -18,6 +18,8 @@ stdenvNoCC.mkDerivation {
     python3Packages.requests
     python3Packages.scipy
     python3Packages.matplotlib
+
+    texlive.combined.scheme-full
   ];
 
   MAKEFLAGS = "-j16";

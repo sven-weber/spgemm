@@ -573,8 +573,8 @@ private:
       auto _col = tm.cols[i];
       auto val = tm.vals[i];
 
-      auto row = transposed ? _col - 1 : _row - 1;
-      auto col = transposed ? _row - 1 : _col - 1;
+      auto row = transposed ? _col : _row;
+      auto col = transposed ? _row : _col;
 
       if (!keep_rows_map.contains(row))
         continue;
@@ -589,7 +589,7 @@ private:
 
       assert(mapped_row < max_section_rows);
       std::lock_guard<std::mutex> guard(mutexes[sec][mapped_row]);
-      cells_sections[sec]._cells[row].insert({col, val});
+      cells_sections[sec]._cells[mapped_row].insert({col, val});
     }
     measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
 
