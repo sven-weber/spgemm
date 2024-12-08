@@ -1,10 +1,12 @@
 #include "bitmap.hpp"
+#include "measure.hpp"
 #include <bitset>
 #include <iostream>
 #include <omp.h>
-#include "measure.hpp"
 
-#pragma omp declare reduction(or : std::bitset<N_SECTIONS> : omp_out |= omp_in) initializer(omp_priv = std::bitset<N_SECTIONS>())
+#pragma omp declare reduction(or : std::bitset<N_SECTIONS> : omp_out |=        \
+                                  omp_in)                                      \
+    initializer(omp_priv = std::bitset<N_SECTIONS>())
 
 namespace bitmap {
 std::bitset<N_SECTIONS> compute_bitmap(matrix::CSRMatrix<> mat) {
@@ -26,7 +28,7 @@ std::bitset<N_SECTIONS> compute_bitmap(matrix::CSRMatrix<> mat) {
             << (N_SECTIONS - map.count()) / (double)N_SECTIONS << std::endl;
 
 #ifndef NDEBUG
-  std::cout << "Matrix size: " << mat.width << "-" << mat.height << std::endl;
+  std::cout << "Matrix size: " << mat.width << "x" << mat.height << std::endl;
   std::cout << "Section width: " << section_width << std::endl;
   std::cout << "bitmap.count = " << map.count() << std::endl;
   std::cout << "bitmap = " << map << std::endl;

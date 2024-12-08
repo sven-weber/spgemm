@@ -7,8 +7,8 @@
 #include <random>
 #include <tbb/parallel_sort.h>
 
-#include "partition.hpp"
 #include "measure.hpp"
+#include "partition.hpp"
 
 namespace partition {
 
@@ -127,11 +127,11 @@ void iterative_shuffle(std::string C_sparsity_path,
   std::iota(shuffled_cols->begin(), shuffled_cols->end(), 0);
 
   matrix::ManagedCSRMatrix<short> C_transposed(C_sparsity_path, true, nullptr,
-                                          nullptr);
+                                               nullptr);
   matrix::ManagedCSRMatrix<short> C(C_sparsity_path, false, nullptr, nullptr);
 
   std::cout << "MATRIX LOADED; SHUFFLING BEGINS;" << std::endl;
-  
+
   // Dont include the loading time in the shuffling timing!
   measure_point(measure::shuffle, measure::MeasurementEvent::START);
 
@@ -199,7 +199,7 @@ void iterative_shuffle(std::string C_sparsity_path,
     tmp_shuffled_cols[(*shuffled_cols)[i]] = i;
   }
   (*shuffled_cols) = tmp_shuffled_cols;
-  
+
   measure_point(measure::shuffle, measure::MeasurementEvent::END);
 }
 
@@ -231,7 +231,7 @@ void save_shuffle(Shuffle &shuffle, std::string file) {
 bool load_shuffle(std::string file, Shuffle &shuffle) {
   std::error_code error;
   mio::mmap_sink ro_mmap = mio::make_mmap_sink(file, error);
-  matrix::IteratorInputStream map(ro_mmap.begin(), ro_mmap.end());
+  matrix::utils::IteratorInputStream map(ro_mmap.begin(), ro_mmap.end());
   if (!error) {
     assert(!map.fail());
 

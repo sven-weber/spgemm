@@ -17,14 +17,53 @@
 namespace matrix {
 namespace fmm = fast_matrix_market;
 
-template <typename T> struct triplet_matrix {
-  midx_t nrows, ncols;
-  std::vector<midx_t> rows;
-  std::vector<midx_t> cols;
-  std::vector<T> vals;
+namespace utils {
+
+template <typename Iterator> class IteratorStreambuf : public std::streambuf {
+public:
+  IteratorStreambuf(Iterator begin, Iterator end) : current(begin), last(end) {}
+
+protected:
+  // Called when more characters are needed
+  int_type underflow() override {
+    if (current == last) {
+      return traits_type::eof(); // End of input
+    }
+    return traits_type::to_int_type(*current);
+  }
+
+  // Called when characters are consumed (reading or extracting)
+  int_type uflow() override {
+    if (current == last) {
+      return traits_type::eof(); // End of input
+    }
+    return traits_type::to_int_type(*current++);
+  }
+
+  // Called for unget (putting back a character)
+  int_type pbackfail(int_type ch) override {
+    if (current == last || ch != traits_type::to_int_type(*(--current))) {
+      return traits_type::eof(); // No character to unget
+    }
+    return ch;
+  }
+
+  std::streamsize showmanyc() override {
+    return std::distance(current, last); // Number of characters left
+  }
+
+private:
+  Iterator current, last;
 };
 
-namespace utils {
+template <typename Iterator> class IteratorInputStream : public std::istream {
+public:
+  IteratorInputStream(Iterator begin, Iterator end)
+      : std::istream(&buffer), buffer(begin, end) {}
+
+private:
+  IteratorStreambuf<Iterator> buffer;
+};
 
 Fields read_fields(std::string file_path, bool transposed,
                    std::vector<midx_t> *keep_rows,
@@ -101,56 +140,113 @@ public:
   }
 };
 
-template <typename Iterator> class IteratorStreambuf : public std::streambuf {
-public:
-  IteratorStreambuf(Iterator begin, Iterator end) : current(begin), last(end) {}
-
-protected:
-  // Called when more characters are needed
-  int_type underflow() override {
-    if (current == last) {
-      return traits_type::eof(); // End of input
-    }
-    return traits_type::to_int_type(*current);
-  }
-
-  // Called when characters are consumed (reading or extracting)
-  int_type uflow() override {
-    if (current == last) {
-      return traits_type::eof(); // End of input
-    }
-    return traits_type::to_int_type(*current++);
-  }
-
-  // Called for unget (putting back a character)
-  int_type pbackfail(int_type ch) override {
-    if (current == last || ch != traits_type::to_int_type(*(--current))) {
-      return traits_type::eof(); // No character to unget
-    }
-    return ch;
-  }
-
-  std::streamsize showmanyc() override {
-    return std::distance(current, last); // Number of characters left
-  }
-
-private:
-  Iterator current, last;
+template <typename T = double> struct triplet_data {
+  midx_t height;
+  midx_t width;
+  std::shared_ptr<std::vector<midx_t>> rows;
+  std::shared_ptr<std::vector<midx_t>> cols;
+  std::shared_ptr<std::vector<T>> vals;
 };
 
-template <typename Iterator> class IteratorInputStream : public std::istream {
-public:
-  IteratorInputStream(Iterator begin, Iterator end)
-      : std::istream(&buffer), buffer(begin, end) {}
+template <typename T = double>
+triplet_data<T> get_triplet_data(const std::string &file_path,
+                                 bool transposed) {
+  std::error_code error;
+  mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
+  assert(!error);
+  utils::IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
 
-private:
-  IteratorStreambuf<Iterator> buffer;
+  midx_t height, width;
+  auto rows = std::make_shared<std::vector<midx_t>>();
+  auto cols = std::make_shared<std::vector<midx_t>>();
+  auto vals = std::make_shared<std::vector<T>>();
+  measure_point(measure::read_triplets, measure::MeasurementEvent::START);
+  if (transposed)
+    fmm::read_matrix_market_triplet(stream, width, height, *cols, *rows, *vals);
+  else
+    fmm::read_matrix_market_triplet(stream, height, width, *rows, *cols, *vals);
+  measure_point(measure::read_triplets, measure::MeasurementEvent::END);
+  ro_mmap.unmap();
+  return {height, width, rows, cols, vals};
+}
+
+template <typename T = double> class TripletCells {
+public:
+  // Don't use!
+  midx_t height;
+  midx_t width;
+  std::shared_ptr<std::vector<midx_t>> rows;
+  std::shared_ptr<std::vector<midx_t>> cols;
+  std::shared_ptr<std::vector<T>> vals;
+  std::vector<bool> bitmask;
+  midx_t nz;
+  std::vector<midx_t> c_in_row;
+
+public:
+  TripletCells(const triplet_data<T> &data,
+               std::unordered_map<midx_t, midx_t> *keep_rows_map,
+               std::unordered_map<midx_t, midx_t> *keep_cols_map)
+      : height(data.height), width(data.width), rows(data.rows),
+        cols(data.cols), vals(data.vals) {
+    measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
+
+    bitmask.resize(vals->size(), 1);
+    c_in_row.resize(height, 0);
+    nz = 0;
+#pragma omp parallel for reduction(+ : nz)
+    for (midx_t i = 0; i < vals->size(); ++i) {
+      auto row = (*rows)[i];
+      auto col = (*cols)[i];
+
+      bool keep = true;
+      if (keep_rows_map != nullptr) {
+        keep &= keep_rows_map->contains(row);
+        row = (*keep_rows_map)[row];
+        (*rows)[i] = row;
+      }
+      if (keep_cols_map != nullptr) {
+        keep &= keep_cols_map->contains(col);
+        (*cols)[i] = (*keep_cols_map)[col];
+      }
+
+      std::atomic_ref<midx_t> cnt(c_in_row[row]);
+      ++cnt;
+
+      bitmask[i] = keep;
+      if (keep)
+        ++nz;
+    }
+    measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
+  }
+
+  TripletCells(const std::string &file_path, bool transposed,
+               std::unordered_map<midx_t, midx_t> *keep_rows_map,
+               std::unordered_map<midx_t, midx_t> *keep_cols_map)
+      : TripletCells(get_triplet_data<T>(file_path, transposed), keep_rows_map,
+                     keep_cols_map) {}
+
+  ~TripletCells() = default;
+
+  size_t expected_data_size() const {
+    std::cout << "non zero " << nz << std::endl;
+    return sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
+           (non_zeros() * sizeof(midx_t)) + (non_zeros() * sizeof(T));
+  }
+
+  // Returns the number of cells in a row
+  midx_t cells_in_row(midx_t row) const {
+    assert(row < c_in_row.size());
+    return c_in_row[row];
+  }
+
+  // Returns the amount of cells (i.e., non_zeros)
+  midx_t non_zeros() const { return nz; }
 };
 
 template <typename T>
-Cells<T> get_cells(std::string file_path, bool transposed,
-                   std::vector<midx_t> *keep_rows,
-                   std::vector<midx_t> *keep_cols) {
+TripletCells<T> get_cells(std::string file_path, bool transposed,
+                          std::vector<midx_t> *keep_rows,
+                          std::vector<midx_t> *keep_cols) {
   auto keep_rows_map = std::unordered_map<midx_t, midx_t>();
   if (keep_rows != nullptr)
     for (midx_t i = 0; i < keep_rows->size(); ++i) {
@@ -161,54 +257,10 @@ Cells<T> get_cells(std::string file_path, bool transposed,
     for (midx_t i = 0; i < keep_cols->size(); ++i) {
       keep_cols_map.insert({(*keep_cols)[i], i});
     }
-  bool full = keep_rows == nullptr && keep_cols == nullptr;
 
-  measure_point(measure::read_triplets, measure::MeasurementEvent::START);
-  auto fields = utils::read_fields(file_path, transposed, keep_rows, keep_cols);
-
-  std::error_code error;
-  mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
-  assert(!error);
-  IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
-
-  auto cells = full ? Cells<T>(fields.height, fields.width, fields.non_zeros)
-                    : Cells<T>(fields.height, fields.width);
-
-  triplet_matrix<T> tm;
-  fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows, tm.cols,
-                                  tm.vals);
-  measure_point(measure::read_triplets, measure::MeasurementEvent::END);
-
-  measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
-  std::mutex mutexes[tm.nrows];
-#pragma omp parallel for
-  for (midx_t i = 0; i < tm.vals.size(); ++i) {
-    auto _row = tm.rows[i];
-    auto _col = tm.cols[i];
-    auto val = tm.vals[i];
-
-    auto row = transposed ? _col : _row;
-    auto col = transposed ? _row : _col;
-
-    if (keep_rows != nullptr) {
-      if (!keep_rows_map.contains(row))
-        continue;
-
-      row = keep_rows_map[row];
-    }
-    if (keep_cols != nullptr) {
-      if (!keep_cols_map.contains(col))
-        continue;
-
-      col = keep_cols_map[col];
-    }
-
-    std::lock_guard<std::mutex> guard(mutexes[row]);
-    cells._cells[row].insert({col, val});
-  }
-  measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
-
-  ro_mmap.unmap();
+  TripletCells<T> cells(file_path, transposed,
+                        keep_rows != nullptr ? &keep_rows_map : nullptr,
+                        keep_cols != nullptr ? &keep_cols_map : nullptr);
   return cells;
 }
 
@@ -300,6 +352,57 @@ public:
     }
   }
 
+  CSRMatrix(const TripletCells<T> &cells, const Data &d, bool tr = false)
+      : data(std::get<0>(d)), size(std::get<1>(d)),
+        fields(utils::get_fields(data)), height(cells.height),
+        width(cells.width), non_zeros(cells.non_zeros()), transposed(tr) {
+#ifndef NDEBUG
+    for (size_t i = 0; i < cells.vals->size(); ++i) {
+      if (!cells.bitmask[i])
+        return;
+
+      auto row = (*cells.rows)[i];
+      auto col = (*cells.cols)[i];
+      auto val = (*cells.vals)[i];
+      assert(row < height);
+      assert(col < width);
+      assert(val != 0);
+    }
+#endif
+
+    fields->transposed = tr;
+    fields->height = height;
+    fields->width = width;
+    fields->non_zeros = non_zeros;
+
+    auto [_row_ptr, _col_idx, _values] = get_offsets();
+    row_ptr = _row_ptr;
+    col_idx = _col_idx;
+    values = _values;
+
+    row_ptr[0] = 0;
+    for (midx_t i = 1; i <= height; ++i) {
+      row_ptr[i] = row_ptr[i - 1] + cells.cells_in_row(i - 1);
+    }
+
+    // Fill values and col_index arrays using row_ptr
+    auto next_pos_in_row = std::vector<midx_t>(height + 1, 0);
+    // TODO: possibly parallelize this(?)
+    for (size_t i = 0; i < cells.vals->size(); ++i) {
+      if (!cells.bitmask[i])
+        return;
+
+      auto row = (*cells.rows)[i];
+      auto col = (*cells.cols)[i];
+      auto val = (*cells.vals)[i];
+
+      auto index = row_ptr[row] + next_pos_in_row[row];
+      col_idx[index] = col;
+      values[index] = val;
+      next_pos_in_row[row]++;
+    }
+  }
+
   CSRMatrix(const Data &d)
       : data(std::get<0>(d)), size(std::get<1>(d)),
         fields(utils::get_fields(data)), height(fields->height),
@@ -316,6 +419,7 @@ public:
   SmallVec<T> row(midx_t i) {
     assert(!transposed);
     assert(i < height);
+    std::cout << "i " << i << " height " << height << std::endl;
     auto offst = row_ptr[i];
     return {values + offst, col_idx + offst, row_ptr[i + 1] - offst};
   }
@@ -350,6 +454,11 @@ public:
 
 template <typename T = double> class ManagedCSRMatrix : public CSRMatrix<T> {
 private:
+  Data alloc_for_triplet_cells(const TripletCells<T> &cells) {
+    auto sz = cells.expected_data_size();
+    auto vec = new std::byte[sz];
+    return {vec, sz};
+  }
   Data alloc_for_cells(const Cells<T> &cells) {
     auto sz = cells.expected_data_size();
     auto vec = new std::byte[sz];
@@ -362,6 +471,9 @@ public:
                    std::vector<midx_t> *keep_cols = nullptr)
       : ManagedCSRMatrix<T>(get_cells<T>(file_path, tr, keep_rows, keep_cols),
                             tr) {}
+
+  ManagedCSRMatrix(const TripletCells<T> &cells, bool tr = false)
+      : CSRMatrix<T>(cells, alloc_for_triplet_cells(cells), tr) {}
 
   ManagedCSRMatrix(const Cells<T> &cells, bool tr = false)
       : CSRMatrix<T>(cells, alloc_for_cells(cells), tr) {}
@@ -429,7 +541,7 @@ public:
   midx_t width = 0;
   midx_t non_zeros = 0;
 
-  BlockedCSRMatrix(std::tuple<Data, std::vector<Cells<T>>, Fields> d)
+  BlockedCSRMatrix(std::tuple<Data, std::vector<TripletCells<T>>, Fields> d)
       : data(std::get<0>(std::get<0>(d))), size(std::get<1>(std::get<0>(d))) {
     auto cells = std::get<1>(d);
     auto fields = std::get<2>(d);
@@ -526,16 +638,17 @@ public:
 template <typename T = double>
 class ManagedBlockedCSRMatrix : public BlockedCSRMatrix<T> {
 private:
-  static std::pair<std::vector<Cells<T>>, size_t>
+  static std::pair<std::vector<TripletCells<T>>, size_t>
   get_cells_sections(std::string file_path, bool transposed,
                      const std::vector<std::vector<midx_t>> &keep_rows_sections,
                      std::vector<midx_t> *keep_cols) {
-    auto keep_rows_map =
-        std::unordered_map<midx_t, std::tuple<midx_t, size_t>>();
+    auto keep_rows_map_per_section =
+        std::vector<std::unordered_map<midx_t, midx_t>>();
     for (size_t s = 0; s < N_SECTIONS; ++s) {
       auto keep_rows = keep_rows_sections[s];
+      keep_rows_map_per_section.push_back(std::unordered_map<midx_t, midx_t>());
       for (midx_t i = 0; i < keep_rows.size(); ++i) {
-        keep_rows_map.insert({keep_rows[i], {i, s}});
+        keep_rows_map_per_section[s].insert({keep_rows[i], i});
       }
     }
 
@@ -545,55 +658,14 @@ private:
         keep_cols_map.insert({(*keep_cols)[i], i});
       }
 
-    measure_point(measure::read_triplets, measure::MeasurementEvent::START);
-    auto fields = utils::read_fields(file_path, transposed, nullptr, keep_cols);
-    std::error_code error;
-    mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
-    assert(!error);
-    IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
+    auto triplet_data = get_triplet_data(file_path, false);
 
-    triplet_matrix<T> tm;
-    fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows,
-                                    tm.cols, tm.vals);
-    measure_point(measure::read_triplets, measure::MeasurementEvent::END);
-
-    std::vector<Cells<T>> cells_sections;
+    std::vector<TripletCells<T>> cells_sections;
     for (size_t s = 0; s < N_SECTIONS; ++s) {
-      auto cells = Cells<T>(keep_rows_sections[s].size(), fields.width);
+      auto cells = TripletCells<T>(triplet_data, &keep_rows_map_per_section[s],
+                                   &keep_cols_map);
       cells_sections.push_back(cells);
     }
-
-    measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
-    auto max_section_rows = (tm.nrows / N_SECTIONS) + tm.nrows % N_SECTIONS;
-    std::mutex mutexes[N_SECTIONS][max_section_rows];
-
-#pragma omp parallel for
-    for (midx_t i = 0; i < tm.vals.size(); ++i) {
-      auto _row = tm.rows[i];
-      auto _col = tm.cols[i];
-      auto val = tm.vals[i];
-
-      auto row = transposed ? _col : _row;
-      auto col = transposed ? _row : _col;
-
-      if (!keep_rows_map.contains(row))
-        continue;
-      auto [mapped_row, sec] = keep_rows_map[row];
-
-      if (keep_cols != nullptr) {
-        if (!keep_cols_map.contains(col))
-          continue;
-
-        col = keep_cols_map[col];
-      }
-
-      assert(mapped_row < max_section_rows);
-      std::lock_guard<std::mutex> guard(mutexes[sec][mapped_row]);
-      cells_sections[sec]._cells[mapped_row].insert({col, val});
-    }
-    measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
-
-    ro_mmap.unmap();
 
     size_t exp_size = 0;
     for (size_t s = 0; s < N_SECTIONS; ++s) {
@@ -602,7 +674,7 @@ private:
     return {cells_sections, exp_size};
   }
 
-  static std::tuple<Data, std::vector<Cells<T>>, Fields>
+  static std::tuple<Data, std::vector<TripletCells<T>>, Fields>
   alloc_for_cells(std::string file_path,
                   std::vector<midx_t> *keep_cols = nullptr) {
     auto fields = utils::read_fields(file_path, false, nullptr, keep_cols);
@@ -628,7 +700,7 @@ private:
 
     auto vec = new std::byte[sz];
     Data d = std::make_pair(vec, sz);
-    return std::make_tuple(d, cells, fields);
+    return {d, cells, fields};
   }
 
 public:
