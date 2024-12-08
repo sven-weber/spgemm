@@ -44,6 +44,16 @@ FetchContent_MakeAvailable(TBB)
 
 find_package(TBB)
 
+FetchContent_Declare(
+  fast_matrix_market
+  GIT_REPOSITORY https://github.com/alugowski/fast_matrix_market
+  GIT_TAG main
+  GIT_SHALLOW TRUE
+  OVERRIDE_FIND_PACKAGE
+)
+
+find_package(fast_matrix_market)
+
 set(CMAKE_CXX_STANDARD 20)
 set(GCC_COVERAGE_COMPILE_FLAGS "-Wall -Wextra -Werror -pedantic -lm -O3 -funroll-loops")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GCC_COVERAGE_COMPILE_FLAGS}") #-DNSHUFFLE
@@ -73,3 +83,4 @@ target_link_libraries(dphpc PUBLIC MPI::MPI_CXX)
 target_link_libraries(dphpc PUBLIC CombBLAS)
 target_link_libraries(dphpc PUBLIC tbb)
 target_link_libraries(dphpc PUBLIC mio::mio)
+target_link_libraries(dphpc PUBLIC fast_matrix_market::fast_matrix_market)

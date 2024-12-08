@@ -1,23 +1,31 @@
 #pragma once
 
 #include "matrix.hpp"
+#include "measure.hpp"
 
-#include <atomic>
 #include <bitset>
 #include <cassert>
 #include <cstring>
-#include <fstream>
+#include <fast_matrix_market/fast_matrix_market.hpp>
 #include <iostream>
 #include <memory>
 #include <mio/mmap.hpp>
-#include <sstream>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
 
 namespace matrix {
+namespace fmm = fast_matrix_market;
+
+template <typename T> struct triplet_matrix {
+  midx_t nrows, ncols;
+  std::vector<midx_t> rows;
+  std::vector<midx_t> cols;
+  std::vector<T> vals;
+};
 
 namespace utils {
+
 Fields read_fields(std::string file_path, bool transposed,
                    std::vector<midx_t> *keep_rows,
                    std::vector<midx_t> *keep_cols);
@@ -155,6 +163,7 @@ Cells<T> get_cells(std::string file_path, bool transposed,
     }
   bool full = keep_rows == nullptr && keep_cols == nullptr;
 
+  measure_point(measure::read_triplets, measure::MeasurementEvent::START);
   auto fields = utils::read_fields(file_path, transposed, keep_rows, keep_cols);
 
   std::error_code error;
@@ -162,25 +171,24 @@ Cells<T> get_cells(std::string file_path, bool transposed,
   assert(!error);
   IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
 
-  std::string sink;
-  do {
-    getline(stream, sink);
-  } while (sink.size() > 0 and sink[0] == '%');
-
   auto cells = full ? Cells<T>(fields.height, fields.width, fields.non_zeros)
                     : Cells<T>(fields.height, fields.width);
 
-  // read non-zeros
-  auto l = fields.non_zeros;
-  while (l--) {
-    midx_t _row, _col;
-    T val;
-    stream >> _row;
-    stream >> _col;
-    stream >> val;
+  triplet_matrix<T> tm;
+  fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows, tm.cols,
+                                  tm.vals);
+  measure_point(measure::read_triplets, measure::MeasurementEvent::END);
 
-    auto row = transposed ? _col - 1 : _row - 1;
-    auto col = transposed ? _row - 1 : _col - 1;
+  measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
+  std::mutex mutexes[tm.nrows];
+#pragma omp parallel for
+  for (midx_t i = 0; i < tm.vals.size(); ++i) {
+    auto _row = tm.rows[i];
+    auto _col = tm.cols[i];
+    auto val = tm.vals[i];
+
+    auto row = transposed ? _col : _row;
+    auto col = transposed ? _row : _col;
 
     if (keep_rows != nullptr) {
       if (!keep_rows_map.contains(row))
@@ -195,8 +203,11 @@ Cells<T> get_cells(std::string file_path, bool transposed,
       col = keep_cols_map[col];
     }
 
-    cells.add({row, col}, val);
+    std::lock_guard<std::mutex> guard(mutexes[row]);
+    cells._cells[row].insert({col, val});
   }
+  measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
+
   ro_mmap.unmap();
   return cells;
 }
@@ -517,13 +528,12 @@ class ManagedBlockedCSRMatrix : public BlockedCSRMatrix<T> {
 private:
   static std::pair<std::vector<Cells<T>>, size_t>
   get_cells_sections(std::string file_path, bool transposed,
-                     std::vector<std::vector<midx_t>> *keep_rows_sections,
+                     const std::vector<std::vector<midx_t>> &keep_rows_sections,
                      std::vector<midx_t> *keep_cols) {
     auto keep_rows_map =
         std::unordered_map<midx_t, std::tuple<midx_t, size_t>>();
-    assert(keep_rows_sections != nullptr);
     for (size_t s = 0; s < N_SECTIONS; ++s) {
-      auto keep_rows = (*keep_rows_sections)[s];
+      auto keep_rows = keep_rows_sections[s];
       for (midx_t i = 0; i < keep_rows.size(); ++i) {
         keep_rows_map.insert({keep_rows[i], {i, s}});
       }
@@ -535,31 +545,33 @@ private:
         keep_cols_map.insert({(*keep_cols)[i], i});
       }
 
+    measure_point(measure::read_triplets, measure::MeasurementEvent::START);
     auto fields = utils::read_fields(file_path, transposed, nullptr, keep_cols);
     std::error_code error;
     mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
     assert(!error);
     IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
 
-    std::string sink;
-    do {
-      getline(stream, sink);
-    } while (sink.size() > 0 and sink[0] == '%');
+    triplet_matrix<T> tm;
+    fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows,
+                                    tm.cols, tm.vals);
+    measure_point(measure::read_triplets, measure::MeasurementEvent::END);
 
     std::vector<Cells<T>> cells_sections;
     for (size_t s = 0; s < N_SECTIONS; ++s) {
-      auto cells = Cells<T>((*keep_rows_sections)[s].size(), fields.width);
+      auto cells = Cells<T>(keep_rows_sections[s].size(), fields.width);
       cells_sections.push_back(cells);
     }
 
-    // read non-zeros
-    auto l = fields.non_zeros;
-    while (l--) {
-      midx_t _row, _col;
-      T val;
-      stream >> _row;
-      stream >> _col;
-      stream >> val;
+    measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
+    auto max_section_rows = (tm.nrows / N_SECTIONS) + tm.nrows % N_SECTIONS;
+    std::mutex mutexes[N_SECTIONS][max_section_rows];
+
+#pragma omp parallel for
+    for (midx_t i = 0; i < tm.vals.size(); ++i) {
+      auto _row = tm.rows[i];
+      auto _col = tm.cols[i];
+      auto val = tm.vals[i];
 
       auto row = transposed ? _col - 1 : _row - 1;
       auto col = transposed ? _row - 1 : _col - 1;
@@ -575,8 +587,12 @@ private:
         col = keep_cols_map[col];
       }
 
-      cells_sections[sec].add({mapped_row, col}, val);
+      assert(mapped_row < max_section_rows);
+      std::lock_guard<std::mutex> guard(mutexes[sec][mapped_row]);
+      cells_sections[sec]._cells[row].insert({col, val});
     }
+    measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
+
     ro_mmap.unmap();
 
     size_t exp_size = 0;
@@ -607,7 +623,7 @@ private:
     }
 
     auto [cells, sz] =
-        get_cells_sections(file_path, false, &keep_rows_sections, keep_cols);
+        get_cells_sections(file_path, false, keep_rows_sections, keep_cols);
     sz += BlockedCSRMatrix<T>::initial_data_size();
 
     auto vec = new std::byte[sz];

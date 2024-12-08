@@ -1,8 +1,0 @@
-func,duration,bytes
-bytes,0,32473000
-global,2.9325e+10,0
-gemm,1.15504e+09,0
-gemm,1.15565e+09,0
-gemm,1.15375e+09,0
-gemm,1.15381e+09,0
-gemm,1.15287e+09,0

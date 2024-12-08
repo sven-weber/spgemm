@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <fast_matrix_market/fast_matrix_market.hpp>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -10,47 +11,36 @@
 
 namespace matrix {
 namespace utils {
+namespace fmm = fast_matrix_market;
 
 Fields read_fields(std::string file_path, bool transposed,
                    std::vector<midx_t> *keep_rows,
                    std::vector<midx_t> *keep_cols) {
+  fmm::matrix_market_header h;
   std::ifstream stream(file_path);
   if (!stream.is_open()) {
     std::cout << "could not open file (reading): " << file_path << std::endl;
     assert(false);
   }
 
-  std::string line;
-  do {
-    getline(stream, line);
-  } while (line.size() > 0 and line[0] == '%');
-  std::istringstream line_stream(line);
-
-  // first non-comment line is going to be:
-  // <height> <width> <non_zero>
-  midx_t width, height, non_zeros;
+  // Numeber of non-zeros is wrong and it's going to be overwritten later if
+  // we're partially loading the matrix
+  fmm::read_header(stream, h);
   if (transposed) {
-    line_stream >> width;
-    line_stream >> height;
-  } else {
-    line_stream >> height;
-    line_stream >> width;
+    std::swap(h.nrows, h.ncols);
   }
   if (keep_rows != nullptr)
-    height = keep_rows->size();
+    h.nrows = keep_rows->size();
   if (keep_cols != nullptr)
-    width = keep_cols->size();
+    h.ncols = keep_cols->size();
 
-  // This is going to be overwritten later if we're partially loading the matrix
-  line_stream >> non_zeros;
-
+  stream.close();
   return {
       .transposed = transposed,
-      .height = height,
-      .width = width,
-      .non_zeros = non_zeros,
+      .height = static_cast<midx_t>(h.nrows),
+      .width = static_cast<midx_t>(h.ncols),
+      .non_zeros = static_cast<midx_t>(h.vector_length),
   };
-  stream.close();
 }
 
 void write_matrix_market(std::string file_path, midx_t height, midx_t width,
