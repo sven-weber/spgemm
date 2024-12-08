@@ -7,7 +7,7 @@
 
 namespace parts {
 namespace baseline {
-partition::Partitions partition(matrix::Fields matrix_fields, int mpi_size) {
+partition::Partitions partition(matrix::Fields &matrix_fields, int mpi_size) {
   partition::Partitions p(mpi_size);
 
   int rows_per_partition = matrix_fields.height / mpi_size;

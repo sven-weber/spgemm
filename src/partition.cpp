@@ -8,6 +8,7 @@
 #include <tbb/parallel_sort.h>
 
 #include "partition.hpp"
+#include "measure.hpp"
 
 namespace partition {
 
@@ -129,6 +130,9 @@ void iterative_shuffle(std::string C_sparsity_path,
                                           nullptr);
   matrix::ManagedCSRMatrix<short> C(C_sparsity_path, false, nullptr, nullptr);
 
+  // Dont include the loading time in the shuffling timing!
+  measure_point(measure::shuffle, measure::MeasurementEvent::START);
+
   float variance = 0;
   float stopping_variance = -1;
   double start = omp_get_wtime();
@@ -192,6 +196,8 @@ void iterative_shuffle(std::string C_sparsity_path,
     tmp_shuffled_cols[(*shuffled_cols)[i]] = i;
   }
   (*shuffled_cols) = tmp_shuffled_cols;
+  
+  measure_point(measure::shuffle, measure::MeasurementEvent::END);
 }
 
 void save_partitions(Partitions &partitions, std::string file) {

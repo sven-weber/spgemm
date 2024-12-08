@@ -90,21 +90,15 @@ int main(int argc, char **argv) {
   partition::Shuffle A_shuffle(A_fields.height);
   partition::Shuffle B_shuffle(B_fields.width);
   if (rank == MPI_ROOT_ID && algo_name != "comb") {
-    // Perform the shuffling
-    measure_point(measure::shuffle, measure::MeasurementEvent::START);
+    // Shuffling can be expensive (mostly because C needs to be loaded!)
+    // Therefore, we persist it!
     bool loaded_A = partition::load_shuffle(A_shuffle_path, A_shuffle);
     bool loaded_B = partition::load_shuffle(B_shuffle_path, B_shuffle);
 
     if (!loaded_A || !loaded_B) {
+      std::cout << "Computing shuffling since no existing one could be found" << std::endl;
+      // Perform the shuffling if no persistet one exists!
       partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
-      // TODO : add N_ITERATIONS for iterative shuffle
-      //        OR: do shuffling for X minutes at most
-      // TODO : add logic for: if shuffled already computed, load it; else,
-      // compute it
-      //        OR: load previous shuffle if exists, and run it for some
-      //        computations before moving on
-      // REMARK : a shuffle can be continued from a previous one, and improved
-
       if (persist_results) {
         partition::save_shuffle(A_shuffle, A_shuffle_path);
         partition::save_shuffle(B_shuffle, B_shuffle_path);
@@ -122,20 +116,29 @@ int main(int argc, char **argv) {
         std::cerr << "Error: " << e.what() << std::endl;
       }
     }
-    measure_point(measure::shuffle, measure::MeasurementEvent::END);
+    std::cout << "SHUFFLING FINISHED!" << std::endl;
 
     // Do the partitioning
+   
+    // Better (but expensive) partitioning algorithm
+    // Because the better partitioning requires C (which takes a very long time to load!),
+    // we will not use it
+    // matrix::ManagedCSRMatrix<short> mat(C_sparsity_path, false, &A_shuffle,
+    //                                &B_shuffle);
+    // partitions = parts::baseline::balanced_partition(mat, n_nodes);
+
     measure_point(measure::partition, measure::MeasurementEvent::START);
-    matrix::ManagedCSRMatrix<short> mat(C_sparsity_path, false, &A_shuffle,
-                                   &B_shuffle);
-    partitions = parts::baseline::balanced_partition(mat, n_nodes);
+    auto fields = matrix::utils::read_fields(C_sparsity_path, false, nullptr, nullptr);
+    partitions = parts::baseline::partition(fields, n_nodes);
     utils::print_partitions(partitions, n_nodes);
     if (persist_results) {
       partition::save_partitions(partitions, partitions_path);
     }
     measure_point(measure::partition, measure::MeasurementEvent::END);
+    std::cout << "ROOT NODE FINISHED; NOW EVERYONE WORKS!" << std::endl;
   }
 
+  
 #ifndef NDEBUG
   if (rank == MPI_ROOT_ID) {
     if (const char *omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
@@ -177,24 +180,12 @@ int main(int argc, char **argv) {
                                 B_path, &keep_cols);
     mult = tmp;
 
-    measure_point(measure::bitmaps, measure::MeasurementEvent::START);
-
-#ifndef NDEBUG
     // Share bitmaps
-    std::cout << "bitmap.count = " << tmp->bitmap.count() << std::endl;
-    std::cout << "bitmap = " << tmp->bitmap << std::endl;
-#endif
-
     std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
     MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
                   bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
                   MPI_COMM_WORLD);
     tmp->bitmaps = bitmaps;
-#ifndef NDEBUG
-    // Share bitmaps
-    std::cout << "Bitmaps shared" << std::endl;
-#endif
-    measure_point(measure::bitmaps, measure::MeasurementEvent::END);
 
     // Share serialization sizes
     std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
@@ -206,24 +197,12 @@ int main(int argc, char **argv) {
                                         &keep_rows, B_path, &keep_cols);
     mult = tmp;
 
-    measure_point(measure::bitmaps, measure::MeasurementEvent::START);
-
-#ifndef NDEBUG
     // Share bitmaps
-    std::cout << "bitmap.count = " << tmp->bitmap.count() << std::endl;
-    std::cout << "bitmap = " << tmp->bitmap << std::endl;
-#endif
-
     std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
     MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
                   bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
                   MPI_COMM_WORLD);
     tmp->bitmaps = bitmaps;
-#ifndef NDEBUG
-    // Share bitmaps
-    std::cout << "Bitmaps shared" << std::endl;
-#endif
-    measure_point(measure::bitmaps, measure::MeasurementEvent::END);
 
     // Share serialization sizes
     std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
@@ -235,40 +214,35 @@ int main(int argc, char **argv) {
                                       &keep_rows, B_path, &keep_cols);
     mult = tmp;
 
-    measure_point(measure::bitmaps, measure::MeasurementEvent::START);
+    // Share bitmaps
     std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
     MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
                   bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
                   MPI_COMM_WORLD);
     tmp->bitmaps = bitmaps;
-    measure_point(measure::bitmaps, measure::MeasurementEvent::END);
 
     // Share serialization sizes
     std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
     MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
-
     tmp->compute_alltoall_data(serialized_sizes_B_bytes);
   } else if (algo_name == "drop_at_once_parallel") {
     auto *tmp = new mults::DropAtOnceParallel(rank, n_nodes, partitions, A_path,
                                               &keep_rows, B_path, &keep_cols);
     mult = tmp;
-
-    measure_point(measure::bitmaps, measure::MeasurementEvent::START);
+    // Share bitmaps
     std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
     MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
                   bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
                   MPI_COMM_WORLD);
     tmp->bitmaps = bitmaps;
-    measure_point(measure::bitmaps, measure::MeasurementEvent::END);
 
     // Share serialization sizes
     std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
     MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
-
     tmp->compute_alltoall_data(serialized_sizes_B_bytes);
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
