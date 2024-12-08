@@ -130,6 +130,8 @@ void iterative_shuffle(std::string C_sparsity_path,
                                           nullptr);
   matrix::ManagedCSRMatrix<short> C(C_sparsity_path, false, nullptr, nullptr);
 
+  std::cout << "MATRIX LOADED; SHUFFLING BEGINS;" << std::endl;
+  
   // Dont include the loading time in the shuffling timing!
   measure_point(measure::shuffle, measure::MeasurementEvent::START);
 
