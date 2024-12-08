@@ -34,7 +34,6 @@ FetchContent_Declare(
   TBB
   GIT_REPOSITORY https://github.com/wjakob/tbb
   OVERRIDE_FIND_PACKAGE
-  TBB_BUILD_TESTS OFF
 )
 
 set(TBB_BUILD_STATIC CACHE INTERNAL OFF)
