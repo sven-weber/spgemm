@@ -90,6 +90,7 @@ int main(int argc, char **argv) {
   partition::Shuffle A_shuffle(A_fields.height);
   partition::Shuffle B_shuffle(B_fields.width);
   if (rank == MPI_ROOT_ID && algo_name != "comb") {
+    std::cout << "STARTING SHUFFLING!" << std::endl;
     // Shuffling can be expensive (mostly because C needs to be loaded!)
     // Therefore, we persist it!
     bool loaded_A = partition::load_shuffle(A_shuffle_path, A_shuffle);
