@@ -117,7 +117,9 @@ int main(int argc, char **argv) {
         std::cerr << "Error: " << e.what() << std::endl;
       }
     }
+    measure::Measure::get_instance()->save(measurements_path);
     std::cout << "SHUFFLING FINISHED!" << std::endl;
+    exit(0);
 
     // Do the partitioning
    
