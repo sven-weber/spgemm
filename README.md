@@ -29,6 +29,14 @@ This repository has a script to install all dependencies and perform the setup f
 python3 scripts/fetch_matrices.py
 ```
 
+## How to create C_sparsity
+
+```console
+tail -n +4 C_expected.mtx | awk '{ print $1,$2,1 }' > matrix
+head -n3 C_expected.mtx > header
+cat header matrix > C_sparsity.mtx
+```
+
 ## Run on euler
 
 ```console
