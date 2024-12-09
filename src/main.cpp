@@ -71,6 +71,15 @@ int main(int argc, char **argv) {
   std::cout << "Started with algo " << algo_name << std::endl;
 #endif
 
+  if (rank == MPI_ROOT_ID) {
+    if (const char *omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
+      std::cout << "Running with " << omp_num_threads << " threads"
+                << std::endl;
+    } else {
+      std::cout << "Running SINGLE THREADED!" << std::endl;
+    }
+  }
+
   measure_point(measure::global, measure::MeasurementEvent::START);
 
   if (rank == MPI_ROOT_ID) {
@@ -97,7 +106,8 @@ int main(int argc, char **argv) {
     bool loaded_B = partition::load_shuffle(B_shuffle_path, B_shuffle);
 
     if (!loaded_A || !loaded_B) {
-      std::cout << "Computing shuffling since no existing one could be found" << std::endl;
+      std::cout << "Computing shuffling since no existing one could be found"
+                << std::endl;
       // Perform the shuffling if no persistet one exists!
       partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
       if (persist_results) {
@@ -120,16 +130,17 @@ int main(int argc, char **argv) {
     std::cout << "SHUFFLING FINISHED!" << std::endl;
 
     // Do the partitioning
-   
+
     // Better (but expensive) partitioning algorithm
-    // Because the better partitioning requires C (which takes a very long time to load!),
-    // we will not use it
-    // matrix::ManagedCSRMatrix<short> mat(C_sparsity_path, false, &A_shuffle,
+    // Because the better partitioning requires C (which takes a very long time
+    // to load!), we will not use it matrix::ManagedCSRMatrix<short>
+    // mat(C_sparsity_path, false, &A_shuffle,
     //                                &B_shuffle);
     // partitions = parts::baseline::balanced_partition(mat, n_nodes);
 
     measure_point(measure::partition, measure::MeasurementEvent::START);
-    auto fields = matrix::utils::read_fields(C_sparsity_path, false, nullptr, nullptr);
+    auto fields =
+        matrix::utils::read_fields(C_sparsity_path, false, nullptr, nullptr);
     partitions = parts::baseline::partition(fields, n_nodes);
     utils::print_partitions(partitions, n_nodes);
     if (persist_results) {
@@ -138,18 +149,6 @@ int main(int argc, char **argv) {
     measure_point(measure::partition, measure::MeasurementEvent::END);
     std::cout << "ROOT NODE FINISHED; NOW EVERYONE WORKS!" << std::endl;
   }
-
-  
-#ifndef NDEBUG
-  if (rank == MPI_ROOT_ID) {
-    if (const char *omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
-      std::cout << "Running with " << omp_num_threads << " threads"
-                << std::endl;
-    } else {
-      std::cout << "Running SINGLE THREADED!" << std::endl;
-    }
-  }
-#endif
 
   // Broadcast the shuffled rows and columns
   MPI_Bcast(A_shuffle.data(), sizeof(midx_t) * A_shuffle.size(), MPI_BYTE,

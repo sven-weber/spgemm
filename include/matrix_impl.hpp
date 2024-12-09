@@ -188,11 +188,18 @@ public:
                std::unordered_map<midx_t, midx_t> *keep_cols_map)
       : height(data.height), width(data.width), rows(data.rows),
         cols(data.cols), vals(data.vals) {
+    if (keep_rows_map != nullptr)
+      height = keep_rows_map->size();
+
+    if (keep_cols_map != nullptr)
+      width = keep_cols_map->size();
+
     measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
 
     bitmask.resize(vals->size(), 1);
     c_in_row.resize(height, 0);
     nz = 0;
+
 #pragma omp parallel for reduction(+ : nz)
     for (midx_t i = 0; i < vals->size(); ++i) {
       auto row = (*rows)[i];
@@ -202,19 +209,21 @@ public:
       if (keep_rows_map != nullptr) {
         keep &= keep_rows_map->contains(row);
         row = (*keep_rows_map)[row];
-        (*rows)[i] = row;
       }
-      if (keep_cols_map != nullptr) {
+      if (keep && keep_cols_map != nullptr) {
         keep &= keep_cols_map->contains(col);
-        (*cols)[i] = (*keep_cols_map)[col];
+        col = (*keep_cols_map)[col];
       }
-
-      std::atomic_ref<midx_t> cnt(c_in_row[row]);
-      ++cnt;
 
       bitmask[i] = keep;
-      if (keep)
+      if (keep) {
+        (*rows)[i] = row;
+        (*cols)[i] = col;
         ++nz;
+
+        std::atomic_ref<midx_t> cnt(c_in_row[row]);
+        ++cnt;
+      }
     }
     measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
   }
@@ -419,7 +428,8 @@ public:
   SmallVec<T> row(midx_t i) {
     assert(!transposed);
     assert(i < height);
-    std::cout << "i " << i << " height " << height << std::endl;
+    std::cout << "i " << i << std::endl;
+    std::cout << "height " << height << std::endl;
     auto offst = row_ptr[i];
     return {values + offst, col_idx + offst, row_ptr[i + 1] - offst};
   }
@@ -551,7 +561,6 @@ public:
     blocked_fields->n_sections = N_SECTIONS;
     blocked_fields->height = fields.height;
 
-    std::cout << "Make csrs" << std::endl;
     auto partition_height = section_height(fields.height);
     auto idx = initial_data_size();
     for (size_t i = 0; i < N_SECTIONS; ++i) {
