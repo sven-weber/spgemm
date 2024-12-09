@@ -112,6 +112,12 @@ public:
   // second one!
   void add(CellPos pos, T val) {
     assert(pos.first < _cells.size());
+    if (pos.first >= height)
+      std::cout << "pos.first " << pos.first << std::endl;
+    assert(pos.first < height);
+    if (pos.second >= width)
+      std::cout << "pos.second " << pos.second << std::endl;
+    assert(pos.second < width);
     assert(val != 0);
 
     if (!_cells[pos.first].contains(pos.second)) {
@@ -181,18 +187,26 @@ public:
   std::vector<bool> bitmask;
   midx_t nz;
   std::vector<midx_t> c_in_row;
+  std::optional<std::unordered_map<midx_t, midx_t>> rows_map;
+  std::optional<std::unordered_map<midx_t, midx_t>> cols_map;
 
 public:
   TripletCells(const triplet_data<T> &data,
                std::unordered_map<midx_t, midx_t> *keep_rows_map,
                std::unordered_map<midx_t, midx_t> *keep_cols_map)
       : height(data.height), width(data.width), rows(data.rows),
-        cols(data.cols), vals(data.vals) {
+        cols(data.cols), vals(data.vals),
+        rows_map(keep_rows_map != nullptr ? std::optional(*keep_rows_map)
+                                          : std::nullopt),
+        cols_map(keep_cols_map != nullptr ? std::optional(*keep_cols_map)
+                                          : std::nullopt) {
     if (keep_rows_map != nullptr)
       height = keep_rows_map->size();
-
     if (keep_cols_map != nullptr)
       width = keep_cols_map->size();
+
+    std::cout << "width = " << width << ", was " << data.width << std::endl;
+    std::cout << "height = " << height << ", was " << data.height << std::endl;
 
     measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
 
@@ -200,31 +214,41 @@ public:
     c_in_row.resize(height, 0);
     nz = 0;
 
-#pragma omp parallel for reduction(+ : nz)
+    // #pragma omp declare reduction(vec_or : std::vector<bool> : std::transform(     \
+    //         omp_in.begin(), omp_in.end(), omp_out.begin(), omp_out.begin(),        \
+    //             std::logical_or<>())) initializer(omp_priv = omp_orig)
+    // #pragma omp parallel for reduction(+ : nz) reduction(vec_or : bitmask)
     for (midx_t i = 0; i < vals->size(); ++i) {
       auto row = (*rows)[i];
       auto col = (*cols)[i];
 
-      bool keep = true;
       if (keep_rows_map != nullptr) {
-        keep &= keep_rows_map->contains(row);
+        if (!keep_rows_map->contains(row))
+          continue;
+
         row = (*keep_rows_map)[row];
       }
-      if (keep && keep_cols_map != nullptr) {
-        keep &= keep_cols_map->contains(col);
+
+      if (keep_cols_map != nullptr) {
+        if (!keep_cols_map->contains(col))
+          continue;
+
         col = (*keep_cols_map)[col];
       }
 
-      bitmask[i] = keep;
-      if (keep) {
-        (*rows)[i] = row;
-        (*cols)[i] = col;
-        ++nz;
+      bitmask[i] = 1;
 
-        std::atomic_ref<midx_t> cnt(c_in_row[row]);
-        ++cnt;
-      }
+      ++nz;
+      ++c_in_row[row];
+      /*std::atomic_ref<midx_t> cnt(c_in_row[row]);*/
+      /*++cnt;*/
     }
+
+    auto exp_nz = 0;
+    for (auto cnt : c_in_row)
+      exp_nz += cnt;
+    assert(exp_nz == nz);
+
     measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
   }
 
@@ -237,7 +261,6 @@ public:
   ~TripletCells() = default;
 
   size_t expected_data_size() const {
-    std::cout << "non zero " << nz << std::endl;
     return sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
            (non_zeros() * sizeof(midx_t)) + (non_zeros() * sizeof(T));
   }
@@ -327,6 +350,7 @@ public:
 #ifndef NDEBUG
     for (int row = 0; row < cells._cells.size(); row++) {
       for (auto [col, val] : cells._cells[row]) {
+        std::cout << "col " << col << " < " << width << std::endl;
         assert(row < height);
         assert(col < width);
         assert(val != 0);
@@ -368,10 +392,18 @@ public:
 #ifndef NDEBUG
     for (size_t i = 0; i < cells.vals->size(); ++i) {
       if (!cells.bitmask[i])
-        return;
+        continue;
 
       auto row = (*cells.rows)[i];
+      if (cells.rows_map) {
+        auto rows_map = cells.rows_map.value();
+        row = rows_map[row];
+      }
       auto col = (*cells.cols)[i];
+      if (cells.cols_map) {
+        auto cols_map = cells.cols_map.value();
+        col = cols_map[col];
+      }
       auto val = (*cells.vals)[i];
       assert(row < height);
       assert(col < width);
@@ -391,6 +423,8 @@ public:
 
     row_ptr[0] = 0;
     for (midx_t i = 1; i <= height; ++i) {
+      /*std::cout << "cells in row " << (i - 1) << " = "*/
+      /*          << cells.cells_in_row(i - 1) << std::endl;*/
       row_ptr[i] = row_ptr[i - 1] + cells.cells_in_row(i - 1);
     }
 
@@ -399,10 +433,18 @@ public:
     // TODO: possibly parallelize this(?)
     for (size_t i = 0; i < cells.vals->size(); ++i) {
       if (!cells.bitmask[i])
-        return;
+        continue;
 
       auto row = (*cells.rows)[i];
+      if (cells.rows_map) {
+        auto rows_map = cells.rows_map.value();
+        row = rows_map[row];
+      }
       auto col = (*cells.cols)[i];
+      if (cells.cols_map) {
+        auto cols_map = cells.cols_map.value();
+        col = cols_map[col];
+      }
       auto val = (*cells.vals)[i];
 
       auto index = row_ptr[row] + next_pos_in_row[row];
@@ -428,16 +470,20 @@ public:
   SmallVec<T> row(midx_t i) {
     assert(!transposed);
     assert(i < height);
-    std::cout << "i " << i << std::endl;
-    std::cout << "height " << height << std::endl;
     auto offst = row_ptr[i];
-    return {values + offst, col_idx + offst, row_ptr[i + 1] - offst};
+    auto len = row_ptr[i + 1] - offst;
+    std::cout << "row_ptr[" << i << "+1] = " << row_ptr[i + 1] << std::endl;
+    std::cout << "offst = " << offst << std::endl;
+    assert(len <= width);
+    return {values + offst, col_idx + offst, len};
   }
   SmallVec<T> col(midx_t j) {
     assert(transposed);
     assert(j < height);
     auto offst = row_ptr[j];
-    return {values + offst, col_idx + offst, row_ptr[j + 1] - offst};
+    auto len = row_ptr[j + 1] - offst;
+    assert(len <= width);
+    return {values + offst, col_idx + offst, len};
   }
 
   void save(std::string file_path) {
@@ -464,12 +510,7 @@ public:
 
 template <typename T = double> class ManagedCSRMatrix : public CSRMatrix<T> {
 private:
-  Data alloc_for_triplet_cells(const TripletCells<T> &cells) {
-    auto sz = cells.expected_data_size();
-    auto vec = new std::byte[sz];
-    return {vec, sz};
-  }
-  Data alloc_for_cells(const Cells<T> &cells) {
+  template <typename C> Data alloc(const C &cells) {
     auto sz = cells.expected_data_size();
     auto vec = new std::byte[sz];
     return {vec, sz};
@@ -483,10 +524,10 @@ public:
                             tr) {}
 
   ManagedCSRMatrix(const TripletCells<T> &cells, bool tr = false)
-      : CSRMatrix<T>(cells, alloc_for_triplet_cells(cells), tr) {}
+      : CSRMatrix<T>(cells, alloc<TripletCells<T>>(cells), tr) {}
 
   ManagedCSRMatrix(const Cells<T> &cells, bool tr = false)
-      : CSRMatrix<T>(cells, alloc_for_cells(cells), tr) {}
+      : CSRMatrix<T>(cells, alloc<Cells<T>>(cells), tr) {}
 
   ~ManagedCSRMatrix() { delete[] CSRMatrix<T>::data; }
 };
@@ -512,6 +553,7 @@ private:
 
 #ifndef NDEBUG
     for (auto csr : csrs) {
+      std::cout << csr->width << " != " << width << std::endl;
       assert(csr->width == width);
     }
 #endif
@@ -565,6 +607,8 @@ public:
     auto idx = initial_data_size();
     for (size_t i = 0; i < N_SECTIONS; ++i) {
       auto cell = cells[i];
+      std::cout << "cell " << i << " size " << cell.height << "x" << cell.width
+                << std::endl;
       auto row = i * partition_height;
 
       auto sz = cell.expected_data_size();
@@ -663,16 +707,16 @@ private:
 
     auto keep_cols_map = std::unordered_map<midx_t, midx_t>();
     if (keep_cols != nullptr)
-      for (midx_t i = 0; i < keep_cols->size(); ++i) {
+      for (midx_t i = 0; i < keep_cols->size(); ++i)
         keep_cols_map.insert({(*keep_cols)[i], i});
-      }
 
     auto triplet_data = get_triplet_data(file_path, false);
 
     std::vector<TripletCells<T>> cells_sections;
     for (size_t s = 0; s < N_SECTIONS; ++s) {
-      auto cells = TripletCells<T>(triplet_data, &keep_rows_map_per_section[s],
-                                   &keep_cols_map);
+      auto cells =
+          TripletCells<T>(triplet_data, &keep_rows_map_per_section[s],
+                          keep_cols != nullptr ? &keep_cols_map : nullptr);
       cells_sections.push_back(cells);
     }
 
@@ -717,7 +761,7 @@ public:
                           std::vector<midx_t> *keep_cols = nullptr)
       : BlockedCSRMatrix<T>(alloc_for_cells(file_path, keep_cols)) {}
 
-  /*~ManagedBlockedCSRMatrix() { delete[] BlockedCSRMatrix<T>::data; }*/
+  ~ManagedBlockedCSRMatrix() { delete[] BlockedCSRMatrix<T>::data; }
 };
 
 } // namespace matrix
