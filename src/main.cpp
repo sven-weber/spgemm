@@ -65,6 +65,16 @@ int main(int argc, char **argv) {
   std::string measurements_path =
       utils::format("{}/measurements_{}.csv", run_path, rank);
 
+  if (rank == MPI_ROOT_ID) {
+    if (const char *omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
+      std::cout << "Running with " << omp_num_threads << " threads"
+                << std::endl;
+    } else {
+      std::cout << "Running SINGLE THREADED!" << std::endl;
+    }
+  }
+
+
   // Custom cout that prepends MPI rank
 #ifndef NDEBUG
   utils::CoutWithMPIRank custom_cout(rank);
@@ -140,18 +150,6 @@ int main(int argc, char **argv) {
     measure_point(measure::partition, measure::MeasurementEvent::END);
     std::cout << "ROOT NODE FINISHED; NOW EVERYONE WORKS!" << std::endl;
   }
-
-  
-#ifndef NDEBUG
-  if (rank == MPI_ROOT_ID) {
-    if (const char *omp_num_threads = std::getenv("OMP_NUM_THREADS")) {
-      std::cout << "Running with " << omp_num_threads << " threads"
-                << std::endl;
-    } else {
-      std::cout << "Running SINGLE THREADED!" << std::endl;
-    }
-  }
-#endif
 
   // Broadcast the shuffled rows and columns
   MPI_Bcast(A_shuffle.data(), sizeof(midx_t) * A_shuffle.size(), MPI_BYTE,
