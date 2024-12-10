@@ -179,8 +179,12 @@ Cells<T> get_cells(std::string file_path, bool transposed,
                                   tm.vals);
   measure_point(measure::read_triplets, measure::MeasurementEvent::END);
 
+  std::cout << "LIBRARY LOAD FINISHED; MATRIX TRANSFORMATION" << std::endl;
+
   measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
-  std::mutex mutexes[tm.nrows];
+
+  const constexpr uint32_t ROW_MUTEX_COUNT 1_000_000;
+  std::mutex mutexes[ROW_MUTEX_COUNT];
 #pragma omp parallel for
   for (midx_t i = 0; i < tm.vals.size(); ++i) {
     auto _row = tm.rows[i];
@@ -203,7 +207,7 @@ Cells<T> get_cells(std::string file_path, bool transposed,
       col = keep_cols_map[col];
     }
 
-    std::lock_guard<std::mutex> guard(mutexes[row]);
+    std::lock_guard<std::mutex> guard(mutexes[row % ROW_MUTEX_COUNT]);
     cells._cells[row].insert({col, val});
   }
   measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
