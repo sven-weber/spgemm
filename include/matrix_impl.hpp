@@ -183,7 +183,7 @@ Cells<T> get_cells(std::string file_path, bool transposed,
 
   measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
 
-  const constexpr uint32_t ROW_MUTEX_COUNT = 100000;
+  const constexpr uint32_t ROW_MUTEX_COUNT = 10000;
   std::mutex mutexes[ROW_MUTEX_COUNT];
 #pragma omp parallel for
   for (midx_t i = 0; i < tm.vals.size(); ++i) {
