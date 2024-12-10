@@ -138,8 +138,8 @@ void iterative_shuffle(std::string C_sparsity_path,
   float variance = 0;
   float stopping_variance = -1;
   double start = omp_get_wtime();
-  // We do shuffling for a maximus of 2 minutes
-  double stopping_time = std::min(120.0, shuffled_rows->size() * 0.00025);
+  // We do shuffling for a maximus of 6 minutes
+  double stopping_time = std::min(360.0, shuffled_rows->size() * 0.00025);
   int i = 0;
 
   while (variance > stopping_variance &&
