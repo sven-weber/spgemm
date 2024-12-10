@@ -51,12 +51,13 @@ public:
   // Don't use!
   midx_t height;
   midx_t width;
+  std::vector<std::unordered_map<midx_t, midx_t>> _pos;
   std::vector<std::unordered_map<midx_t, T>> _cells;
 
 public:
   // Takes in the number of rows
   Cells(midx_t height, midx_t width, midx_t non_zeros = 0)
-      : height(height), width(width), _cells(height) {}
+      : height(height), width(width), _cells(height), _pos(height){}
   ~Cells() = default;
 
   size_t expected_data_size() const {
@@ -77,11 +78,13 @@ public:
 
     if (!_cells[pos.first].contains(pos.second)) {
       /*++_non_zeros;*/
+      _pos[pos.first].insert({pos.second, cells_in_row(pos.first)});
       _cells[pos.first].insert({pos.second, val});
     } else {
       _cells[pos.first][pos.second] += val;
       if (_cells[pos.first][pos.second] == 0) {
         _cells[pos.first].erase(pos.second);
+        _pos[pos.first].erase(pos.second);
       }
     }
   }
@@ -173,6 +176,7 @@ Cells<T> get_cells(std::string file_path, bool transposed,
 
   auto cells = full ? Cells<T>(fields.height, fields.width, fields.non_zeros)
                     : Cells<T>(fields.height, fields.width);
+  // cells._pos.resize(fields.height);
 
   triplet_matrix<T> tm;
   fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows, tm.cols,
@@ -208,6 +212,7 @@ Cells<T> get_cells(std::string file_path, bool transposed,
     }
 
     std::lock_guard<std::mutex> guard(mutexes[row % ROW_MUTEX_COUNT]);
+    cells._pos[row].insert({col, cells.cells_in_row(row)});
     cells._cells[row].insert({col, val});
   }
   measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
@@ -293,15 +298,17 @@ public:
     }
 
     // Fill values and col_index arrays using row_ptr
-    auto next_pos_in_row = std::vector<midx_t>(height + 1, 0);
+    measure_point(measure::build_csr, measure::MeasurementEvent::START);
+    #pragma omp parallel for
     for (int row = 0; row < cells._cells.size(); row++) {
+      midx_t max_pos = 0;
       for (auto [col, val] : cells._cells[row]) {
-        auto index = row_ptr[row] + next_pos_in_row[row];
+        auto index = row_ptr[row] + cells._pos[row].at(col);
         col_idx[index] = col;
         values[index] = val;
-        next_pos_in_row[row]++;
       }
     }
+    measure_point(measure::build_csr, measure::MeasurementEvent::END);
   }
 
   CSRMatrix(const Data &d)
@@ -593,6 +600,7 @@ private:
 
       assert(mapped_row < max_section_rows);
       std::lock_guard<std::mutex> guard(mutexes[sec][mapped_row]);
+      cells_sections[sec]._pos[mapped_row].insert({col, cells_sections[sec].cells_in_row(mapped_row)});
       cells_sections[sec]._cells[mapped_row].insert({col, val});
     }
     measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
