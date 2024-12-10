@@ -127,6 +127,7 @@ int main(int argc, char **argv) {
         std::cerr << "Error: " << e.what() << std::endl;
       }
     }
+    measure_point(measure::global, measure::MeasurementEvent::END);
     std::cout << "SHUFFLING FINISHED!" << std::endl << std::flush;
     measure::Measure::get_instance()->save(measurements_path);
     exit(0);
