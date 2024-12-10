@@ -109,7 +109,7 @@ Matrix::Matrix(std::string file_path, bool transposed,
   auto cells = get_cells<double>(file_path, transposed, keep_rows, keep_cols);
   for (int row = 0; row < cells._cells.size(); row++) {
     for (auto [col, val] : cells._cells[row]) {
-      data[pos(row, col)] = val;
+      data[pos(row, col)] = val.value;
     }
   }
 }
