@@ -26,12 +26,28 @@ int main(int argc, char **argv) {
         << std::endl;
     exit(1);
   }
+  
+  // Init MPI
+  int rank, n_nodes;
+  int required_thread_level = MPI_THREAD_FUNNELED;
+  int provided_thread_level;
+  // Initialize MPI with the required thread support
+  if (MPI_Init_thread(&argc, &argv, required_thread_level, &provided_thread_level) != MPI_SUCCESS) {
+    printf("Error initializing MPI with threading\n");
+    exit(1);
+  }
+  if (provided_thread_level != required_thread_level) {
+    printf("MPI could not provide requested thread level!");
+    exit(1);
+  }
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+  MPI_Comm_size(MPI_COMM_WORLD, &n_nodes);
 
   std::string algo_name = argv[1];
   std::string matrix_name = argv[2];
   std::string matrix_path = argv[7];
-  std::string A_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
-  std::string B_path = utils::format("{}/{}/B.mtx", matrix_path, matrix_name);
+  std::string A_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank % 256);
+  std::string B_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank % 256);
   std::string C_sparsity_path =
       utils::format("{}/{}/C_sparsity.mtx", matrix_path, matrix_name);
   std::string A_shuffle_path =
@@ -56,11 +72,6 @@ int main(int argc, char **argv) {
     std::cout << "CAUTION: NOT PERSISTING RESULTS" << std::endl;
   }
 
-  // Init MPI
-  int rank, n_nodes;
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  MPI_Comm_size(MPI_COMM_WORLD, &n_nodes);
   std::string C_path = utils::format("{}/C_{}.mtx", run_path, rank);
   std::string measurements_path =
       utils::format("{}/measurements_{}.csv", run_path, rank);
@@ -110,10 +121,8 @@ int main(int argc, char **argv) {
                 << std::endl;
       // Perform the shuffling if no persistet one exists!
       partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
-      if (persist_results) {
-        partition::save_shuffle(A_shuffle, A_shuffle_path);
-        partition::save_shuffle(B_shuffle, B_shuffle_path);
-      }
+      partition::save_shuffle(A_shuffle, A_shuffle_path);
+      partition::save_shuffle(B_shuffle, B_shuffle_path);
     }
 
     if (persist_results) {
@@ -127,10 +136,7 @@ int main(int argc, char **argv) {
         std::cerr << "Error: " << e.what() << std::endl;
       }
     }
-    measure_point(measure::global, measure::MeasurementEvent::END);
     std::cout << "SHUFFLING FINISHED!" << std::endl << std::flush;
-    measure::Measure::get_instance()->save(measurements_path);
-    exit(0);
 
     // Do the partitioning
 
@@ -169,6 +175,8 @@ int main(int argc, char **argv) {
 
   std::vector<midx_t> keep_cols(&B_shuffle[partitions[rank].start_col],
                                 &B_shuffle[partitions[rank].end_col]);
+
+  std::cout << "BROADCASTS FINISHED; EVERYONE LOADING MATRICES NOW;" << std::endl;
 
   mults::MatrixMultiplication *mult = NULL;
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);

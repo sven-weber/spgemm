@@ -159,6 +159,7 @@ template <typename T>
 Cells<T> get_cells(std::string file_path, bool transposed,
                    std::vector<midx_t> *keep_rows,
                    std::vector<midx_t> *keep_cols) {
+  std::cout << "STARTING TO LOAD MATRIX " << file_path << std::endl;
   auto keep_rows_map = std::unordered_map<midx_t, midx_t>();
   if (keep_rows != nullptr)
     for (midx_t i = 0; i < keep_rows->size(); ++i) {
