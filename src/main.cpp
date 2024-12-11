@@ -74,7 +74,6 @@ int main(int argc, char **argv) {
     }
   }
 
-
   // Custom cout that prepends MPI rank
 #ifndef NDEBUG
   utils::CoutWithMPIRank custom_cout(rank);
@@ -107,7 +106,8 @@ int main(int argc, char **argv) {
     bool loaded_B = partition::load_shuffle(B_shuffle_path, B_shuffle);
 
     if (!loaded_A || !loaded_B) {
-      std::cout << "Computing shuffling since no existing one could be found" << std::endl;
+      std::cout << "Computing shuffling since no existing one could be found"
+                << std::endl;
       // Perform the shuffling if no persistet one exists!
       partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
       if (persist_results) {
@@ -133,16 +133,17 @@ int main(int argc, char **argv) {
     exit(0);
 
     // Do the partitioning
-   
+
     // Better (but expensive) partitioning algorithm
-    // Because the better partitioning requires C (which takes a very long time to load!),
-    // we will not use it
-    // matrix::ManagedCSRMatrix<short> mat(C_sparsity_path, false, &A_shuffle,
+    // Because the better partitioning requires C (which takes a very long time
+    // to load!), we will not use it matrix::ManagedCSRMatrix<short>
+    // mat(C_sparsity_path, false, &A_shuffle,
     //                                &B_shuffle);
     // partitions = parts::baseline::balanced_partition(mat, n_nodes);
 
     measure_point(measure::partition, measure::MeasurementEvent::START);
-    auto fields = matrix::utils::read_fields(C_sparsity_path, false, nullptr, nullptr);
+    auto fields =
+        matrix::utils::read_fields(C_sparsity_path, false, nullptr, nullptr);
     partitions = parts::baseline::partition(fields, n_nodes);
     utils::print_partitions(partitions, n_nodes);
     if (persist_results) {
@@ -242,6 +243,8 @@ int main(int argc, char **argv) {
 
     // Share serialization sizes
     std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
+    for (auto size : B_byte_sizes)
+      assert(size > 0);
     MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
