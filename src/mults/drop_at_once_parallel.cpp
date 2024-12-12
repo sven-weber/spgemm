@@ -24,9 +24,9 @@ DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
       part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
       bitmap(bitmap::compute_bitmap(part_A)), 
-      // 8 is fine since we are using doubles as datatypes & size_t of
-      // 8 bytes in the header!
-      data_multiple_of_size(4), all_to_all_type(init_custom_mpi_type(4)) {}
+      // 8 is fine since we are using doubles as datatypes & the header is
+      // 8 byte aligned.
+      data_multiple_of_size(8), all_to_all_type(init_custom_mpi_type(8)) {}
 
 void DropAtOnceParallel::save_result(std::string path) {
   matrix::ManagedCSRMatrix result(cells);
