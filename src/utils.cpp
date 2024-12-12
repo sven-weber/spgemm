@@ -3,31 +3,7 @@
 #include <iostream>
 #include <string>
 
-// Source code from: https://www.geeksforgeeks.org/euclidean-algorithms-basic-and-extended/
-size_t greatest_common_divider_rec(size_t a, size_t b) {
-  if (a == 0) {
-    return b;
-  }
-  return greatest_common_divider_rec(b % a, a);
-}
-
 namespace utils {
-
-// Computes the greatest common divider of the given list of values
-// The list needs to have at least one element
-size_t greatest_common_divider(std::vector<size_t> elems) {
-  int divider = 1;
-  if (elems.size() >= 1) {
-    divider = elems[0];
-  }
-
-  if (elems.size() > 1) {
-    for (int i = 1; i < elems.size(); ++i) {
-      divider = greatest_common_divider_rec(divider, elems[i]);
-    }
-  }
-  return divider;
-}
 
 #ifndef NDEBUG
 void visualize_raw(double *data, midx_t height, midx_t width,

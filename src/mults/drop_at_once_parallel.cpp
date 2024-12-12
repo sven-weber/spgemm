@@ -7,6 +7,13 @@
 
 namespace mults {
 
+MPI_Datatype init_custom_mpi_type(int data_multiple_of_size) {
+  MPI_Datatype continous_bytes;
+  MPI_Type_contiguous(data_multiple_of_size, MPI_BYTE, &continous_bytes);
+  MPI_Type_commit(&continous_bytes);
+  return std::move(continous_bytes);
+}
+
 DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
                                        partition::Partitions partitions,
                                        std::string path_A,
@@ -16,7 +23,10 @@ DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
-      bitmap(bitmap::compute_bitmap(part_A)) {}
+      bitmap(bitmap::compute_bitmap(part_A)), 
+      // 8 is fine since we are using doubles as datatypes & the header is
+      // 8 byte aligned.
+      data_multiple_of_size(8), all_to_all_type(init_custom_mpi_type(8)) {}
 
 void DropAtOnceParallel::save_result(std::string path) {
   matrix::ManagedCSRMatrix result(cells);
@@ -29,45 +39,15 @@ size_t DropAtOnceParallel::get_B_serialization_size() {
 
 std::vector<size_t> DropAtOnceParallel::get_B_serialization_sizes() {
   std::vector<size_t> serialization_sizes(n_nodes);
-  for (int i = 0; i < n_nodes; i++) {
-    // Filter the blocks according to the computet bitmap
-    measure_point(measure::filter, measure::MeasurementEvent::START);
-    auto send_blocks = first_part_B.filter(bitmaps[i]);
-    measure_point(measure::filter, measure::MeasurementEvent::END);
-    // Put the filter result into the buffer of data to send
-    if (i != rank) {
-      send_buf.insert(send_buf.end(), send_blocks.begin(), send_blocks.end());
-    }
-    serialization_sizes[i] = send_blocks.size();
-  }
 
-  return serialization_sizes;
-}
-
-void DropAtOnceParallel::reset() {
-  cells =
-      std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
-}
-
-void DropAtOnceParallel::compute_alltoall_data(
-  std::vector<size_t> serialized_sizes_B_bytes) {
-
-  // We need to compute the greatest common divisor to make
-  // the mpi send size as big as possible (since MPI is limited by int32_t)
-  data_multiple_of_size = utils::greatest_common_divider(serialized_sizes_B_bytes);
-  std::cout << "GREATEST COMMON DIVISOR/DATA ELEMENT SIZE is " << data_multiple_of_size << std::endl;
-
-  // Initialize the MPI type
-  MPI_Type_contiguous(data_multiple_of_size, MPI_BYTE, &all_to_all_type);
-  MPI_Type_commit(&all_to_all_type);
-  exit(0);
-
-  // Compute the sizes and displacements according to data_multiple_of_size
   for (int i = 0; i < n_nodes; i++) {
     auto start = send_buf.size();
     // TODO: can we know the size before hand?
     // we should be able to since we've alreay done this call in
     // get_B_serialization_sizes
+    // Note: We need to divide by data_multiple_of_size
+    // to make sure the number fits into int_32
+    // We send using the `all_to_all_type` instead of byte
     assert(send_buf.size() % data_multiple_of_size == 0);
     send_displs.push_back(send_buf.size() / data_multiple_of_size);
 
@@ -84,7 +64,17 @@ void DropAtOnceParallel::compute_alltoall_data(
     send_counts.push_back((end - start) / data_multiple_of_size);
     // send_counts.push_back(send_blocks.size());
   }
-    
+
+  return serialization_sizes;
+}
+
+void DropAtOnceParallel::reset() {
+  cells =
+      std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
+}
+
+void DropAtOnceParallel::compute_alltoall_data(
+    std::vector<size_t> serialized_sizes_B_bytes) {
 
   int displ = 0;
   for (int i = 0; i < n_nodes; i++) {
