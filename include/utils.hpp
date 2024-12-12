@@ -106,7 +106,7 @@ void print_partitions(partition::Partitions &part, size_t size);
 void print_serialized_sizes(std::vector<size_t> &sizes, size_t max_size);
 
 // Computes the greatest common divider of the given list of values
-int greatest_common_divider(std::vecto<size_t> elems);
+size_t greatest_common_divider(std::vector<size_t> elems);
 
 // Private class for prepending to buffers
 class PrependBuffer : public std::streambuf {

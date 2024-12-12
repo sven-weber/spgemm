@@ -7,13 +7,6 @@
 
 namespace mults {
 
-MPI_Datatype init_custom_mpi_type(int data_multiple_of_size) {
-  MPI_Datatype continous_bytes;
-  MPI_Type_contiguous(data_multiple_of_size, MPI_BYTE, &continous_bytes);
-  MPI_Type_commit(&continous_bytes);
-  return std::move(continous_bytes);
-}
-
 DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
                                        partition::Partitions partitions,
                                        std::string path_A,
@@ -23,10 +16,7 @@ DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
-      bitmap(bitmap::compute_bitmap(part_A)), 
-      // 8 is fine since we are using doubles as datatypes & the header is
-      // 8 byte aligned.
-      data_multiple_of_size(8), all_to_all_type(init_custom_mpi_type(8)) {}
+      bitmap(bitmap::compute_bitmap(part_A)) {}
 
 void DropAtOnceParallel::save_result(std::string path) {
   matrix::ManagedCSRMatrix result(cells);
@@ -62,16 +52,17 @@ void DropAtOnceParallel::reset() {
 void DropAtOnceParallel::compute_alltoall_data(
   std::vector<size_t> serialized_sizes_B_bytes) {
 
-  // We need to compute the greatest common dividor to make
-  // the mpi send size as big as possible!
-  size_t dividor = utils::greatest_common_divider(serialized_sizes_B_bytes);
-  std::cout << "COMMON DIVIDOR/DATA_SIZE is" << dividor << std::endl;
+  // We need to compute the greatest common divisor to make
+  // the mpi send size as big as possible (since MPI is limited by int32_t)
+  data_multiple_of_size = utils::greatest_common_divider(serialized_sizes_B_bytes);
+  std::cout << "GREATEST COMMON DIVISOR/DATA ELEMENT SIZE is " << data_multiple_of_size << std::endl;
+
+  // Initialize the MPI type
+  MPI_Type_contiguous(data_multiple_of_size, MPI_BYTE, &all_to_all_type);
+  MPI_Type_commit(&all_to_all_type);
   exit(0);
-  return;
 
-
-  // We determine the serialization_sizes, send_displs and count absolute
-  // However: This will likely 
+  // Compute the sizes and displacements according to data_multiple_of_size
   for (int i = 0; i < n_nodes; i++) {
     auto start = send_buf.size();
     // TODO: can we know the size before hand?
