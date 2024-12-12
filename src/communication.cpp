@@ -26,9 +26,9 @@ int alltoallv(const void *sendbuf, const int sendcounts[], const int sdispls[],
               const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm) {
   assert(sendtype == MPI_BYTE);
   assert(sendtype == recvtype);
-  int cnt = 0, rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  for (size_t i = 0; i < rank; ++i) {
+  int cnt = 0, nodes;
+  MPI_Comm_size(MPI_COMM_WORLD, &nodes);
+  for (size_t i = 0; i < nodes; ++i) {
     cnt += sendcounts[i];
   }
   measure::Measure::get_instance()->track_bytes(cnt);
@@ -40,9 +40,9 @@ int alltoallv_continuous(int number_of_bytes_per_count, const void *sendbuf, con
               MPI_Datatype sendtype, void *recvbuf, const int recvcounts[],
               const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm) {
   assert(sendtype == recvtype);
-  int cnt = 0, rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  for (size_t i = 0; i < rank; ++i) {
+  int cnt = 0, nodes;
+  MPI_Comm_size(MPI_COMM_WORLD, &nodes);
+  for (size_t i = 0; i < nodes; ++i) {
     cnt += sendcounts[i] * number_of_bytes_per_count;
   }
   measure::Measure::get_instance()->track_bytes(cnt);
