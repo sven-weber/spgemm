@@ -59,6 +59,7 @@ std::vector<size_t> DropAtOnceParallel::get_B_serialization_sizes() {
 
     serialization_sizes[i] = send_blocks.size();
     auto end = send_buf.size();
+    std::cout << "ASSERT FAILING VALUE " << (end - start) << std::endl << std::flush;
     assert((end - start) % data_multiple_of_size == 0);
     send_counts.push_back((end - start) / data_multiple_of_size);
     // send_counts.push_back(send_blocks.size());
