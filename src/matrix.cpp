@@ -70,7 +70,7 @@ BlockedFields *get_blocked_fields(std::byte *serialized_data) {
 } // namespace utils
 
 size_t Matrix::expected_data_size() {
-  return ROUND8(sizeof(Fields) +
+  return ROUND64(sizeof(Fields) +
                 ((height * sizeof(midx_t)) * (width * sizeof(midx_t))));
 }
 

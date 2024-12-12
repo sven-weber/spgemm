@@ -24,8 +24,7 @@ DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
       part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
       bitmap(bitmap::compute_bitmap(part_A)), 
-      // 8 is fine since we are using doubles as datatypes & the header is
-      // 8 byte aligned.
+      // In the CSR Matrix class we ensure everything is 64 bytes aligned!
       data_multiple_of_size(64), all_to_all_type(init_custom_mpi_type(64)) {}
 
 void DropAtOnceParallel::save_result(std::string path) {
