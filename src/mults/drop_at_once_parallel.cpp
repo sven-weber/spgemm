@@ -1,5 +1,4 @@
 #include "communication.hpp"
-#include "mpi.h"
 #include "mults.hpp"
 #include "utils.hpp"
 #include <cstring>
@@ -7,6 +6,13 @@
 #include <unistd.h>
 
 namespace mults {
+
+MPI_Datatype init_custom_mpi_type(int data_multiple_of_size) {
+  MPI_Datatype continous_bytes;
+  MPI_Type_contiguous(data_multiple_of_size, MPI_BYTE, &continous_bytes);
+  MPI_Type_commit(&continous_bytes);
+  return std::move(continous_bytes);
+}
 
 DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
                                        partition::Partitions partitions,
@@ -17,7 +23,10 @@ DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
-      bitmap(bitmap::compute_bitmap(part_A)) {}
+      bitmap(bitmap::compute_bitmap(part_A)), 
+      // 8 is fine since we are using doubles as datatypes & size_t of
+      // 8 bytes in the header!
+      data_multiple_of_size(4), all_to_all_type(init_custom_mpi_type(4)) {}
 
 void DropAtOnceParallel::save_result(std::string path) {
   matrix::ManagedCSRMatrix result(cells);
@@ -36,18 +45,23 @@ std::vector<size_t> DropAtOnceParallel::get_B_serialization_sizes() {
     // TODO: can we know the size before hand?
     // we should be able to since we've alreay done this call in
     // get_B_serialization_sizes
-    send_displs.push_back(send_buf.size());
+    // Note: We need to divite by data_multiple_of_size
+    // to make sure the number fits into int_32
+    // We send using the `all_to_all_type` instead of byte
+    assert(send_buf.size() % data_multiple_of_size == 0);
+    send_displs.push_back(send_buf.size() / data_multiple_of_size);
 
     measure_point(measure::filter, measure::MeasurementEvent::START);
     auto send_blocks = first_part_B.filter(bitmaps[i]);
     measure_point(measure::filter, measure::MeasurementEvent::END);
-    if (i != rank && send_blocks != 0) {
+    if (i != rank) {
       send_buf.insert(send_buf.end(), send_blocks.begin(), send_blocks.end());
     }
 
     serialization_sizes[i] = send_blocks.size();
     auto end = send_buf.size();
-    send_counts.push_back(end - start);
+    assert((end - start) % data_multiple_of_size == 0);
+    send_counts.push_back((end - start) / data_multiple_of_size);
     // send_counts.push_back(send_blocks.size());
   }
 
@@ -64,7 +78,11 @@ void DropAtOnceParallel::compute_alltoall_data(
 
   int displ = 0;
   for (int i = 0; i < n_nodes; i++) {
-    recv_displs.push_back(displ);
+    // Note: We need to divite by data_multiple_of_size
+    // to make sure the number fits into int_32
+    // We send using the `all_to_all_type` instead of byte
+    assert(displ % data_multiple_of_size == 0);
+    recv_displs.push_back(displ / data_multiple_of_size);
 
     size_t b = 0;
     if (i != rank) {
@@ -73,7 +91,8 @@ void DropAtOnceParallel::compute_alltoall_data(
       displ += b;
     }
 
-    recv_counts.push_back(b);
+    assert(b % data_multiple_of_size == 0);
+    recv_counts.push_back(b / data_multiple_of_size);
   }
 }
 
@@ -81,9 +100,9 @@ void DropAtOnceParallel::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                               size_t max_size_B_bytes) {
   // Communication
   measure_point(measure::wait_all, measure::MeasurementEvent::START);
-  communication::alltoallv(send_buf.data(), send_counts.data(),
-                           send_displs.data(), MPI_BYTE, recv_buf.data(),
-                           recv_counts.data(), recv_displs.data(), MPI_BYTE,
+  communication::alltoallv_continuous(data_multiple_of_size, send_buf.data(), send_counts.data(),
+                           send_displs.data(), all_to_all_type, recv_buf.data(),
+                           recv_counts.data(), recv_displs.data(), all_to_all_type,
                            MPI_COMM_WORLD);
   measure_point(measure::wait_all, measure::MeasurementEvent::END);
 
@@ -92,7 +111,7 @@ void DropAtOnceParallel::gemm(std::vector<size_t> serialized_sizes_B_bytes,
     measure_point(measure::deserialize, measure::MeasurementEvent::START);
     matrix::BlockedCSRMatrix<> part_B =
         (i != rank) ? matrix::BlockedCSRMatrix<>(
-                          {&recv_buf[recv_displs[i]], recv_counts[i]})
+                          {&recv_buf[recv_displs[i] * data_multiple_of_size], recv_counts[i] * data_multiple_of_size})
                     : first_part_B;
     measure_point(measure::deserialize, measure::MeasurementEvent::END);
 

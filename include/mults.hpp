@@ -10,6 +10,7 @@
 #include "matrix.hpp"
 #include "partition.hpp"
 #include <bitset>
+#include "mpi.h"
 
 namespace mults {
 
@@ -181,6 +182,8 @@ protected:
   std::vector<std::byte> recv_buf;
 
 public:
+  int data_multiple_of_size;
+  MPI_Datatype all_to_all_type; 
   std::vector<int> send_counts;
   std::vector<int> send_displs;
   std::vector<int> recv_counts;

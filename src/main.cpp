@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
   std::vector<midx_t> keep_cols(&B_shuffle[partitions[rank].start_col],
                                 &B_shuffle[partitions[rank].end_col]);
 
-  std::cout << "BROADCASTS FINISHED; EVERYONE LOADING MATRICES NOW;" << std::endl;
+  std::cout << "BROADCASTS FINISHED; EVERYONE LOADING MATRICES NOW;" << std::endl << std::flush;
 
   mults::MatrixMultiplication *mult = NULL;
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
@@ -251,7 +251,6 @@ int main(int argc, char **argv) {
 
     // Share serialization sizes
     std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
-      assert(size > 0);
     MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
