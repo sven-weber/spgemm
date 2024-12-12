@@ -5,6 +5,29 @@
 
 namespace utils {
 
+// Source code from: https://www.geeksforgeeks.org/euclidean-algorithms-basic-and-extended/
+size_t greatest_common_divider(size_t a, size_t b) {
+  if (a == 0)
+      return b;
+  return greatest_common_divider(b % a, a);
+}
+
+// Computes the greatest common divider of the given list of values
+// The list needs to have at least one element
+size_t greatest_common_divider(std::vecto<size_t> elems) {
+  int divider = 1;
+  if (elems.size() >= 1) {
+    divider = elems[0];
+  }
+
+  if (elems.size() > 1) {
+    for (int i = 1; i ++; i < elems.size()) {
+      divider = greatest_common_divider(divider, elems[i]);
+    }
+  }
+  return divider;
+}
+
 #ifndef NDEBUG
 void visualize_raw(double *data, midx_t height, midx_t width,
                    const std::string &name) {

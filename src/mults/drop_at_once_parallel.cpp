@@ -39,15 +39,44 @@ size_t DropAtOnceParallel::get_B_serialization_size() {
 
 std::vector<size_t> DropAtOnceParallel::get_B_serialization_sizes() {
   std::vector<size_t> serialization_sizes(n_nodes);
+  for (int i = 0; i < n_nodes; i++) {
+    // Filter the blocks according to the computet bitmap
+    measure_point(measure::filter, measure::MeasurementEvent::START);
+    auto send_blocks = first_part_B.filter(bitmaps[i]);
+    measure_point(measure::filter, measure::MeasurementEvent::END);
+    // Put the filter result into the buffer of data to send
+    if (i != rank) {
+      send_buf.insert(send_buf.end(), send_blocks.begin(), send_blocks.end());
+    }
+    serialization_sizes[i] = send_blocks.size();
+  }
 
+  return serialization_sizes;
+}
+
+void DropAtOnceParallel::reset() {
+  cells =
+      std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
+}
+
+void DropAtOnceParallel::compute_alltoall_data(
+  std::vector<size_t> serialized_sizes_B_bytes) {
+
+  // We need to compute the greatest common dividor to make
+  // the mpi send size as big as possible!
+  size_t dividor = utils::greatest_common_divider(serialized_sizes_B_bytes);
+  std::cout << "COMMON DIVIDOR/DATA_SIZE is" << dividor << std::endl;
+  exit(0);
+  return;
+
+
+  // We determine the serialization_sizes, send_displs and count absolute
+  // However: This will likely 
   for (int i = 0; i < n_nodes; i++) {
     auto start = send_buf.size();
     // TODO: can we know the size before hand?
     // we should be able to since we've alreay done this call in
     // get_B_serialization_sizes
-    // Note: We need to divite by data_multiple_of_size
-    // to make sure the number fits into int_32
-    // We send using the `all_to_all_type` instead of byte
     assert(send_buf.size() % data_multiple_of_size == 0);
     send_displs.push_back(send_buf.size() / data_multiple_of_size);
 
@@ -64,17 +93,7 @@ std::vector<size_t> DropAtOnceParallel::get_B_serialization_sizes() {
     send_counts.push_back((end - start) / data_multiple_of_size);
     // send_counts.push_back(send_blocks.size());
   }
-
-  return serialization_sizes;
-}
-
-void DropAtOnceParallel::reset() {
-  cells =
-      std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
-}
-
-void DropAtOnceParallel::compute_alltoall_data(
-    std::vector<size_t> serialized_sizes_B_bytes) {
+    
 
   int displ = 0;
   for (int i = 0; i < n_nodes; i++) {
