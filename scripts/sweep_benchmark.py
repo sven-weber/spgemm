@@ -57,18 +57,18 @@ MPI_OPEN_MP_CONFIG = [
     #     "nodes": 64,
     #     "mpi": 256
     # },
-    {
-        "nodes": 128,
-        "mpi": 256
-    },
-    {
-        "nodes": 256,
-        "mpi": 256
-    },
     # {
-    #     "nodes": 512,
-    #     "mpi": 1024
+    #     "nodes": 128,
+    #     "mpi": 256
     # },
+    # {
+    #     "nodes": 256,
+    #     "mpi": 256
+    # },
+    {
+        "nodes": 512,
+        "mpi": 1024
+    },
 ]
 
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
