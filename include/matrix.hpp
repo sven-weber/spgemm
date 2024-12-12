@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#define ROUND64(x) (((x) + 63) & ~63)
+#define ROUND8(x) (((x) + 7) & ~7)
 
 typedef uint32_t midx_t;
 
@@ -23,7 +23,7 @@ using Cell = std::pair<CellPos, T>;
 
 using section = std::pair<midx_t, midx_t>;
 
-typedef struct alignas(64) Fields {
+typedef struct alignas(8) Fields {
   bool transposed;
   midx_t height;
   midx_t width;
@@ -60,7 +60,7 @@ public:
   std::shared_ptr<std::vector<std::byte>> serialize();
 };
 
-typedef struct alignas(64) BlockedFields {
+typedef struct alignas(8) BlockedFields {
   size_t height;
   size_t n_sections;
   size_t section_offst[N_SECTIONS];

@@ -41,10 +41,10 @@ ALGOS_TO_SKIP_WHILE_PLOTTING = [
 ]
 
 MPI_OPEN_MP_CONFIG = [
-    # {
-    #     "nodes": 16,
-    #     "mpi": 16
-    # },
+    {
+        "nodes": 16,
+        "mpi": 16
+    },
     # {
     #     "nodes": 32,
     #     "mpi": 64
@@ -65,10 +65,10 @@ MPI_OPEN_MP_CONFIG = [
     #     "nodes": 256,
     #     "mpi": 256
     # },
-    {
-        "nodes": 512,
-        "mpi": 1024
-    },
+    # {
+    #     "nodes": 512,
+    #     "mpi": 1024
+    # },
 ]
 
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:

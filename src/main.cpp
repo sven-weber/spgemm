@@ -255,14 +255,6 @@ int main(int argc, char **argv) {
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
     tmp->compute_alltoall_data(serialized_sizes_B_bytes);
-
-    // std::cout << "ALL_TO_ALL conf rank " << rank << std::endl;
-    // for (int i = 0; i < n_nodes; i++) {
-    //   std::cout << "target: " << i;
-    //   std::cout << " send_displace " << tmp->send_displs[i] << " send_counts " << tmp->send_displs[i];
-    //   std::cout << " recv_displace " << tmp->recv_displs[i] << " recv_counts " << tmp->recv_counts[i];
-    //   std::cout << std::endl << std::flush;
-    // }
   } else if (algo_name == "full") {
     mult = new mults::FullMatrixMultiplication(
         rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);

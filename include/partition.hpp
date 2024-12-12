@@ -7,7 +7,7 @@
 
 namespace partition {
 
-typedef struct alignas(64) Partition {
+typedef struct alignas(8) Partition {
   midx_t start_row;
   midx_t end_row;
   midx_t start_col;

@@ -24,8 +24,8 @@ DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
       part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
       bitmap(bitmap::compute_bitmap(part_A)), 
-      // In the CSR Matrix class we ensure everything is 64 bytes aligned!
-      data_multiple_of_size(64), all_to_all_type(init_custom_mpi_type(64)) {}
+      // In the CSR Matrix class we ensure everything is 8 bytes aligned!
+      data_multiple_of_size(8), all_to_all_type(init_custom_mpi_type(8)) {}
 
 void DropAtOnceParallel::save_result(std::string path) {
   matrix::ManagedCSRMatrix result(cells);
@@ -59,7 +59,6 @@ std::vector<size_t> DropAtOnceParallel::get_B_serialization_sizes() {
 
     serialization_sizes[i] = send_blocks.size();
     auto end = send_buf.size();
-    std::cout << "ASSERT FAILING VALUE " << (end - start) << std::endl << std::flush;
     assert((end - start) % data_multiple_of_size == 0);
     send_counts.push_back((end - start) / data_multiple_of_size);
     // send_counts.push_back(send_blocks.size());
@@ -76,7 +75,7 @@ void DropAtOnceParallel::reset() {
 void DropAtOnceParallel::compute_alltoall_data(
     std::vector<size_t> serialized_sizes_B_bytes) {
 
-  int displ = 0;
+  size_t displ = 0;
   for (int i = 0; i < n_nodes; i++) {
     // Note: We need to divite by data_multiple_of_size
     // to make sure the number fits into int_32
