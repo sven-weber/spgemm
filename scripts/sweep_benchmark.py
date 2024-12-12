@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 CMD                     = "./build/dphpc"
 RUNS_DIR                = "runs"  # for plotting: "measurements/viscoplastic2/euler-5-40"
 N_WARMUP                = 5
-N_RUNS                  = 10
+N_RUNS                  = 50
 MAXIMUM_MEMORY          = 128
 FILE_NAME               = "measurements"
 DataFrames              = Dict[int, pd.DataFrame]
@@ -45,30 +45,30 @@ MPI_OPEN_MP_CONFIG = [
         "nodes": 16,
         "mpi": 16
     },
-    {
-        "nodes": 32,
-        "mpi": 64
-    },
-    {
-        "nodes": 64,
-        "mpi": 64
-    },
-    {
-        "nodes": 64,
-        "mpi": 256
-    },
-    {
-        "nodes": 128,
-        "mpi": 256
-    },
-    {
-        "nodes": 256,
-        "mpi": 256
-    },
-    {
-        "nodes": 512,
-        "mpi": 1024
-    },
+    # {
+    #     "nodes": 32,
+    #     "mpi": 64
+    # },
+    # {
+    #     "nodes": 64,
+    #     "mpi": 64
+    # },
+    # {
+    #     "nodes": 64,
+    #     "mpi": 256
+    # },
+    # {
+    #     "nodes": 128,
+    #     "mpi": 256
+    # },
+    # {
+    #     "nodes": 256,
+    #     "mpi": 256
+    # },
+    # {
+    #     "nodes": 512,
+    #     "mpi": 1024
+    # },
 ]
 
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
@@ -207,13 +207,15 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
 
     matrix_path = os.path.join(os.getenv("SCRATCH"), "matrices")
 
+    n_switches = 1 if n_machines <= 256 else 2 
+
     # Sbatch command with the whole config
     cmd = [
         "sbatch",
         "--wait",
-        f"--time=00:{SBATCH_TIME_LIMIT_MIN}:00",
+        f"--time=03:00:00", #Make sure we definetly have enough time!
         "--constraint=mc", # Constraint to XC40
-        "--switches=1", # Make sure we are in the same electircal group
+        f"--switches={n_switches}", # Make sure we are in the same electircal group
         "--mem=0", # Use all available memory on the node
         "-N", str(n_machines), # Number of machines
         "-n", str(mpi_processes), # Number of tasks = MPI processes
@@ -503,14 +505,14 @@ if __name__ == "__main__":
         # Check if multiple implementations where provided
         impls = args.impl.split(',')
         for impl in impls:
-            print(f"Executing implementation {impl} on {args.matrix}")
+            # Special case of the paper benchmarks
             if args.mpi_run_paper:
-                for key in MPI_OPEN_MP_CONFIG:
-                    # Special case of the paper benchmarks
-                    assert(args.daint)
-                    run_result = run_mpi_with_open_mp_on_daint(impl, args.matrix, key["mpi"], key["nodes"], args.no_persist)
-                    if run_result != "":
-                        folders.append(run_result)
+                assert(args.daint)
+                matrices = args.matrix.split(',')
+                for matrix in matrices:
+                    print(f"Executing implementation {impl} on {matrix}")
+                    for key in MPI_OPEN_MP_CONFIG:
+                        run_mpi_with_open_mp_on_daint(impl, matrix, key["mpi"], key["nodes"], args.no_persist)
             else:
                 for n in range(args.min, args.max+1, args.stride):
                     if args.quadratic:
@@ -518,6 +520,11 @@ if __name__ == "__main__":
                     run_result = run_mpi(impl, args.matrix, n, args.euler, args.daint, args.no_persist)
                     if run_result != "":
                         folders.append(run_result)
+
+        if args.mpi_run_paper:
+            # We dont wait and immediately exit once the jobs have beeen scheduled
+            print("All jobs scheduled!")
+            exit(0)
 
     (matrix, timings) = graph_multiple_runs(folders, args.daint)
 

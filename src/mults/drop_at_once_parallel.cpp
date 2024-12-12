@@ -41,8 +41,9 @@ std::vector<size_t> DropAtOnceParallel::get_B_serialization_sizes() {
     measure_point(measure::filter, measure::MeasurementEvent::START);
     auto send_blocks = first_part_B.filter(bitmaps[i]);
     measure_point(measure::filter, measure::MeasurementEvent::END);
-    if (i != rank)
+    if (i != rank && send_blocks != 0) {
       send_buf.insert(send_buf.end(), send_blocks.begin(), send_blocks.end());
+    }
 
     serialization_sizes[i] = send_blocks.size();
     auto end = send_buf.size();

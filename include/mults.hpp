@@ -177,15 +177,14 @@ protected:
   matrix::ManagedBlockedCSRMatrix<> first_part_B;
   matrix::Cells<> cells;
   std::vector<size_t> serialization_sizes;
-
   std::vector<std::byte> send_buf;
-  std::vector<int> send_counts;
-  std::vector<int> send_displs;
   std::vector<std::byte> recv_buf;
-  std::vector<int> recv_counts;
-  std::vector<int> recv_displs;
 
 public:
+  std::vector<int> send_counts;
+  std::vector<int> send_displs;
+  std::vector<int> recv_counts;
+  std::vector<int> recv_displs;
   std::bitset<N_SECTIONS> bitmap;
   std::vector<std::bitset<N_SECTIONS>> bitmaps;
 
