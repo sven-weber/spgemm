@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#define ROUND8(x) (((x) + 7) & ~7)
+#define ROUND64(x) (((x) + 64) & ~64)
 
 typedef uint32_t midx_t;
 

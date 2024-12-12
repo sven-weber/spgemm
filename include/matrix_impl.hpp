@@ -67,7 +67,7 @@ public:
   ~Cells() = default;
 
   size_t expected_data_size() const {
-    return ROUND8(sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
+    return ROUND64(sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
                   (non_zeros() * sizeof(midx_t)) + (non_zeros() * sizeof(T)));
   }
 
@@ -236,7 +236,7 @@ private:
   Fields *fields;
 
   size_t expected_data_size() {
-    return ROUND8(sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
+    return ROUND64(sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
                   (non_zeros * sizeof(midx_t)) + (non_zeros * sizeof(T)));
   }
 
