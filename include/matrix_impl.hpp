@@ -46,12 +46,11 @@ BlockedFields *get_blocked_fields(std::byte *serialized_data);
 
 } // namespace utils
 
-template <typename T>
-struct IndexedValue {
-    T value;
-    midx_t index;
+template <typename T> struct IndexedValue {
+  T value;
+  midx_t index;
 
-    IndexedValue(T v, midx_t i) : value(v), index(i) {}
+  IndexedValue(T v, midx_t i) : value(v), index(i) {}
 };
 
 template <typename T = double> class Cells {
@@ -68,8 +67,8 @@ public:
   ~Cells() = default;
 
   size_t expected_data_size() const {
-    return sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
-           (non_zeros() * sizeof(midx_t)) + (non_zeros() * sizeof(T));
+    return ROUND8(sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
+                  (non_zeros() * sizeof(midx_t)) + (non_zeros() * sizeof(T)));
   }
 
   // Add one cell to the list of Cells
@@ -85,7 +84,8 @@ public:
 
     if (!_cells[pos.first].contains(pos.second)) {
       /*++_non_zeros;*/
-      _cells[pos.first].insert({pos.second, IndexedValue(val, cells_in_row(pos.first))});
+      _cells[pos.first].insert(
+          {pos.second, IndexedValue(val, cells_in_row(pos.first))});
     } else {
       _cells[pos.first].at(pos.second).value += val;
       if (_cells[pos.first].at(pos.second).value == 0) {
@@ -236,8 +236,8 @@ private:
   Fields *fields;
 
   size_t expected_data_size() {
-    return sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
-           (non_zeros * sizeof(midx_t)) + (non_zeros * sizeof(T));
+    return ROUND8(sizeof(Fields) + ((height + 1) * sizeof(midx_t)) +
+                  (non_zeros * sizeof(midx_t)) + (non_zeros * sizeof(T)));
   }
 
   // Returns the expected size of data in bytes
@@ -303,7 +303,7 @@ public:
 
     // Fill values and col_index arrays using row_ptr
     measure_point(measure::build_csr, measure::MeasurementEvent::START);
-    #pragma omp parallel for
+#pragma omp parallel for
     for (int row = 0; row < cells._cells.size(); row++) {
       for (auto [col, indexedVal] : cells._cells[row]) {
         auto index = row_ptr[row] + indexedVal.index;
@@ -603,7 +603,9 @@ private:
 
       assert(mapped_row < max_section_rows);
       std::lock_guard<std::mutex> guard(mutexes[sec][mapped_row]);
-      cells_sections[sec]._cells[mapped_row].insert({col, IndexedValue(val, cells_sections[sec].cells_in_row(mapped_row))});
+      cells_sections[sec]._cells[mapped_row].insert(
+          {col,
+           IndexedValue(val, cells_sections[sec].cells_in_row(mapped_row))});
     }
     measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
 

@@ -70,8 +70,8 @@ BlockedFields *get_blocked_fields(std::byte *serialized_data) {
 } // namespace utils
 
 size_t Matrix::expected_data_size() {
-  return sizeof(Fields) +
-         ((height * sizeof(midx_t)) * (width * sizeof(midx_t)));
+  return ROUND8(sizeof(Fields) +
+                ((height * sizeof(midx_t)) * (width * sizeof(midx_t))));
 }
 
 double *Matrix::get_offset() {

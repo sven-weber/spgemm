@@ -1,9 +1,10 @@
 #pragma once
 
-#include <map>
 #include <memory>
 #include <string>
 #include <vector>
+
+#define ROUND8(x) (((x) + 7) & ~7)
 
 typedef uint32_t midx_t;
 
