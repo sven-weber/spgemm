@@ -65,8 +65,12 @@ MPI_OPEN_MP_CONFIG = [
     #     "nodes": 256,
     #     "mpi": 256
     # },
+    # {
+    #     "nodes": 512,
+    #     "mpi": 512
+    # },
     {
-        "nodes": 512,
+        "nodes": 1024,
         "mpi": 1024
     },
 ]

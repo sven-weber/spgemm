@@ -46,8 +46,8 @@ int main(int argc, char **argv) {
   std::string algo_name = argv[1];
   std::string matrix_name = argv[2];
   std::string matrix_path = argv[7];
-  std::string A_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank % 256);
-  std::string B_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank % 256);
+  std::string A_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank);
+  std::string B_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank);
   std::string C_sparsity_path =
       utils::format("{}/{}/C_sparsity.mtx", matrix_path, matrix_name);
   std::string A_shuffle_path =
@@ -303,6 +303,7 @@ int main(int argc, char **argv) {
 #endif
 
   // ACTUAL COMPUTATION!!
+  std::cout << "STARTING COMPUTATION" << std::endl << std::flush;
   for (int i = 0; i < n_runs; i++) {
     mult->reset();
     communication::sync_start_time(rank);
