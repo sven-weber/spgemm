@@ -142,8 +142,7 @@ void iterative_shuffle(std::string C_sparsity_path,
   double stopping_time = std::min(30.0, shuffled_rows->size() * 0.00025);
   int i = 0;
 
-  while (i < 0 && variance > stopping_variance &&
-         omp_get_wtime() - start < stopping_time) {
+  while (i < 2) {
     float sum_x = 0;
     float sum_x2 = 0;
     bool transpose = i % 2 != 0;
