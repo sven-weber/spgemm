@@ -119,13 +119,17 @@ int main(int argc, char **argv) {
     if (!loaded_A || !loaded_B) {
       std::cout << "Computing shuffling since no existing one could be found"
                 << std::endl;
+      // No shuffle
+      std::iota(A_shuffle.begin(), A_shuffle.end(), 0);
+      std::iota(B_shuffle.begin(), B_shuffle.end(), 0);
+
       // Random shuffle
       //A_shuffle = partition::shuffle(A_fields.height);
       //B_shuffle = partition::shuffle(B_fields.width);
       // Perform the shuffling if no persistet one exists!
-      partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
-      partition::save_shuffle(A_shuffle, A_shuffle_path);
-      partition::save_shuffle(B_shuffle, B_shuffle_path);
+      //partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
+      //partition::save_shuffle(A_shuffle, A_shuffle_path);
+      //partition::save_shuffle(B_shuffle, B_shuffle_path);
     }
 
     if (persist_results) {
