@@ -61,16 +61,18 @@ void DropParallel::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   for (int i = 0; i < n_nodes; i++) {
     // Resize buffer to the correct size (should not free/alloc memory)
     receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
-
-    measure_point(measure::filter, measure::MeasurementEvent::START);
-    auto send_blocks =
-        first_part_B.filter(bitmaps[send_rank], serialization_sizes[send_rank]);
-    measure_point(measure::filter, measure::MeasurementEvent::END);
-    communication::send(send_blocks.data(), send_blocks.size(), MPI_BYTE,
-                        send_rank, 0, MPI_COMM_WORLD, &requests[0]);
-    communication::recv(receiving_B_buffer->data(),
-                        serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
-                        recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
+    
+    if (i < n_nodes - 1) {
+      measure_point(measure::filter, measure::MeasurementEvent::START);
+      auto send_blocks =
+          first_part_B.filter(bitmaps[send_rank], serialization_sizes[send_rank]);
+      measure_point(measure::filter, measure::MeasurementEvent::END);
+      communication::send(send_blocks.data(), send_blocks.size(), MPI_BYTE,
+                          send_rank, 0, MPI_COMM_WORLD, &requests[0]);
+      communication::recv(receiving_B_buffer->data(),
+                          serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
+                          recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
+    }
 
     measure_point(measure::mult, measure::MeasurementEvent::START);
 
