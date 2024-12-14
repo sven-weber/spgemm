@@ -119,6 +119,8 @@ int main(int argc, char **argv) {
     if (!loaded_A || !loaded_B) {
       std::cout << "Computing shuffling since no existing one could be found"
                 << std::endl;
+      //A_shuffle = partition::shuffle(A_fields.height);
+      //B_shuffle = partition::shuffle(B_fields.width);
       // Perform the shuffling if no persistet one exists!
       partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
       //partition::save_shuffle(A_shuffle, A_shuffle_path);
