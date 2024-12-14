@@ -63,37 +63,12 @@ matrices = {
     "daint_only": True,
     "compute_expected": True
   },
-  # 316 million non-zeros
-  "Queen_4147": {
-    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Janna/Queen_4147.tar.gz",
-    "extract_files": ["Queen_4147.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("Queen_4147.mtx"),
-    "daint_only": True,
-    "compute_expected": True
-  },
   # 440 million non-zeros
   "nlpkkt200": {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Schenk/nlpkkt200.tar.gz",
     "extract_files": ["nlpkkt200.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("nlpkkt200.mtx"),
     "daint_only": True,
-    "compute_expected": False
-  },
-  # 283 million non-zeros, 10 GB uncompressed
-  "HV15R": {
-   "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Fluorem/HV15R.tar.gz",
-    "extract_files": ["HV15R.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("HV15R.mtx"),
-    "daint_only": True,
-    "compute_expected": True
-  },
-  # # 349 million non-zeros, 8 GB umcompressed
-  "stokes": {
-    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/stokes.tar.gz",
-    "extract_files": ["stokes.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stokes.mtx"),
-    "daint_only": True,
-    # TOO big for daint, we computed this outside on a bigger machine..
     "compute_expected": False
   },
   "nlpkkt240": {
@@ -104,10 +79,10 @@ matrices = {
     # TOO big for daint, we computed this outside on a bigger machine..
     "compute_expected": False
   },
-  "vas_stokes_2M": {
-    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/vas_stokes_2M.tar.gz",
-    "extract_files": ["vas_stokes_2M.mtx"],
-    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("vas_stokes_2M.mtx"),
+  "vas_stokes_1M": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/vas_stokes_1M.tar.gz",
+    "extract_files": ["vas_stokes_1M.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("vas_stokes_1M.mtx"),
     "daint_only": True,
     "compute_expected": True
   },
@@ -291,16 +266,16 @@ def main(euler: bool, daint: bool):
     TARGET_PATH = get_target_folder(name, euler, daint)
     assert(TARGET_PATH != "")
     print(f"Downloading to target path: {TARGET_PATH}")
-    if os.path.exists(TARGET_PATH) and name and name != "vas_stokes_2M":
+    if os.path.exists(TARGET_PATH) and name:
       print(f"Skipped {name} since it already exists.")
     elif dict["daint_only"] == True and daint == False:
       print(f"Skipped {name} since it should only be computed on daint")
     else:
       print(f"-------- {name} --------")
-      #download_and_extract_tar_gz(name, dict, TARGET_PATH, euler, daint)
+      download_and_extract_tar_gz(name, dict, TARGET_PATH, euler, daint)
       # Execute post extract func
-      #if dict["post_extract_func"] is not None:
-      #  dict["post_extract_func"]()
+      if dict["post_extract_func"] is not None:
+        dict["post_extract_func"]()
       # Compute expected value
       if dict["compute_expected"] == True:
         print("Computing expected output")

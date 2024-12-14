@@ -46,24 +46,24 @@ MPI_OPEN_MP_CONFIG = [
         "mpi": 16
     },
     {
-        "nodes": 32,
-        "mpi": 64
+        "nodes": 36,
+        "mpi": 36
     },
     {
         "nodes": 64,
         "mpi": 64
     },
     {
-        "nodes": 64,
-        "mpi": 256
+        "nodes": 100,
+        "mpi": 100
     },
     {
-        "nodes": 128,
-        "mpi": 256
+        "nodes": 144,
+        "mpi": 144
     },
     {
-        "nodes": 256,
-        "mpi": 256
+        "nodes": 196,
+        "mpi": 196
     },
     # {
     #     "nodes": 512,
@@ -214,14 +214,13 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
     n_switches = 1 if n_machines <= 256 else 2 
     
     log_out = os.path.join(folder, "slurm_out.txt")
-
     # Sbatch command with the whole config
     cmd = [
         "sbatch",
         "--wait",
         f"--time=03:00:00", #Make sure we definetly have enough time!
         "--constraint=mc", # Constraint to XC40
-        f"-o={log_out}", # output file
+        f"--output={log_out}", # output file
         f"--switches={n_switches}", # Make sure we are in the same electircal group
         "--mem=0", # Use all available memory on the node
         "-N", str(n_machines), # Number of machines
