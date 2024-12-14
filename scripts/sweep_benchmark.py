@@ -41,10 +41,10 @@ ALGOS_TO_SKIP_WHILE_PLOTTING = [
 ]
 
 MPI_OPEN_MP_CONFIG = [
-    {
-        "nodes": 16,
-        "mpi": 16
-    },
+    # {
+    #     "nodes": 16,
+    #     "mpi": 16
+    # },
     {
         "nodes": 36,
         "mpi": 36
