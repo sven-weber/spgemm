@@ -45,14 +45,14 @@ MPI_OPEN_MP_CONFIG = [
     #     "nodes": 16,
     #     "mpi": 16
     # },
-    # {
-    #     "nodes": 36,
-    #     "mpi": 36
-    # },
     {
-        "nodes": 64,
-        "mpi": 64
+        "nodes": 36,
+        "mpi": 36
     },
+    # {
+    #     "nodes": 64,
+    #     "mpi": 64
+    # },
     # {
     #     "nodes": 100,
     #     "mpi": 100
