@@ -41,38 +41,38 @@ ALGOS_TO_SKIP_WHILE_PLOTTING = [
 ]
 
 MPI_OPEN_MP_CONFIG = [
-    # {
-    #     "nodes": 16,
-    #     "mpi": 16
-    # },
-    # {
-    #     "nodes": 32,
-    #     "mpi": 64
-    # },
-    # {
-    #     "nodes": 64,
-    #     "mpi": 64
-    # },
-    # {
-    #     "nodes": 64,
-    #     "mpi": 256
-    # },
-    # {
-    #     "nodes": 128,
-    #     "mpi": 256
-    # },
-    # {
-    #     "nodes": 256,
-    #     "mpi": 256
-    # },
+    {
+        "nodes": 16,
+        "mpi": 16
+    },
+    {
+        "nodes": 32,
+        "mpi": 64
+    },
+    {
+        "nodes": 64,
+        "mpi": 64
+    },
+    {
+        "nodes": 64,
+        "mpi": 256
+    },
+    {
+        "nodes": 128,
+        "mpi": 256
+    },
+    {
+        "nodes": 256,
+        "mpi": 256
+    },
     # {
     #     "nodes": 512,
     #     "mpi": 512
     # },
-    {
-        "nodes": 1024,
-        "mpi": 1024
-    },
+    # {
+    #     "nodes": 1024,
+    #     "mpi": 1024
+    # },
 ]
 
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
@@ -212,6 +212,8 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
     matrix_path = os.path.join(os.getenv("SCRATCH"), "matrices")
 
     n_switches = 1 if n_machines <= 256 else 2 
+    
+    log_out = os.path.join(folder, "slurm_out.txt")
 
     # Sbatch command with the whole config
     cmd = [
@@ -219,6 +221,7 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
         "--wait",
         f"--time=03:00:00", #Make sure we definetly have enough time!
         "--constraint=mc", # Constraint to XC40
+        f"-o={log_out}", # output file
         f"--switches={n_switches}", # Make sure we are in the same electircal group
         "--mem=0", # Use all available memory on the node
         "-N", str(n_machines), # Number of machines

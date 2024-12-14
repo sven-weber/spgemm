@@ -48,7 +48,6 @@ runs
 .venv
 
 # Euler
-slurm*.out
 euler_nodes.txt
 _old/**
 core.*
