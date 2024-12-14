@@ -41,10 +41,10 @@ ALGOS_TO_SKIP_WHILE_PLOTTING = [
 ]
 
 MPI_OPEN_MP_CONFIG = [
-    # {
-    #     "nodes": 16,
-    #     "mpi": 16
-    # },
+    {
+        "nodes": 16,
+        "mpi": 16
+    },
     {
         "nodes": 36,
         "mpi": 36
@@ -484,7 +484,7 @@ def prepare_daint():
     global CMD
     # Copy the executable to SCRATCH storage
     # and update the CMD to run from there
-    scratch_target = os.path.join(os.getenv("SCRATCH"), "dphpc_2")
+    scratch_target = os.path.join(os.getenv("SCRATCH"), "dphpc2")
     print(f"Copying binary to target{scratch_target}")
     shutil.copyfile(CMD, scratch_target)
     os.system(f"chmod +x {scratch_target}")
