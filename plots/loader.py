@@ -41,8 +41,14 @@ def load_timings(folder_path: Path) -> Dataframes:
     for file in measurement_paths:
         node_id = load_node_id(file)
         df = pd.read_csv(file)
+        
+        df['node_id'] = node_id
+        first_gemm_idx = df[df['func'] == 'gemm'].index.min()
+        df = df.drop(
+            df[(df.index < first_gemm_idx) & (df['func'].isin(['mult', 'deserialize', 'wait_all']))].index
+        )
         dataframes[node_id] = df
-    return dataframes
+    return load_duration_as_numeric(dataframes)
 
 # Because there may be multiple function names in the same file
 def load_duration_as_numeric(dfs: Dataframes) -> Dataframes:
@@ -90,7 +96,6 @@ def load_multiple_timings(folders: List[Path]) -> Tuple[str, pd.DataFrame]:
 
         # Load DFs
         node_dict = load_timings(folder_path)
-        node_dict = load_duration_as_numeric(node_dict)
         grouped_df = group_runs(node_dict)
 
         nodes, mpi = load_nodes_mpi(folder_path)
