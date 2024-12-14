@@ -86,6 +86,13 @@ matrices = {
     "daint_only": True,
     "compute_expected": True
   },
+  "dielFilterV2real": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Dziekonski/dielFilterV2real.tar.gz",
+    "extract_files": ["dielFilterV2real.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("dielFilterV2real.mtx"),
+    "daint_only": True,
+    "compute_expected": True
+  },
 }
 
 TARGET_PATH = ""

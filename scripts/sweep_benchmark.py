@@ -66,12 +66,24 @@ MPI_OPEN_MP_CONFIG = [
         "mpi": 196
     },
     # {
-    #     "nodes": 512,
-    #     "mpi": 512
+    #     "nodes": 32,
+    #     "mpi": 32
     # },
     # {
-    #     "nodes": 1024,
-    #     "mpi": 1024
+    #     "nodes": 64,
+    #     "mpi": 64
+    # },
+    # {
+    #     "nodes": 128,
+    #     "mpi": 128
+    # },
+    # {
+    #     "nodes": 256,
+    #     "mpi": 256
+    # },
+    # {
+    #     "nodes": 512,
+    #     "mpi": 512
     # },
 ]
 
@@ -472,7 +484,7 @@ def prepare_daint():
     global CMD
     # Copy the executable to SCRATCH storage
     # and update the CMD to run from there
-    scratch_target = os.path.join(os.getenv("SCRATCH"), "dphpc")
+    scratch_target = os.path.join(os.getenv("SCRATCH"), "dphpc_2")
     print(f"Copying binary to target{scratch_target}")
     shutil.copyfile(CMD, scratch_target)
     os.system(f"chmod +x {scratch_target}")

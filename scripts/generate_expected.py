@@ -72,9 +72,9 @@ def process_matrices(folder):
     C_expected = A.dot(B)
     C_expected_file = os.path.join(folder, "C_expected.mtx")
     save_matrix(C_expected, C_expected_file)
-    # Copy as sparsity matrix (for now)
-    # TODO: Compute smth we actual need
-    shutil.copyfile(C_expected_file,  os.path.join(folder, "C_sparsity.mtx"))
+    # C sparsity stores a 1 for every entry
+    C_expected.data[:] = 1
+    save_matrix(C_expected,  os.path.join(folder, "C_sparsity.mtx"))
   except Exception as error:
     print("Could not compute expected value")
     print(error)
