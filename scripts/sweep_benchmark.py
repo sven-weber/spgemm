@@ -484,7 +484,7 @@ def prepare_daint():
     global CMD
     # Copy the executable to SCRATCH storage
     # and update the CMD to run from there
-    scratch_target = os.path.join(os.getenv("SCRATCH"), "dphpc2")
+    scratch_target = os.path.join(os.getenv("SCRATCH"), "dphpc")
     print(f"Copying binary to target{scratch_target}")
     shutil.copyfile(CMD, scratch_target)
     os.system(f"chmod +x {scratch_target}")

@@ -3,7 +3,7 @@ project(dphpc)
 include(FetchContent)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(N_SECTIONS 8096 CACHE STRING "Number of sections in which each partition is split")
+set(N_SECTIONS 256 CACHE STRING "Number of sections in which each partition is split")
 
 # OpenMP
 find_package(OpenMP)
