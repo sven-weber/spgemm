@@ -104,6 +104,13 @@ matrices = {
     # TOO big for daint, we computed this outside on a bigger machine..
     "compute_expected": False
   },
+  "vas_stokes_2M": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/vas_stokes_2M.tar.gz",
+    "extract_files": ["vas_stokes_2M.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("vas_stokes_2M.mtx"),
+    "daint_only": True,
+    "compute_expected": True
+  },
 }
 
 TARGET_PATH = ""
@@ -284,16 +291,16 @@ def main(euler: bool, daint: bool):
     TARGET_PATH = get_target_folder(name, euler, daint)
     assert(TARGET_PATH != "")
     print(f"Downloading to target path: {TARGET_PATH}")
-    if os.path.exists(TARGET_PATH) and name:
+    if os.path.exists(TARGET_PATH) and name and name != "vas_stokes_2M":
       print(f"Skipped {name} since it already exists.")
     elif dict["daint_only"] == True and daint == False:
       print(f"Skipped {name} since it should only be computed on daint")
     else:
       print(f"-------- {name} --------")
-      download_and_extract_tar_gz(name, dict, TARGET_PATH, euler, daint)
+      #download_and_extract_tar_gz(name, dict, TARGET_PATH, euler, daint)
       # Execute post extract func
-      if dict["post_extract_func"] is not None:
-        dict["post_extract_func"]()
+      #if dict["post_extract_func"] is not None:
+      #  dict["post_extract_func"]()
       # Compute expected value
       if dict["compute_expected"] == True:
         print("Computing expected output")
