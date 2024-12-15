@@ -8,6 +8,7 @@ import pathlib
 import argparse
 import shutil
 import os
+import re
 import math
 import matplotlib.pyplot as plt
 
@@ -40,6 +41,8 @@ ALGOS_TO_SKIP_WHILE_PLOTTING = [
 
 ]
 
+LAST_JOB = None
+
 MPI_OPEN_MP_CONFIG = [
     # {
     #     "nodes": 16,
@@ -49,10 +52,10 @@ MPI_OPEN_MP_CONFIG = [
     #     "nodes": 36,
     #     "mpi": 36
     # },
-    {
-        "nodes": 64,
-        "mpi": 64
-    },
+    # {
+    #     "nodes": 64,
+    #     "mpi": 64
+    # },
     # {
     #     "nodes": 100,
     #     "mpi": 100
@@ -65,26 +68,26 @@ MPI_OPEN_MP_CONFIG = [
     #     "nodes": 196,
     #     "mpi": 196
     # },
-    # {
-    #     "nodes": 32,
-    #     "mpi": 32
-    # },
-    # {
-    #     "nodes": 64,
-    #     "mpi": 64
-    # },
+    {
+        "nodes": 32,
+        "mpi": 32
+    },
+    {
+        "nodes": 64,
+        "mpi": 64
+    },
     # {
     #     "nodes": 128,
     #     "mpi": 128
     # },
+    {
+        "nodes": 256,
+        "mpi": 256
+    },
     # {
-    #     "nodes": 256,
-    #     "mpi": 256
-    # },
-    # {
-    #     "nodes": 512,
-    #     "mpi": 512
-    # },
+    #     "nodes": 350,
+    #     "mpi": 350
+    # }
 ]
 
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
@@ -203,6 +206,7 @@ def create_runs_dir(nodes, mpi) -> str:
 # Special benchmarking target for the paper
 # Runs the implementation with MPI & OpenMP
 def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_machines: int,  persist: bool = True) -> str:
+    global LAST_JOB
     # Calculate the distribution
     cpus_per_machine = 36
     total_number_cores = n_machines * cpus_per_machine
@@ -229,12 +233,13 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
     # Sbatch command with the whole config
     cmd = [
         "sbatch",
-        "--wait",
+        #"--wait",
+        *([f"--dependency=afterany:{LAST_JOB}"] if LAST_JOB is not None else []),
         f"--time=03:00:00", #Make sure we definetly have enough time!
         "--constraint=mc", # Constraint to XC40
         f"--output={log_out}", # output file
         f"--switches={n_switches}", # Make sure we are in the same electircal group
-        "--mem=0", # Use all available memory on the node
+        "--mem=125000", # Use all available memory on the node
         "-N", str(n_machines), # Number of machines
         "-n", str(mpi_processes), # Number of tasks = MPI processes
         f"--cpus-per-task={processes_per_mpi}",
@@ -257,6 +262,13 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
         print(output)
     if error != "":
         print(error)
+
+    jobid = re.search(r"Submitted batch job (\d+)", output)
+    if jobid:
+        LAST_JOB = jobid.group(1) 
+    else:
+        print("COULD NOT GET JOB ID!!!!!")
+        exit(1)
 
     return_code = result.returncode
     assert return_code == 0, f"Slurm job execution with {n_machines} machines failed"
