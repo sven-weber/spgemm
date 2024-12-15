@@ -64,29 +64,29 @@ MPI_OPEN_MP_CONFIG = [
     #     "nodes": 144,
     #     "mpi": 144
     # },
+    {
+        "nodes": 196,
+        "mpi": 196
+    },
     # {
-    #     "nodes": 196,
-    #     "mpi": 196
+    #     "nodes": 32,
+    #     "mpi": 32
     # },
-    {
-        "nodes": 32,
-        "mpi": 32
-    },
-    {
-        "nodes": 64,
-        "mpi": 64
-    },
+    # {
+    #     "nodes": 64,
+    #     "mpi": 64
+    # },
     # {
     #     "nodes": 128,
     #     "mpi": 128
     # },
-    {
-        "nodes": 256,
-        "mpi": 256
-    },
     # {
-    #     "nodes": 350,
-    #     "mpi": 350
+    #     "nodes": 256,
+    #     "mpi": 256
+    # },
+    # {
+    #     "nodes": 512,
+    #     "mpi": 512
     # }
 ]
 
@@ -239,7 +239,7 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
         "--constraint=mc", # Constraint to XC40
         f"--output={log_out}", # output file
         f"--switches={n_switches}", # Make sure we are in the same electircal group
-        "--mem=125000", # Use all available memory on the node
+        "--mem=0", # Use all available memory on the node
         "-N", str(n_machines), # Number of machines
         "-n", str(mpi_processes), # Number of tasks = MPI processes
         f"--cpus-per-task={processes_per_mpi}",
