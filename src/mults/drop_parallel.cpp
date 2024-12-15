@@ -40,6 +40,24 @@ void DropParallel::reset() {
       std::move(matrix::Cells(part_A.height, partitions[n_nodes - 1].end_col));
 }
 
+void DropParallel::mult_step(matrix::BlockedCSRMatrix<> *part_B,
+                             int current_rank_B) {
+#pragma omp parallel for
+  for (midx_t row = 0; row < part_A.height; row++) {
+    auto [row_data_A, row_pos_A, row_len_A] = part_A.row(row);
+    for (midx_t row_elem = 0; row_elem < row_len_A; row_elem++) {
+      auto [row_data_B, row_pos_B, row_len_B] =
+          (*part_B).row(row_pos_A[row_elem]);
+      for (midx_t col_elem = 0; col_elem < row_len_B; col_elem++) {
+        double res = row_data_A[row_elem] * row_data_B[col_elem];
+        cells.add(
+            {row, partitions[current_rank_B].start_col + row_pos_B[col_elem]},
+            res);
+      }
+    }
+  }
+}
+
 void DropParallel::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                         size_t max_size_B_bytes) {
 
@@ -58,60 +76,46 @@ void DropParallel::gemm(std::vector<size_t> serialized_sizes_B_bytes,
   MPI_Request requests[2];
 
   // Do computation. We need n-1 communication rounds
-  for (int i = 0; i < n_nodes; i++) {
-    // Resize buffer to the correct size (should not free/alloc memory)
+  for (int i = 0; i < n_nodes - 1; i++) {
     receiving_B_buffer->resize(serialized_sizes_B_bytes[recv_rank]);
-    
-    if (i < n_nodes - 1) {
-      measure_point(measure::filter, measure::MeasurementEvent::START);
-      auto send_blocks =
-          first_part_B.filter(bitmaps[send_rank], serialization_sizes[send_rank]);
-      measure_point(measure::filter, measure::MeasurementEvent::END);
-      communication::send(send_blocks.data(), send_blocks.size(), MPI_BYTE,
-                          send_rank, 0, MPI_COMM_WORLD, &requests[0]);
-      communication::recv(receiving_B_buffer->data(),
-                          serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
-                          recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
-    }
+    measure_point(measure::filter, measure::MeasurementEvent::START);
+    auto send_blocks =
+        first_part_B.filter(bitmaps[send_rank], serialization_sizes[send_rank]);
+    measure_point(measure::filter, measure::MeasurementEvent::END);
 
+    communication::send(send_blocks.data(), send_blocks.size(), MPI_BYTE,
+                        send_rank, 0, MPI_COMM_WORLD, &requests[0]);
+    communication::recv(receiving_B_buffer->data(),
+                        serialized_sizes_B_bytes[recv_rank], MPI_BYTE,
+                        recv_rank, 0, MPI_COMM_WORLD, &requests[1]);
+
+    // Matrix multiplication step
     measure_point(measure::mult, measure::MeasurementEvent::START);
-
-    // Matrix multiplication
-#pragma omp parallel for
-    for (midx_t row = 0; row < part_A.height; row++) {
-      auto [row_data_A, row_pos_A, row_len_A] = part_A.row(row);
-      for (midx_t row_elem = 0; row_elem < row_len_A; row_elem++) {
-        auto [row_data_B, row_pos_B, row_len_B] =
-            part_B.row(row_pos_A[row_elem]);
-        for (midx_t col_elem = 0; col_elem < row_len_B; col_elem++) {
-          double res = row_data_A[row_elem] * row_data_B[col_elem];
-          cells.add(
-              {row, partitions[current_rank_B].start_col + row_pos_B[col_elem]},
-              res);
-        }
-      }
-    }
+    mult_step(&part_B, current_rank_B);
     measure_point(measure::mult, measure::MeasurementEvent::END);
 
-    if (i < n_nodes - 1) {
-      measure_point(measure::wait_all, measure::MeasurementEvent::START);
-      // Wait for the communication to finish
-      MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
-      measure_point(measure::wait_all, measure::MeasurementEvent::END);
+    measure_point(measure::wait_all, measure::MeasurementEvent::START);
+    // Wait for the communication to finish
+    MPI_Waitall(2, requests, MPI_STATUSES_IGNORE);
+    measure_point(measure::wait_all, measure::MeasurementEvent::END);
 
-      // Deserialize Matrix for next round and switch buffer pointers
-      std::swap(received_B_buffer, receiving_B_buffer);
-      measure_point(measure::deserialize, measure::MeasurementEvent::START);
-      matrix::BlockedCSRMatrix received(
-          {received_B_buffer->data(), received_B_buffer->size()});
-      measure_point(measure::deserialize, measure::MeasurementEvent::END);
-      part_B = received;
+    // Deserialize Matrix for next round and switch buffer pointers
+    std::swap(received_B_buffer, receiving_B_buffer);
+    measure_point(measure::deserialize, measure::MeasurementEvent::START);
+    matrix::BlockedCSRMatrix received(
+        {received_B_buffer->data(), received_B_buffer->size()});
+    measure_point(measure::deserialize, measure::MeasurementEvent::END);
+    part_B = received;
 
-      // Get next targets
-      send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;
-      current_rank_B = recv_rank;
-      recv_rank = recv_rank != 0 ? recv_rank - 1 : n_nodes - 1;
-    }
+    // Get next targets
+    send_rank = send_rank != n_nodes - 1 ? send_rank + 1 : 0;
+    current_rank_B = recv_rank;
+    recv_rank = recv_rank != 0 ? recv_rank - 1 : n_nodes - 1;
   }
+
+  // Final mult step
+  measure_point(measure::mult, measure::MeasurementEvent::START);
+  mult_step(&part_B, current_rank_B);
+  measure_point(measure::mult, measure::MeasurementEvent::END);
 }
 } // namespace mults

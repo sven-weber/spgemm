@@ -137,6 +137,7 @@ public:
 
   void save_result(std::string path) override;
   size_t get_B_serialization_size() override;
+  void mult_step(matrix::BlockedCSRMatrix<> *part_B, int current_rank_B);
   std::vector<size_t> get_B_serialization_sizes();
   void reset() override;
 };
