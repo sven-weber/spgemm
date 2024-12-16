@@ -106,3 +106,22 @@ def load_multiple_timings(folders: List[Path]) -> Tuple[str, pd.DataFrame]:
     matrixes = [load_matrix(folder) for folder in folders]
     assert all([m1 == m2 for m1 in matrixes for m2 in matrixes])
     return (matrixes[0], timings_per_algo)
+
+def load_multiple_timings_scalability(folders: List[Path]) -> Tuple[str, pd.DataFrame]:
+    timings_per_algo = {}
+    for folder_path in folders:
+        # Load algo and initialize
+        key = folder_path.parent.name
+        if not key in timings_per_algo:
+            timings_per_algo[key] = pd.DataFrame()
+
+        # Load DFs
+        node_dict = load_timings(folder_path)
+        grouped_df = group_runs(node_dict)
+
+        nodes, mpi = load_nodes_mpi(folder_path)
+        grouped_df['nodes'] = nodes
+        grouped_df['mpi'] = mpi
+        timings_per_algo[key] = pd.concat([timings_per_algo[key], grouped_df], axis=0)
+    
+    return timings_per_algo
