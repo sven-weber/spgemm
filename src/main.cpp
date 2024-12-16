@@ -46,8 +46,16 @@ int main(int argc, char **argv) {
   std::string algo_name = argv[1];
   std::string matrix_name = argv[2];
   std::string matrix_path = argv[7];
-  std::string A_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank);
-  std::string B_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank);
+  
+  std::string A_path;
+  std::string B_path;
+  if (algo_name == "comb") {
+    A_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
+    B_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
+  } else {
+    A_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank);
+    B_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank);
+  }
   std::string C_sparsity_path =
       utils::format("{}/{}/C_sparsity.mtx", matrix_path, matrix_name);
   std::string A_shuffle_path =
