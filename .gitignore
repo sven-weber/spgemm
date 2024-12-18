@@ -66,3 +66,6 @@ matrices/c-big
 matrices/largebasis
 matrices/HV15R
 matrices/af_shell10
+
+# Measurements logs
+measurements*
