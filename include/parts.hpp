@@ -5,6 +5,7 @@
 namespace parts {
 namespace baseline {
 partition::Partitions partition(matrix::Fields &matrix_fields, int mpi_size);
-partition::Partitions balanced_partition(matrix::CSRMatrix<short> &C, int mpi_size);
+partition::Partitions balanced_partition(matrix::CSRMatrix<short> &C,
+                                         int mpi_size);
 } // namespace baseline
 } // namespace parts

@@ -36,9 +36,11 @@ int alltoallv(const void *sendbuf, const int sendcounts[], const int sdispls[],
                        recvcounts, rdispls, recvtype, comm);
 }
 
-int alltoallv_continuous(int number_of_bytes_per_count, const void *sendbuf, const int sendcounts[], const int sdispls[],
-              MPI_Datatype sendtype, void *recvbuf, const int recvcounts[],
-              const int rdispls[], MPI_Datatype recvtype, MPI_Comm comm) {
+int alltoallv_continuous(int number_of_bytes_per_count, const void *sendbuf,
+                         const int sendcounts[], const int sdispls[],
+                         MPI_Datatype sendtype, void *recvbuf,
+                         const int recvcounts[], const int rdispls[],
+                         MPI_Datatype recvtype, MPI_Comm comm) {
   assert(sendtype == recvtype);
   int cnt = 0, nodes;
   MPI_Comm_size(MPI_COMM_WORLD, &nodes);

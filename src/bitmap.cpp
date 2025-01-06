@@ -1,10 +1,12 @@
 #include "bitmap.hpp"
+#include "measure.hpp"
 #include <bitset>
 #include <iostream>
 #include <omp.h>
-#include "measure.hpp"
 
-#pragma omp declare reduction(or : std::bitset<N_SECTIONS> : omp_out |= omp_in) initializer(omp_priv = std::bitset<N_SECTIONS>())
+#pragma omp declare reduction(or : std::bitset<N_SECTIONS> : omp_out |=        \
+                                  omp_in)                                      \
+    initializer(omp_priv = std::bitset<N_SECTIONS>())
 
 namespace bitmap {
 std::bitset<N_SECTIONS> compute_bitmap(matrix::CSRMatrix<> mat) {

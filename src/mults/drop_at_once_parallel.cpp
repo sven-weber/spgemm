@@ -23,7 +23,7 @@ DropAtOnceParallel::DropAtOnceParallel(int rank, int n_nodes,
     : MatrixMultiplication(rank, n_nodes, partitions),
       part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
-      bitmap(bitmap::compute_bitmap(part_A)), 
+      bitmap(bitmap::compute_bitmap(part_A)),
       // In the CSR Matrix class we ensure everything is 8 bytes aligned!
       data_multiple_of_size(8), all_to_all_type(init_custom_mpi_type(8)) {}
 
@@ -99,10 +99,10 @@ void DropAtOnceParallel::gemm(std::vector<size_t> serialized_sizes_B_bytes,
                               size_t max_size_B_bytes) {
   // Communication
   measure_point(measure::wait_all, measure::MeasurementEvent::START);
-  communication::alltoallv_continuous(data_multiple_of_size, send_buf.data(), send_counts.data(),
-                           send_displs.data(), all_to_all_type, recv_buf.data(),
-                           recv_counts.data(), recv_displs.data(), all_to_all_type,
-                           MPI_COMM_WORLD);
+  communication::alltoallv_continuous(
+      data_multiple_of_size, send_buf.data(), send_counts.data(),
+      send_displs.data(), all_to_all_type, recv_buf.data(), recv_counts.data(),
+      recv_displs.data(), all_to_all_type, MPI_COMM_WORLD);
   measure_point(measure::wait_all, measure::MeasurementEvent::END);
 
   // Do computation. We need n-1 computation rounds
@@ -110,7 +110,8 @@ void DropAtOnceParallel::gemm(std::vector<size_t> serialized_sizes_B_bytes,
     measure_point(measure::deserialize, measure::MeasurementEvent::START);
     matrix::BlockedCSRMatrix<> part_B =
         (i != rank) ? matrix::BlockedCSRMatrix<>(
-                          {&recv_buf[recv_displs[i] * data_multiple_of_size], recv_counts[i] * data_multiple_of_size})
+                          {&recv_buf[recv_displs[i] * data_multiple_of_size],
+                           recv_counts[i] * data_multiple_of_size})
                     : first_part_B;
     measure_point(measure::deserialize, measure::MeasurementEvent::END);
 

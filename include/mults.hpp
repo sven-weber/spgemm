@@ -8,9 +8,9 @@
 #include "CombBLAS/SpParMat1D.h"
 #include "bitmap.hpp"
 #include "matrix.hpp"
+#include "mpi.h"
 #include "partition.hpp"
 #include <bitset>
-#include "mpi.h"
 
 namespace mults {
 
@@ -184,7 +184,7 @@ protected:
 
 public:
   int data_multiple_of_size;
-  MPI_Datatype all_to_all_type; 
+  MPI_Datatype all_to_all_type;
   std::vector<int> send_counts;
   std::vector<int> send_displs;
   std::vector<int> recv_counts;
