@@ -20,19 +20,20 @@ void write_to_file(std::string name, std::string path) {
 }
 
 int main(int argc, char **argv) {
-  if (argc < 8) {
+  if (argc < 11) {
     std::cerr
         << "Did not get enough arguments. Expected <matrix_path> <run_path>"
         << std::endl;
     exit(1);
   }
-  
+
   // Init MPI
   int rank, n_nodes;
   int required_thread_level = MPI_THREAD_FUNNELED;
   int provided_thread_level;
   // Initialize MPI with the required thread support
-  if (MPI_Init_thread(&argc, &argv, required_thread_level, &provided_thread_level) != MPI_SUCCESS) {
+  if (MPI_Init_thread(&argc, &argv, required_thread_level,
+                      &provided_thread_level) != MPI_SUCCESS) {
     printf("Error initializing MPI with threading\n");
     exit(1);
   }
@@ -44,12 +45,23 @@ int main(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &n_nodes);
 
   std::string algo_name = argv[1];
+  std::string shuffling_algo = argv[6];
+  std::string partitioning_algo = argv[7];
   std::string matrix_name = argv[2];
-  std::string matrix_path = argv[7];
-  
+  std::string matrix_path = argv[10];
+
+  // Whether to load from parallel files
+  // (faster for very large matrices)
+  std::string parse_str = argv[8];
+  bool parallel_loading = false;
+  if (parse_str == "true") {
+    parallel_loading = true;
+    std::cout << "LOADING FROM PARALLEL FILES" << std::endl;
+  }
+
   std::string A_path;
   std::string B_path;
-  if (algo_name == "comb") {
+  if (algo_name == "comb" || !parallel_loading) {
     A_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
     B_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
   } else {
@@ -58,10 +70,10 @@ int main(int argc, char **argv) {
   }
   std::string C_sparsity_path =
       utils::format("{}/{}/C_sparsity.mtx", matrix_path, matrix_name);
-  std::string A_shuffle_path =
-      utils::format("{}/{}/A_shuffle", matrix_path, matrix_name);
-  std::string B_shuffle_path =
-      utils::format("{}/{}/B_shuffle", matrix_path, matrix_name);
+  std::string A_shuffle_path = utils::format("{}/{}/A_shuffle_{}", matrix_path,
+                                             matrix_name, shuffling_algo);
+  std::string B_shuffle_path = utils::format("{}/{}/B_shuffle_{}", matrix_path,
+                                             matrix_name, shuffling_algo);
 
   std::string run_path = argv[3];
   std::string partitions_path = utils::format("{}/partitions.csv", run_path);
@@ -73,7 +85,7 @@ int main(int argc, char **argv) {
 
   // Whether to persist results
   // (takes too long for super large matrices)
-  std::string parse_str = argv[6];
+  parse_str = argv[9];
   bool persist_results = true;
   if (parse_str == "false") {
     persist_results = false;
@@ -108,7 +120,7 @@ int main(int argc, char **argv) {
     write_to_file(algo_name, algo_name_path);
   }
 
-  // Load sparsity
+  // Load matrix fields for A and B
   matrix::Fields A_fields =
       matrix::utils::read_fields(A_path, false, nullptr, nullptr);
   matrix::Fields B_fields =
@@ -125,18 +137,25 @@ int main(int argc, char **argv) {
     bool loaded_B = partition::load_shuffle(B_shuffle_path, B_shuffle);
 
     if (!loaded_A || !loaded_B) {
-      std::cout << "Computing shuffling since no existing one could be found"
+      std::cout << "Computing \"" << shuffling_algo
+                << "\" shuffling since no existing one could be found"
                 << std::endl;
-      // No shuffle
-      // std::iota(A_shuffle.begin(), A_shuffle.end(), 0);
-      // std::iota(B_shuffle.begin(), B_shuffle.end(), 0);
-
-      // Random shuffle
-      //A_shuffle = partition::shuffle(A_fields.height);
-      //B_shuffle = partition::shuffle(B_fields.width);
 
       // Perform the shuffling if no persistet one exists!
-      partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
+      if (shuffling_algo == "none") {
+        std::iota(A_shuffle.begin(), A_shuffle.end(), 0);
+        std::iota(B_shuffle.begin(), B_shuffle.end(), 0);
+      } else if (shuffling_algo == "random") {
+        A_shuffle = partition::shuffle(A_fields.height);
+        B_shuffle = partition::shuffle(B_fields.width);
+      } else if (shuffling_algo == "iterative") {
+        partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
+      } else {
+        std::cerr << "Unknown shuffling algorithm type " << shuffling_algo
+                  << "\n";
+        exit(1);
+      }
+
       partition::save_shuffle(A_shuffle, A_shuffle_path);
       partition::save_shuffle(B_shuffle, B_shuffle_path);
     }
@@ -155,18 +174,23 @@ int main(int argc, char **argv) {
     std::cout << "SHUFFLING FINISHED!" << std::endl << std::flush;
 
     // Do the partitioning
-
-    // Better (but expensive) partitioning algorithm
-    // Because the better partitioning requires C (which takes a very long time
-    // to load!), we will not use it matrix::ManagedCSRMatrix<short>
-    // mat(C_sparsity_path, false, &A_shuffle,
-    //                                &B_shuffle);
-    // partitions = parts::baseline::balanced_partition(mat, n_nodes);
-
+    std::cout << "Computing \"" << partitioning_algo << "\" partitioning"
+              << std::endl;
     measure_point(measure::partition, measure::MeasurementEvent::START);
-    auto fields =
-        matrix::utils::read_fields(C_sparsity_path, false, nullptr, nullptr);
-    partitions = parts::baseline::partition(fields, n_nodes);
+    if (partitioning_algo == "balanced") {
+      matrix::ManagedCSRMatrix<short> mat(C_sparsity_path, false, &A_shuffle,
+                                          &B_shuffle);
+      partitions = parts::baseline::balanced_partition(mat, n_nodes);
+    } else if (partitioning_algo == "naive") {
+      auto fields =
+          matrix::utils::read_fields(C_sparsity_path, false, nullptr, nullptr);
+      partitions = parts::baseline::partition(fields, n_nodes);
+    } else {
+      std::cerr << "Unknown partitioning algorithm type " << partitioning_algo
+                << "\n";
+      exit(1);
+    }
+
     utils::print_partitions(partitions, n_nodes);
     if (persist_results) {
       partition::save_partitions(partitions, partitions_path);
@@ -192,7 +216,9 @@ int main(int argc, char **argv) {
   std::vector<midx_t> keep_cols(&B_shuffle[partitions[rank].start_col],
                                 &B_shuffle[partitions[rank].end_col]);
 
-  std::cout << "BROADCASTS FINISHED; EVERYONE LOADING MATRICES NOW;" << std::endl << std::flush;
+  std::cout << "BROADCASTS FINISHED; EVERYONE LOADING MATRICES NOW;"
+            << std::endl
+            << std::flush;
 
   mults::MatrixMultiplication *mult = NULL;
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);

@@ -7,6 +7,9 @@ NUMBER_WARMUP			= 0
 MATRIX_TARGET			= first
 BUILD_DIR         = build
 ALGORITHM					= drop_at_once_parallel
+SHUFFLING					= iterative
+PARTITIONING			= naive
+PARALLEL_LOADING	= false
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
 CPP_HEADER_FILES := $(wildcard $(INCLUDE_DIR)/**/**/*.hpp) $(wildcard $(INCLUDE_DIR)/**/*.hpp) $(wildcard $(INCLUDE_DIR)/*.hpp)
@@ -25,7 +28,7 @@ $(BUILD_DIR): debug
 
 run: $(BUILD_DIR)
 	@echo -e "RUN\t$(TARGET) with $(TEST_MACHINES) machines."
-	@./scripts/run $(TEST_MACHINES) ./$(TARGET) $(ALGORITHM) "$(MATRIX_TARGET)" $(NUMBER_RUNS) $(NUMBER_WARMUP)
+	@./scripts/run $(TEST_MACHINES) ./$(TARGET) $(ALGORITHM) "$(MATRIX_TARGET)" $(NUMBER_RUNS) $(NUMBER_WARMUP) $(SHUFFLING) $(PARTITIONING) $(PARALLEL_LOADING)
 
 format:
 	clang-format -i $(CPP_FILES) $(CPP_HEADER_FILES)

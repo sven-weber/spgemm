@@ -6,6 +6,9 @@ algorithm=$3
 matrix=$4
 n_runs=$5
 n_warmup=$6
+shuffling=$7
+partitioning=$8
+parallel_loading=$9
 
 id=$(date +"%Y-%m-%d-%T")
 run_path="runs/$id-$nodes"
@@ -13,4 +16,4 @@ mkdir -p "$run_path"
 
 # If we use this script, we always want to persist results!
 # -> Last arg = true
-mpirun -n "$nodes" "$cmd" "$algorithm" "$matrix" "$run_path" "$n_runs" "$n_warmup" "true" "matrices" | sort -s -t '[' -k2,2n
+mpirun -n "$nodes" "$cmd" "$algorithm" "$matrix" "$run_path" "$n_runs" "$n_warmup" "$shuffling" "$partitioning" "$parallel_loading" "true" "matrices" | sort -s -t '[' -k2,2n

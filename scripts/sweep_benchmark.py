@@ -18,6 +18,8 @@ N_WARMUP                = 5
 N_RUNS                  = 50
 MAXIMUM_MEMORY          = 128
 FILE_NAME               = "measurements"
+SHUFFLING               = "iterative"
+PARTITIONING            = "naive"
 DataFrames              = Dict[int, pd.DataFrame]
 COLOR_MAP               = {
     "comb": "orange", 
@@ -102,7 +104,7 @@ def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
 
 # Does a run of the CMD with mpi using `nodes` nodes and returns
 # the run folder.
-def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool = False, persist: bool = True) -> str:
+def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool = False, persist: bool = True, parallel_load: bool = True) -> str:
     if should_skip_run(impl, matrix, nodes):
         print(f"CAUTION: Skipping run with {nodes} nodes!!!")
         return ""
@@ -113,6 +115,7 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
     env = os.environ.copy()
 
     persist_str = "true" if persist else "false"
+    parallel_load_str = "true" if parallel_load else "false"
 
     if euler:
         mem_per_core = int(math.floor(MAXIMUM_MEMORY/nodes))
@@ -126,7 +129,7 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
             "-n", str(nodes),
             "-N", "1", # 1 node
             "--wrap",
-            f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str} matrices"
+            f"mpirun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {SHUFFLING} {PARTITIONING} {parallel_load_str} {persist_str} matrices"
         ]
     elif daint:
         # Running on broadwell cluster with 2 sockets - 18 cores each per machine
@@ -172,10 +175,10 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
             "-A", "g34" # The project we use
         ] + algo_conf + [
             "--wrap",
-            f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str} {matrix_path}"
+            f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {SHUFFLING} {PARTITIONING} {parallel_load_str} {persist_str} {matrix_path}"
         ]
     else:
-        cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), "true", "matrices"]
+        cmd = ["mpirun", "-n", str(nodes), CMD, impl, matrix, folder, str(N_RUNS), str(N_WARMUP), SHUFFLING, PARTITIONING, parallel_load_str, persist_str, "matrices"]
     result = subprocess.run(
         cmd,
         cwd=os.getcwd(),
@@ -205,7 +208,7 @@ def create_runs_dir(nodes, mpi) -> str:
 
 # Special benchmarking target for the paper
 # Runs the implementation with MPI & OpenMP
-def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_machines: int,  persist: bool = True) -> str:
+def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_machines: int,  persist: bool = True, parallel_load: bool = True) -> str:
     global LAST_JOB
     # Calculate the distribution
     cpus_per_machine = 36
@@ -219,6 +222,7 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
     env = os.environ.copy()
 
     persist_str = "true" if persist else "false"
+    parallel_load_str = "true" if parallel_load else "false"
 
     # Set the OpenMP env variable to use all cpus per MPI task
     env.update({
@@ -245,7 +249,7 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
         f"--cpus-per-task={processes_per_mpi}",
         "-A", "g34", # The project we use
         "--wrap",
-        f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {persist_str} {matrix_path}"
+        f"srun {CMD} {impl} {matrix} {folder} {N_RUNS} {N_WARMUP} {SHUFFLING} {PARTITIONING} {parallel_load_str} {persist_str} {matrix_path}"
     ]
 
     result = subprocess.run(
@@ -516,6 +520,7 @@ if __name__ == "__main__":
     parser.add_argument('--skip_run', action="store_true")
     parser.add_argument('--quadratic', required=False, action="store_true")
     parser.add_argument('--no_persist', action="store_false")
+    parser.add_argument('--no_parallel_load', action="store_false")
     parser.add_argument('--plot_linear', required=False, action="store_true")
     parser.add_argument('--mpi_run_paper', required=False, action="store_true")
     args = parser.parse_args()
@@ -542,12 +547,12 @@ if __name__ == "__main__":
                 for matrix in matrices:
                     print(f"Executing implementation {impl} on {matrix}")
                     for key in MPI_OPEN_MP_CONFIG:
-                        run_mpi_with_open_mp_on_daint(impl, matrix, key["mpi"], key["nodes"], args.no_persist)
+                        run_mpi_with_open_mp_on_daint(impl, matrix, key["mpi"], key["nodes"], args.no_persist, args.no_parallel_load)
             else:
                 for n in range(args.min, args.max+1, args.stride):
                     if args.quadratic:
                         n = n*n
-                    run_result = run_mpi(impl, args.matrix, n, args.euler, args.daint, args.no_persist)
+                    run_result = run_mpi(impl, args.matrix, n, args.euler, args.daint, args.no_persist, args.no_parallel_load)
                     if run_result != "":
                         folders.append(run_result)
 
