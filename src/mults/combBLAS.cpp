@@ -13,7 +13,7 @@
 #include <unistd.h>
 
 namespace mults {
-shared_ptr<combblas::CommGrid> startWorld() {
+shared_ptr<combblas::CommGrid> start1DWorld() {
   shared_ptr<combblas::CommGrid> fullWorld;
   fullWorld.reset(new combblas::CommGrid(MPI_COMM_WORLD, 0, 0));
   return fullWorld;
@@ -31,7 +31,7 @@ Sp1D loadMatrix(std::string path_A, shared_ptr<combblas::CommGrid> fullWorld) {
 
 CombBLASMatrixMultiplication::CombBLASMatrixMultiplication(
     int rank, int n_nodes, partition::Partitions partitions, std::string path_A)
-    : MatrixMultiplication(rank, n_nodes, partitions), fullWorld(startWorld()),
+    : MatrixMultiplication(rank, n_nodes, partitions), fullWorld(start1DWorld()),
       A1D(loadMatrix(path_A, fullWorld)), B1D(loadMatrix(path_A, fullWorld)),
       C1D(A1D) {}
 

@@ -6,6 +6,7 @@
 #include "CombBLAS/SpDefs.h"
 #include "CombBLAS/SpMat.h"
 #include "CombBLAS/SpParMat1D.h"
+#include "CCGrid.h"
 #include "bitmap.hpp"
 #include "matrix.hpp"
 #include "mpi.h"
@@ -222,6 +223,24 @@ public:
   CombBLASMatrixMultiplication(int rank, int n_nodes,
                                partition::Partitions partitions,
                                std::string path_A);
+  void save_result(std::string path) override;
+  void gemm(std::vector<size_t> serialized_sizes_B_bytes,
+            size_t max_size_B_bytes) override;
+};
+
+typedef combblas::SpDCCols<int32_t, double> Sp3D;
+typedef std::pair<combblas::CCGrid, combblas::FullyDistVec<int32_t, int32_t>> World3D;
+class CombBLAS3DMatrixMultiplication : public MatrixMultiplication {
+protected:
+  World3D fullWorld;
+  Sp3D A3D;
+  Sp3D B3D;
+  Sp3D *C3D;
+
+public:
+  CombBLAS3DMatrixMultiplication(int rank, int n_nodes,
+                               partition::Partitions partitions,
+                               std::string path_A, unsigned c);
   void save_result(std::string path) override;
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;

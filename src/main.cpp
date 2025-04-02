@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 
   std::string A_path;
   std::string B_path;
-  if (algo_name == "comb" || !parallel_loading) {
+  if (algo_name.starts_with("comb"s) || !parallel_loading) {
     A_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
     B_path = utils::format("{}/{}/A.mtx", matrix_path, matrix_name);
   } else {
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
   partition::Partitions partitions(n_nodes);
   partition::Shuffle A_shuffle(A_fields.height);
   partition::Shuffle B_shuffle(B_fields.width);
-  if (rank == MPI_ROOT_ID && algo_name != "comb") {
+  if (rank == MPI_ROOT_ID && !algo_name.starts_with("comb"s)) {
     std::cout << "STARTING SHUFFLING!" << std::endl;
     if (shuffling_algo == "none") {
       std::iota(A_shuffle.begin(), A_shuffle.end(), 0);
@@ -222,10 +222,18 @@ int main(int argc, char **argv) {
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
     tmp->compute_alltoall_data(serialized_sizes_B_bytes);
-  } else if (algo_name == "comb") {
+  } else if (algo_name == "comb1d") {
     C_path = C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLASMatrixMultiplication(rank, n_nodes, partitions,
                                                    A_path);
+  } else if (algo_name == "comb2d") {
+    C_path = C_path = utils::format("{}/C.mtx", run_path);
+    mult = new mults::CombBLAS3DMatrixMultiplication(rank, n_nodes, partitions,
+                                                   A_path, 1);
+  } else if (algo_name == "comb3d") {
+    C_path = C_path = utils::format("{}/C.mtx", run_path);
+    mult = new mults::CombBLAS3DMatrixMultiplication(rank, n_nodes, partitions,
+                                                   A_path, 2);
   } else {
     std::cerr << "Unknown algorithm type " << algo_name << "\n";
     exit(1);

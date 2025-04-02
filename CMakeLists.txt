@@ -73,6 +73,11 @@ file(GLOB HEADERS LIST_DIRECTORIES true ${INCLUDE_DIR})
 add_executable(dphpc ${SOURCES})
 target_include_directories(dphpc PRIVATE ${HEADERS})
 
+target_include_directories(dphpc PUBLIC
+  ${CombBLAS_SOURCE_DIR}/3DSpGEMM
+)
+
+
 if(OpenMP_CXX_FOUND)
     target_link_libraries(dphpc PUBLIC OpenMP::OpenMP_CXX)
 endif()
