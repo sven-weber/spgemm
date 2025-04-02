@@ -39,7 +39,7 @@ Fields read_fields(std::string file_path, bool transposed,
       .transposed = transposed,
       .height = static_cast<midx_t>(h.nrows),
       .width = static_cast<midx_t>(h.ncols),
-      .non_zeros = static_cast<midx_t>(h.vector_length),
+      .non_zeros = static_cast<midx_t>(h.nnz),
   };
 }
 
