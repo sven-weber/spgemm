@@ -59,19 +59,22 @@ partition::Partitions partition(midx_t height, midx_t width, int mpi_size) {
   return p;
 }
 
-partition::Partitions balanced_partition(matrix::CSRMatrix<> &C,
+partition::Partitions balanced_partition(std::string path_A, midx_t width_B,
                                          int mpi_size) {
   partition::Partitions p(mpi_size);
 
-  midx_t non_zeros_per_partition = C.non_zeros / mpi_size;
+  matrix::Fields fields = matrix::utils::read_fields(path_A, false, nullptr, nullptr);
+  midx_t non_zeros_per_partition = fields.non_zeros / mpi_size;
 
-  int section_width = ceil((float)C.width / (float)N_SECTIONS);
+  std::vector<midx_t> non_zeros = matrix::get_row_non_zeros<double>(path_A);
+
+
   int non_zero_count = 0;
   int node = 0;
   p[node].start_row = 0;
-  for (size_t row = 0; row < C.height; row++) {
-    auto [row_data, row_pos, row_len] = C.row(row);
-    non_zero_count += row_len;
+  measure_point(measure::partition, measure::MeasurementEvent::START);
+  for (size_t row = 0; row < fields.height; row++) {
+    non_zero_count += non_zeros[row];
 
     if (non_zero_count > non_zeros_per_partition) {
       std::cout << "Rows: " << row - p[node].start_row
@@ -85,12 +88,13 @@ partition::Partitions balanced_partition(matrix::CSRMatrix<> &C,
         break;
     }
   }
-  std::cout << "Rows: " << C.height - p[node].start_row
+  std::cout << "Rows: " << fields.height - p[node].start_row
             << " - Non Zero: " << non_zero_count << std::endl;
-  p[node].end_row = C.height;
+  p[node].end_row = fields.height;
+  measure_point(measure::partition, measure::MeasurementEvent::END);
 
-  int cols_per_partition = C.width / mpi_size;
-  int n_extra_col = C.width % mpi_size;
+  int cols_per_partition = width_B / mpi_size;
+  int n_extra_col = width_B % mpi_size;
   int curr_col = 0;
 
   for (int i = 0; i < mpi_size; i++) {

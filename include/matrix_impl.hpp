@@ -156,6 +156,31 @@ private:
 };
 
 template <typename T>
+std::vector<midx_t> get_row_non_zeros(std::string file_path) {
+  measure_point(measure::read_triplets, measure::MeasurementEvent::START);
+  std::error_code error;
+  mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
+  assert(!error);
+  IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
+
+  triplet_matrix<T> tm;
+  fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows, tm.cols,
+                                  tm.vals);
+  measure_point(measure::read_triplets, measure::MeasurementEvent::END);
+
+  measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
+  std::vector<midx_t> nonzeros(tm.nrows);
+  for (midx_t i = 0; i < tm.vals.size(); ++i) {
+    auto _row = tm.rows[i];
+    nonzeros[_row] += 1;
+  }
+  measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
+
+  ro_mmap.unmap();
+  return nonzeros;
+}
+
+template <typename T>
 Cells<T> get_cells(std::string file_path, bool transposed,
                    std::vector<midx_t> *keep_rows,
                    std::vector<midx_t> *keep_cols) {

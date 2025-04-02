@@ -148,10 +148,7 @@ int main(int argc, char **argv) {
               << std::endl;
     measure_point(measure::partition, measure::MeasurementEvent::START);
     if (partitioning_algo == "balanced") {
-      matrix::ManagedCSRMatrix<> mat(A_path, false, nullptr);
-      measure_point(measure::partition, measure::MeasurementEvent::START);
-      partitions = parts::baseline::balanced_partition(mat, n_nodes);
-      measure_point(measure::partition, measure::MeasurementEvent::END);
+      partitions = parts::baseline::balanced_partition(A_path, B_fields.width, n_nodes);
     } else if (partitioning_algo == "naive") {
       partitions = parts::baseline::partition(A_fields.height, B_fields.width, n_nodes);
     } else {
