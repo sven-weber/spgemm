@@ -68,17 +68,11 @@ int main(int argc, char **argv) {
     A_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank);
     B_path = utils::format("{}/{}/A_{}.mtx", matrix_path, matrix_name, rank);
   }
-  std::string C_sparsity_path =
-      utils::format("{}/{}/C_sparsity.mtx", matrix_path, matrix_name);
-  std::string A_shuffle_path = utils::format("{}/{}/A_shuffle_{}", matrix_path,
-                                             matrix_name, shuffling_algo);
-  std::string B_shuffle_path = utils::format("{}/{}/B_shuffle_{}", matrix_path,
-                                             matrix_name, shuffling_algo);
 
   std::string run_path = argv[3];
   std::string partitions_path = utils::format("{}/partitions.csv", run_path);
-  std::string A_shuffle_link_path = utils::format("{}/A_shuffle", run_path);
-  std::string B_shuffle_link_path = utils::format("{}/B_shuffle", run_path);
+  std::string A_shuffle_path = utils::format("{}/A_shuffle", run_path);
+  std::string B_shuffle_path = utils::format("{}/B_shuffle", run_path);
 
   int n_runs = std::stoi(argv[4]);
   int n_warmup = std::stoi(argv[5]);
@@ -131,46 +125,22 @@ int main(int argc, char **argv) {
   partition::Shuffle B_shuffle(B_fields.width);
   if (rank == MPI_ROOT_ID && algo_name != "comb") {
     std::cout << "STARTING SHUFFLING!" << std::endl;
-    // Shuffling can be expensive (mostly because C needs to be loaded!)
-    // Therefore, we persist it!
-    bool loaded_A = partition::load_shuffle(A_shuffle_path, A_shuffle);
-    bool loaded_B = partition::load_shuffle(B_shuffle_path, B_shuffle);
-
-    if (!loaded_A || !loaded_B) {
-      std::cout << "Computing \"" << shuffling_algo
-                << "\" shuffling since no existing one could be found"
-                << std::endl;
-
-      // Perform the shuffling if no persistet one exists!
-      if (shuffling_algo == "none") {
-        std::iota(A_shuffle.begin(), A_shuffle.end(), 0);
-        std::iota(B_shuffle.begin(), B_shuffle.end(), 0);
-      } else if (shuffling_algo == "random") {
-        A_shuffle = partition::shuffle(A_fields.height);
-        B_shuffle = partition::shuffle(B_fields.width);
-      } else if (shuffling_algo == "iterative") {
-        partition::iterative_shuffle(C_sparsity_path, &A_shuffle, &B_shuffle);
-      } else {
-        std::cerr << "Unknown shuffling algorithm type " << shuffling_algo
-                  << "\n";
-        exit(1);
-      }
-
-      partition::save_shuffle(A_shuffle, A_shuffle_path);
-      partition::save_shuffle(B_shuffle, B_shuffle_path);
+    if (shuffling_algo == "none") {
+      std::iota(A_shuffle.begin(), A_shuffle.end(), 0);
+      std::iota(B_shuffle.begin(), B_shuffle.end(), 0);
+    } else if (shuffling_algo == "random") {
+      A_shuffle = partition::shuffle(A_fields.height);
+      B_shuffle = partition::shuffle(B_fields.width);
+    } else if (shuffling_algo == "random_rows") {
+      A_shuffle = partition::shuffle(A_fields.height);
+      std::iota(B_shuffle.begin(), B_shuffle.end(), 0);
+    } else {
+      std::cerr << "Unknown shuffling algorithm type " << shuffling_algo
+                << "\n";
+      exit(1);
     }
-
-    if (persist_results) {
-      try {
-        std::filesystem::create_symlink("../../" + A_shuffle_path,
-                                        A_shuffle_link_path);
-        std::filesystem::create_symlink("../../" + B_shuffle_path,
-                                        B_shuffle_link_path);
-        std::cout << "Symbolic links created successfully." << std::endl;
-      } catch (const std::filesystem::filesystem_error &e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-      }
-    }
+    partition::save_shuffle(A_shuffle, A_shuffle_path);
+    partition::save_shuffle(B_shuffle, B_shuffle_path);
     std::cout << "SHUFFLING FINISHED!" << std::endl << std::flush;
 
     // Do the partitioning
@@ -178,13 +148,12 @@ int main(int argc, char **argv) {
               << std::endl;
     measure_point(measure::partition, measure::MeasurementEvent::START);
     if (partitioning_algo == "balanced") {
-      matrix::ManagedCSRMatrix<short> mat(C_sparsity_path, false, &A_shuffle,
-                                          &B_shuffle);
+      matrix::ManagedCSRMatrix<> mat(A_path, false, nullptr);
+      measure_point(measure::partition, measure::MeasurementEvent::START);
       partitions = parts::baseline::balanced_partition(mat, n_nodes);
+      measure_point(measure::partition, measure::MeasurementEvent::END);
     } else if (partitioning_algo == "naive") {
-      auto fields =
-          matrix::utils::read_fields(C_sparsity_path, false, nullptr, nullptr);
-      partitions = parts::baseline::partition(fields, n_nodes);
+      partitions = parts::baseline::partition(A_fields.height, B_fields.width, n_nodes);
     } else {
       std::cerr << "Unknown partitioning algorithm type " << partitioning_algo
                 << "\n";
@@ -222,30 +191,7 @@ int main(int argc, char **argv) {
 
   mults::MatrixMultiplication *mult = NULL;
   std::vector<size_t> serialized_sizes_B_bytes(n_nodes);
-  if (algo_name == "baseline") {
-    mult = new mults::Baseline(rank, n_nodes, partitions, A_path, &keep_rows,
-                               B_path, &keep_cols);
-  } else if (algo_name == "outer") {
-    mult = new mults::Outer(rank, n_nodes, partitions, A_path, &keep_rows,
-                            B_path, &keep_cols);
-  } else if (algo_name == "drop") {
-    auto *tmp = new mults::Drop(rank, n_nodes, partitions, A_path, &keep_rows,
-                                B_path, &keep_cols);
-    mult = tmp;
-
-    // Share bitmaps
-    std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
-    MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
-                  bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
-                  MPI_COMM_WORLD);
-    tmp->bitmaps = bitmaps;
-
-    // Share serialization sizes
-    std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
-    MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
-                 serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
-                 MPI_COMM_WORLD);
-  } else if (algo_name == "drop_parallel") {
+  if (algo_name == "drop_parallel") {
     auto *tmp = new mults::DropParallel(rank, n_nodes, partitions, A_path,
                                         &keep_rows, B_path, &keep_cols);
     mult = tmp;
@@ -262,24 +208,6 @@ int main(int argc, char **argv) {
     MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
-  } else if (algo_name == "drop_at_once") {
-    auto *tmp = new mults::DropAtOnce(rank, n_nodes, partitions, A_path,
-                                      &keep_rows, B_path, &keep_cols);
-    mult = tmp;
-
-    // Share bitmaps
-    std::vector<std::bitset<N_SECTIONS>> bitmaps(n_nodes);
-    MPI_Allgather(&tmp->bitmap, sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
-                  bitmaps.data(), sizeof(std::bitset<N_SECTIONS>), MPI_BYTE,
-                  MPI_COMM_WORLD);
-    tmp->bitmaps = bitmaps;
-
-    // Share serialization sizes
-    std::vector<size_t> B_byte_sizes = tmp->get_B_serialization_sizes();
-    MPI_Alltoall(B_byte_sizes.data(), sizeof(size_t), MPI_BYTE,
-                 serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
-                 MPI_COMM_WORLD);
-    tmp->compute_alltoall_data(serialized_sizes_B_bytes);
   } else if (algo_name == "drop_at_once_parallel") {
     auto *tmp = new mults::DropAtOnceParallel(rank, n_nodes, partitions, A_path,
                                               &keep_rows, B_path, &keep_cols);
@@ -297,9 +225,6 @@ int main(int argc, char **argv) {
                  serialized_sizes_B_bytes.data(), sizeof(size_t), MPI_BYTE,
                  MPI_COMM_WORLD);
     tmp->compute_alltoall_data(serialized_sizes_B_bytes);
-  } else if (algo_name == "full") {
-    mult = new mults::FullMatrixMultiplication(
-        rank, n_nodes, partitions, A_path, &keep_rows, B_path, &keep_cols);
   } else if (algo_name == "comb") {
     C_path = C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLASMatrixMultiplication(rank, n_nodes, partitions,
@@ -310,8 +235,7 @@ int main(int argc, char **argv) {
   }
 
   // Share serialization sizes
-  if (algo_name != "drop" && algo_name != "drop_at_once" &&
-      algo_name != "drop_parallel" && algo_name != "drop_at_once_parallel") {
+  if (algo_name != "drop_parallel" && algo_name != "drop_at_once_parallel") {
     size_t B_byte_size = mult->get_B_serialization_size();
     MPI_Gather(&B_byte_size, sizeof(size_t), MPI_BYTE,
                &serialized_sizes_B_bytes[0], sizeof(size_t), MPI_BYTE,

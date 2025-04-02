@@ -1,14 +1,14 @@
 SRC_DIR  					= src
 INCLUDE_DIR				= include
 TARGET   					= build/dphpc
-TEST_MACHINES 		= 4
+TEST_MACHINES 		= 10
 NUMBER_RUNS				= 1
 NUMBER_WARMUP			= 0
-MATRIX_TARGET			= first
+MATRIX_TARGET			= largebasis
 BUILD_DIR         = build
-ALGORITHM					= drop_at_once_parallel
-SHUFFLING					= iterative
-PARTITIONING			= naive
+ALGORITHM					= drop_parallel
+SHUFFLING					= none
+PARTITIONING			= balanced
 PARALLEL_LOADING	= false
 
 CPP_FILES := $(wildcard $(SRC_DIR)/**/**/*.cpp) $(wildcard $(SRC_DIR)/**/*.cpp) $(wildcard $(SRC_DIR)/*.cpp)
@@ -18,7 +18,7 @@ CPP_HEADER_FILES := $(wildcard $(INCLUDE_DIR)/**/**/*.hpp) $(wildcard $(INCLUDE_
 
 debug: 
 	mkdir -p $(BUILD_DIR)
-	cd build; cmake .. -DCMAKE_BUILD_TYPE=Debug; make
+	cd build; cmake .. -DCMAKE_BUILD_TYPE=Debug; make -j32
 
 optimize: 
 	mkdir -p $(BUILD_DIR)

@@ -302,7 +302,6 @@ public:
     }
 
     // Fill values and col_index arrays using row_ptr
-    measure_point(measure::build_csr, measure::MeasurementEvent::START);
 #pragma omp parallel for
     for (int row = 0; row < cells._cells.size(); row++) {
       for (auto [col, indexedVal] : cells._cells[row]) {
@@ -311,7 +310,6 @@ public:
         values[index] = indexedVal.value;
       }
     }
-    measure_point(measure::build_csr, measure::MeasurementEvent::END);
   }
 
   CSRMatrix(const Data &d)
