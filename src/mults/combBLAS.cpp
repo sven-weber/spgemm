@@ -33,11 +33,15 @@ CombBLASMatrixMultiplication::CombBLASMatrixMultiplication(
     int rank, int n_nodes, partition::Partitions partitions, std::string path_A)
     : MatrixMultiplication(rank, n_nodes, partitions), fullWorld(start1DWorld()),
       A1D(loadMatrix(path_A, fullWorld)), B1D(loadMatrix(path_A, fullWorld)),
-      C1D(A1D) {}
+      C1D(Sp2D(fullWorld), combblas::SpParMat1DTYPE::COLWISE) {}
 
 void CombBLASMatrixMultiplication::save_result(std::string path) {
   Sp2D C2DFrom1D(C1D);
   C2DFrom1D.ParallelWriteMM(path, false);
+}
+
+void CombBLASMatrixMultiplication::reset() {
+  C1D = std::move(Sp1D(Sp2D(fullWorld), combblas::SpParMat1DTYPE::COLWISE));
 }
 
 void CombBLASMatrixMultiplication::gemm(

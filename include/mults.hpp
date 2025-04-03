@@ -226,6 +226,7 @@ public:
   void save_result(std::string path) override;
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
+  void reset() override;
 };
 
 typedef combblas::SpDCCols<int32_t, double> Sp3D;
@@ -244,6 +245,7 @@ public:
   void save_result(std::string path) override;
   void gemm(std::vector<size_t> serialized_sizes_B_bytes,
             size_t max_size_B_bytes) override;
+  void reset() override;
 };
 
 } // namespace mults

@@ -54,6 +54,10 @@ void CombBLAS3DMatrixMultiplication::save_result(std::string path) {
   // nothing
 }
 
+void CombBLAS3DMatrixMultiplication::reset() {
+  delete C3D;
+}
+
 void CombBLAS3DMatrixMultiplication::gemm(
     std::vector<size_t> serialized_sizes_B_bytes, size_t max_size_B_bytes) {
   C3D = std::move(multiply(A3D, B3D, fullWorld.first, false, true));
