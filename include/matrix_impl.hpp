@@ -157,38 +157,40 @@ private:
 };
 
 template <typename T>
-std::vector<midx_t> get_row_non_zeros(std::string file_path) {
-  measure_point(measure::read_triplets, measure::MeasurementEvent::START);
-  std::error_code error;
-  mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
-  assert(!error);
-  IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
+class TripletCache {
+  static inline std::optional<triplet_matrix<T>> cache;
+  static inline std::string file_path;
 
-  triplet_matrix<T> tm;
-  fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows, tm.cols,
-                                  tm.vals);
-  measure_point(measure::read_triplets, measure::MeasurementEvent::END);
-
-  measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
-  std::vector<midx_t> nonzeros(tm.nrows);
-  for (midx_t i = 0; i < tm.vals.size(); ++i) {
-    auto _row = tm.rows[i];
-    nonzeros[_row] += 1;
+public:
+  static bool retrieve(std::string path, triplet_matrix<T>& result) {
+    if (cache && file_path == path) {
+      result = *cache;
+      cache.reset();  // Remove after retrieval
+      return true;
+    }
+    return false;
   }
-  measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
 
-  ro_mmap.unmap();
-  return nonzeros;
-}
+  static void store(std::string path, const triplet_matrix<T>& value) {
+    file_path = path;
+    cache = value;
+  }
+
+  static bool empty() {
+    return !cache;
+  }
+};
 
 template <typename T>
-triplet_matrix<T> get_triplets(std::string file_path, bool parallel) {
+triplet_matrix<T> get_triplets(std::string file_path, bool parallel, bool persist = false) {
   std::cout << "READING TRIPLES mode: " << (parallel ? "Mpi" : "Normal") << std::endl;
   int rank;
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
   triplet_matrix<T> tm;
-  if(rank == 0 || !parallel) {
+  if(rank == 0 && TripletCache<T>::retrieve(file_path, tm)) {
+    std::cout << "LOADED CACHED TRIPLES for " << file_path << std::endl;
+  } else if(rank == 0 || !parallel) {
     std::error_code error;
     mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
     assert(!error);
@@ -218,17 +220,40 @@ triplet_matrix<T> get_triplets(std::string file_path, bool parallel) {
     measure_point(measure::triplets_bcast, measure::MeasurementEvent::END);
     std::cout << "FINISHED BROADCAST" << std::endl;
   }
+
+  if(persist) {
+    assert(TripletCache<T>::empty());
+    std::cout << "CACHING TRIPLES for " << file_path << std::endl;
+    TripletCache<T>::store(file_path, tm);
+  }
   return tm;
 }
 
-template <typename T>
-Cells<T> get_cells(std::string file_path, bool transposed,
-                   std::vector<midx_t> *keep_rows,
-                   std::vector<midx_t> *keep_cols,
-                   bool parallel = false) {
-  std::cout << "STARTING TO LOAD MATRIX " << file_path << std::endl;
-  auto keep_rows_map = std::unordered_map<midx_t, midx_t>();
-  if (keep_rows != nullptr)
+  template <typename T>
+  std::vector<midx_t> get_row_non_zeros(std::string file_path) {
+    measure_point(measure::read_triplets, measure::MeasurementEvent::START);
+    triplet_matrix<T> tm = get_triplets<T>(file_path, false, true);
+    measure_point(measure::read_triplets, measure::MeasurementEvent::END);
+  
+    measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
+    std::vector<midx_t> nonzeros(tm.nrows);
+    for (midx_t i = 0; i < tm.vals.size(); ++i) {
+      auto _row = tm.rows[i];
+      nonzeros[_row] += 1;
+    }
+    measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
+  
+    return nonzeros;
+  }
+  
+  template <typename T>
+  Cells<T> get_cells(std::string file_path, bool transposed,
+    std::vector<midx_t> *keep_rows,
+    std::vector<midx_t> *keep_cols,
+    bool parallel = false) {
+      std::cout << "STARTING TO LOAD MATRIX " << file_path << std::endl;
+      auto keep_rows_map = std::unordered_map<midx_t, midx_t>();
+      if (keep_rows != nullptr)
     for (midx_t i = 0; i < keep_rows->size(); ++i) {
       keep_rows_map.insert({(*keep_rows)[i], i});
     }
