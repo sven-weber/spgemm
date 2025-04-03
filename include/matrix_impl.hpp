@@ -13,6 +13,7 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+#include <mpi.h>
 
 namespace matrix {
 namespace fmm = fast_matrix_market;
@@ -181,9 +182,50 @@ std::vector<midx_t> get_row_non_zeros(std::string file_path) {
 }
 
 template <typename T>
+triplet_matrix<T> get_triplets(std::string file_path, bool parallel) {
+  std::cout << "READING TRIPLES mode: " << (parallel ? "Mpi" : "Normal") << std::endl;
+  int rank;
+  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+  triplet_matrix<T> tm;
+  if(rank == 0 || !parallel) {
+    std::error_code error;
+    mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
+    assert(!error);
+    IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
+
+    fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows, tm.cols,
+                                    tm.vals);
+    ro_mmap.unmap();
+    std::cout << "FINISHED LOADING TRIPLETS" << std::endl;
+  }
+
+  if(parallel) {
+    std::cout << "STARTING BROADCAST" << std::endl;
+    measure_point(measure::triplets_bcast, measure::MeasurementEvent::START);
+    int nnz = tm.vals.size();
+    MPI_Bcast(&nnz, sizeof(int), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&tm.nrows, sizeof(midx_t), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&tm.ncols, sizeof(midx_t), MPI_BYTE, 0, MPI_COMM_WORLD);
+    if(rank != 0) {
+      tm.rows.resize(nnz);
+      tm.cols.resize(nnz);
+      tm.vals.resize(nnz);
+    }
+    MPI_Bcast(tm.rows.data(), sizeof(midx_t)*tm.rows.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(tm.cols.data(), sizeof(midx_t)*tm.cols.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(tm.vals.data(), sizeof(T)*tm.vals.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+    measure_point(measure::triplets_bcast, measure::MeasurementEvent::END);
+    std::cout << "FINISHED BROADCAST" << std::endl;
+  }
+  return tm;
+}
+
+template <typename T>
 Cells<T> get_cells(std::string file_path, bool transposed,
                    std::vector<midx_t> *keep_rows,
-                   std::vector<midx_t> *keep_cols) {
+                   std::vector<midx_t> *keep_cols,
+                   bool parallel = false) {
   std::cout << "STARTING TO LOAD MATRIX " << file_path << std::endl;
   auto keep_rows_map = std::unordered_map<midx_t, midx_t>();
   if (keep_rows != nullptr)
@@ -198,22 +240,14 @@ Cells<T> get_cells(std::string file_path, bool transposed,
   bool full = keep_rows == nullptr && keep_cols == nullptr;
 
   measure_point(measure::read_triplets, measure::MeasurementEvent::START);
-  auto fields = utils::read_fields(file_path, transposed, keep_rows, keep_cols);
-
-  std::error_code error;
-  mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
-  assert(!error);
-  IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
-
-  auto cells = full ? Cells<T>(fields.height, fields.width, fields.non_zeros)
-                    : Cells<T>(fields.height, fields.width);
-
-  triplet_matrix<T> tm;
-  fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows, tm.cols,
-                                  tm.vals);
+  triplet_matrix<T> tm = get_triplets<T>(file_path, parallel);
   measure_point(measure::read_triplets, measure::MeasurementEvent::END);
-
+  
   std::cout << "LIBRARY LOAD FINISHED; MATRIX TRANSFORMATION" << std::endl;
+  
+  auto fields = utils::read_fields(file_path, transposed, keep_rows, keep_cols);
+  auto cells = full ? Cells<T>(fields.height, fields.width, fields.non_zeros)
+  : Cells<T>(fields.height, fields.width);
 
   measure_point(measure::triplets_to_map, measure::MeasurementEvent::START);
 
@@ -246,7 +280,6 @@ Cells<T> get_cells(std::string file_path, bool transposed,
   }
   measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
 
-  ro_mmap.unmap();
   return cells;
 }
 
@@ -396,8 +429,9 @@ private:
 public:
   ManagedCSRMatrix(std::string file_path, bool tr = false,
                    std::vector<midx_t> *keep_rows = nullptr,
-                   std::vector<midx_t> *keep_cols = nullptr)
-      : ManagedCSRMatrix<T>(get_cells<T>(file_path, tr, keep_rows, keep_cols),
+                   std::vector<midx_t> *keep_cols = nullptr,
+                  bool parallel = false)
+      : ManagedCSRMatrix<T>(get_cells<T>(file_path, tr, keep_rows, keep_cols, parallel),
                             tr) {}
 
   ManagedCSRMatrix(const Cells<T> &cells, bool tr = false)
@@ -566,7 +600,7 @@ private:
   static std::pair<std::vector<Cells<T>>, size_t>
   get_cells_sections(std::string file_path, bool transposed,
                      const std::vector<std::vector<midx_t>> &keep_rows_sections,
-                     std::vector<midx_t> *keep_cols) {
+                     std::vector<midx_t> *keep_cols, bool parallel = false) {
     auto keep_rows_map =
         std::unordered_map<midx_t, std::tuple<midx_t, size_t>>();
     for (size_t s = 0; s < N_SECTIONS; ++s) {
@@ -583,17 +617,10 @@ private:
       }
 
     measure_point(measure::read_triplets, measure::MeasurementEvent::START);
-    auto fields = utils::read_fields(file_path, transposed, nullptr, keep_cols);
-    std::error_code error;
-    mio::mmap_sink ro_mmap = mio::make_mmap_sink(file_path, error);
-    assert(!error);
-    IteratorInputStream stream(ro_mmap.begin(), ro_mmap.end());
-
-    triplet_matrix<T> tm;
-    fmm::read_matrix_market_triplet(stream, tm.nrows, tm.ncols, tm.rows,
-                                    tm.cols, tm.vals);
+    triplet_matrix<T> tm = get_triplets<T>(file_path, parallel);
     measure_point(measure::read_triplets, measure::MeasurementEvent::END);
-
+    
+    auto fields = utils::read_fields(file_path, transposed, nullptr, keep_cols);
     std::vector<Cells<T>> cells_sections;
     for (size_t s = 0; s < N_SECTIONS; ++s) {
       auto cells = Cells<T>(keep_rows_sections[s].size(), fields.width);
@@ -632,8 +659,6 @@ private:
     }
     measure_point(measure::triplets_to_map, measure::MeasurementEvent::END);
 
-    ro_mmap.unmap();
-
     size_t exp_size = 0;
     for (size_t s = 0; s < N_SECTIONS; ++s) {
       exp_size += cells_sections[s].expected_data_size();
@@ -643,7 +668,8 @@ private:
 
   static std::tuple<Data, std::vector<Cells<T>>, Fields>
   alloc_for_cells(std::string file_path,
-                  std::vector<midx_t> *keep_cols = nullptr) {
+                  std::vector<midx_t> *keep_cols = nullptr,
+                  bool parallel = false) {
     auto fields = utils::read_fields(file_path, false, nullptr, keep_cols);
 
     static_assert(N_SECTIONS > 1);
@@ -662,7 +688,7 @@ private:
     }
 
     auto [cells, sz] =
-        get_cells_sections(file_path, false, keep_rows_sections, keep_cols);
+        get_cells_sections(file_path, false, keep_rows_sections, keep_cols, parallel);
     sz += BlockedCSRMatrix<T>::initial_data_size();
 
     auto vec = new std::byte[sz];
@@ -672,8 +698,9 @@ private:
 
 public:
   ManagedBlockedCSRMatrix(std::string file_path,
-                          std::vector<midx_t> *keep_cols = nullptr)
-      : BlockedCSRMatrix<T>(alloc_for_cells(file_path, keep_cols)) {}
+                          std::vector<midx_t> *keep_cols = nullptr,
+                          bool parallel = false)
+      : BlockedCSRMatrix<T>(alloc_for_cells(file_path, keep_cols, parallel)) {}
 
   /*~ManagedBlockedCSRMatrix() { delete[] BlockedCSRMatrix<T>::data; }*/
 };

@@ -15,7 +15,7 @@ DropParallel::DropParallel(int rank, int n_nodes,
                            std::vector<midx_t> *keep_rows, std::string path_B,
                            std::vector<midx_t> *keep_cols)
     : MatrixMultiplication(rank, n_nodes, partitions),
-      part_A(path_A, false, keep_rows), first_part_B(path_B, keep_cols),
+      part_A(path_A, false, keep_rows, nullptr, true), first_part_B(path_B, keep_cols, true),
       cells(part_A.height, partitions[n_nodes - 1].end_col),
       bitmap(bitmap::compute_bitmap(part_A)) {}
 

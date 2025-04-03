@@ -26,6 +26,7 @@ static const std::string filter_copy = "filter_copy";
 static const std::string deserialize = "deserialize";
 static const std::string wait_all = "wait_all";
 static const std::string read_triplets = "read_triplets";
+static const std::string triplets_bcast = "triplets_bcast";
 static const std::string triplets_to_map = "triplets_to_map";
 static const std::string build_csr = "build_csr";
 
