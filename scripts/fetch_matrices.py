@@ -55,6 +55,14 @@ matrices = {
     "daint_only": False,
     "compute_expected": True
   },
+  # symmetric test
+  "boneS01": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Oberwolfach/boneS01.tar.gz",
+    "extract_files": ["boneS01.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("boneS01.mtx"),
+    "daint_only": False,
+    "compute_expected": True
+  },
   # 50 million non-zeros - ~700 MB uncompressed
   "af_shell10": {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Schenk_AFE/af_shell10.tar.gz",
@@ -114,20 +122,6 @@ def copy_one_matrix_to_A_and_B(source_name):
     raise e
 
 def fix_file(target):
-  # Check and correct the file header
-  target_format = "%%MatrixMarket matrix coordinate real general"
-  try:
-    with open(target, 'r+') as file:
-      first_line = file.readline()
-      assert first_line.strip() in formats_that_support_conversion, f"Downloaded matrix has unsupported format {first_line}"
-      # Replace first line
-      file.seek(0)
-      file.write(target_format)
-      file.write(' ' * (len(first_line) - len(target_format) - 1))
-      file.write("\n")
-  except Exception as e:
-    print(f"Error loading {target}: {e}")
-
   # Read & Write the file to ensure
   # it does not have zero values... (some do for some STUPID reason)
   matrix = mmread(target)

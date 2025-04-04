@@ -6,6 +6,9 @@ import shutil
 
 supported_formats = [
   "%%MatrixMarket matrix coordinate real general",
+  "%%MatrixMarket matrix coordinate real symmetric",
+  "%%MatrixMarket matrix coordinate integer symmetric",
+  "%%MatrixMarket matrix coordinate integer general"
 ]
 
 def load_matrix(filename):
