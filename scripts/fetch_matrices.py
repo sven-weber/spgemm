@@ -61,7 +61,7 @@ matrices = {
     "extract_files": ["boneS01.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("boneS01.mtx"),
     "daint_only": False,
-    "compute_expected": True
+    "compute_expected": False
   },
   # 50 million non-zeros - ~700 MB uncompressed
   "af_shell10": {
@@ -69,7 +69,7 @@ matrices = {
     "extract_files": ["af_shell10.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("af_shell10.mtx"),
     "daint_only": True,
-    "compute_expected": True
+    "compute_expected": False
   },
   # 440 million non-zeros
   "nlpkkt200": {
@@ -92,14 +92,35 @@ matrices = {
     "extract_files": ["vas_stokes_1M.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("vas_stokes_1M.mtx"),
     "daint_only": True,
-    "compute_expected": True
+    "compute_expected": False
   },
   "dielFilterV2real": {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Dziekonski/dielFilterV2real.tar.gz",
     "extract_files": ["dielFilterV2real.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("dielFilterV2real.mtx"),
     "daint_only": True,
-    "compute_expected": True
+    "compute_expected": False
+  },
+  "HV15R": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Fluorem/HV15R.tar.gz",
+    "extract_files": ["HV15R.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("HV15R.mtx"),
+    "daint_only": True,
+    "compute_expected": False
+  },
+  "GAP-twitter": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/GAP/GAP-twitter.tar.gz",
+    "extract_files": ["GAP-twitter.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("GAP-twitter.mtx"),
+    "daint_only": True,
+    "compute_expected": False
+  },
+  "stokes": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/stokes.tar.gz",
+    "extract_files": ["stokes.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stokes.mtx"),
+    "daint_only": True,
+    "compute_expected": False
   },
 }
 
