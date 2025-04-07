@@ -177,6 +177,8 @@ def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_
     global LAST_JOB
     # Calculate the distribution
     total_number_cores = n_machines * cpus_per_machine
+    if impl == "comb3d":
+        mpi_processes = mpi_processes*8
     assert(total_number_cores % mpi_processes == 0)
     processes_per_mpi = int(total_number_cores / mpi_processes)
     print(f"Running with {mpi_processes} mpi processes with {processes_per_mpi} cores each, on {n_machines} machines using a total of {total_number_cores} cores.")
