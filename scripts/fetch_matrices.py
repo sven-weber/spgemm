@@ -24,28 +24,28 @@ matrices = {
     "extract_files": ["cont-300.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cont-300.mtx"),
     "daint_only": False,
-    "compute_expected": True
+    "compute_expected": False
   },
   "cell1" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Lucifora/cell1.tar.gz",
     "extract_files": ["cell1.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("cell1.mtx"),
     "daint_only": False,
-    "compute_expected": True
+    "compute_expected": False
   },
   "jan99jac060sc" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Hollinger/jan99jac060sc.tar.gz",
     "extract_files": ["jan99jac060sc.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("jan99jac060sc.mtx"),
     "daint_only": False,
-    "compute_expected": True
+    "compute_expected": False
   },
   "viscoplastic2" : {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Quaglino/viscoplastic2.tar.gz",
     "extract_files": ["viscoplastic2.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("viscoplastic2.mtx"),
     "daint_only": False,
-    "compute_expected": True
+    "compute_expected": False
   },
   # 5 million non-zeros - 160 MB uncompressed
   "largebasis": {
@@ -53,7 +53,7 @@ matrices = {
     "extract_files": ["largebasis.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("largebasis.mtx"),
     "daint_only": False,
-    "compute_expected": True
+    "compute_expected": False
   },
   # symmetric test
   "boneS01": {
@@ -61,7 +61,7 @@ matrices = {
     "extract_files": ["boneS01.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("boneS01.mtx"),
     "daint_only": False,
-    "compute_expected": True
+    "compute_expected": False
   },
   # 50 million non-zeros - ~700 MB uncompressed
   "af_shell10": {
@@ -69,7 +69,7 @@ matrices = {
     "extract_files": ["af_shell10.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("af_shell10.mtx"),
     "daint_only": True,
-    "compute_expected": True
+    "compute_expected": False
   },
   # 440 million non-zeros
   "nlpkkt200": {
@@ -92,14 +92,14 @@ matrices = {
     "extract_files": ["vas_stokes_1M.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("vas_stokes_1M.mtx"),
     "daint_only": True,
-    "compute_expected": True
+    "compute_expected": False
   },
   "dielFilterV2real": {
     "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Dziekonski/dielFilterV2real.tar.gz",
     "extract_files": ["dielFilterV2real.mtx"],
     "post_extract_func": lambda: copy_one_matrix_to_A_and_B("dielFilterV2real.mtx"),
     "daint_only": True,
-    "compute_expected": True
+    "compute_expected": False
   },
 }
 
@@ -138,25 +138,25 @@ def exec_subprocess(CMD, euler, daint):
     print("Submitting job to euler via SLURM")
     # Submit this as a slurm job!
     cmd = ["sbatch", "--wait", "-n", "2", "--wrap", " ".join(CMD)]
-  elif daint:
-    print("Submitting job to daint via SLURM")
-    cmd = [
-      "sbatch",
-      "--wait",
-      # Running on broadwell cluster with
+  #elif daint:
+  #  print("Submitting job to daint via SLURM")
+  #  cmd = [
+  #    "sbatch",
+  #    "--wait",
+  #    # Running on broadwell cluster with
       # 2 sockets - 18 cores each per machine 
-      "--constraint=mc", 
-      "-n", "36", # 1 whole machine with two sockets
-      "--mem=0", # All memory on the node!
-      "-N", "1", # 1 node
-      "-A", "g34", # The project we use
-      "--wrap",
-      " ".join(CMD)
-    ]
+  #    "--constraint=mc", 
+  #    "-n", "36", # 1 whole machine with two sockets
+  #    "--mem=0", # All memory on the node!
+  #    "-N", "1", # 1 node
+  #    "-A", "g34", # The project we use
+  #    "--wrap",
+  #    " ".join(CMD)
+  #  ]
     # Set the OpenMP env to enable parallelization
-    env.update({
-      "OMP_NUM_THREADS": "36"
-    })
+  #  env.update({
+  #    "OMP_NUM_THREADS": "36"
+  #  })
   else:
     cmd = CMD
 

@@ -18,8 +18,8 @@ N_WARMUP                = 5
 N_RUNS                  = 50
 MAXIMUM_MEMORY          = 128
 FILE_NAME               = "measurements"
-SHUFFLING               = "iterative"
-PARTITIONING            = "naive"
+SHUFFLING               = "none"
+PARTITIONING            = "balanced"
 DataFrames              = Dict[int, pd.DataFrame]
 COLOR_MAP               = {
     "comb": "orange", 
@@ -35,7 +35,7 @@ SBATCH_TIME_LIMIT_MIN   = 45
 # Which algorithms should be run using OpenMP Threads
 # in addition to MPI
 OMP_ALGOS               = [
-    "comb", "drop_at_once_parallel", "drop_parallel"
+    "comb1d", "comb3d", "drop_parallel"
 ]
 
 # Allows us to easily remove data from a graph
@@ -46,10 +46,10 @@ ALGOS_TO_SKIP_WHILE_PLOTTING = [
 LAST_JOB = None
 
 MPI_OPEN_MP_CONFIG = [
-    # {
-    #     "nodes": 16,
-    #     "mpi": 16
-    # },
+     {
+         "nodes": 4,
+         "mpi": 16
+     },
     # {
     #     "nodes": 36,
     #     "mpi": 36
@@ -66,10 +66,10 @@ MPI_OPEN_MP_CONFIG = [
     #     "nodes": 144,
     #     "mpi": 144
     # },
-    {
-        "nodes": 196,
-        "mpi": 196
-    },
+    #{
+    #    "nodes": 196,
+    #    "mpi": 196
+    #},
     # {
     #     "nodes": 32,
     #     "mpi": 32
@@ -133,7 +133,7 @@ def run_mpi(impl: str, matrix: str, nodes: int, euler: bool = False, daint: bool
         ]
     elif daint:
         # Running on broadwell cluster with 2 sockets - 18 cores each per machine
-        cpus_per_machine = 36
+        cpus_per_machine = 64
         total_number_cores = nodes * cpus_per_machine
         print(f"Running on {nodes} machines with a total of {total_number_cores} cores")
         
@@ -211,7 +211,7 @@ def create_runs_dir(nodes, mpi) -> str:
 def run_mpi_with_open_mp_on_daint(impl: str, matrix: str, mpi_processes: int, n_machines: int,  persist: bool = True, parallel_load: bool = True) -> str:
     global LAST_JOB
     # Calculate the distribution
-    cpus_per_machine = 36
+    cpus_per_machine = 64
     total_number_cores = n_machines * cpus_per_machine
     assert(total_number_cores % mpi_processes == 0)
     processes_per_mpi = int(total_number_cores / mpi_processes)
