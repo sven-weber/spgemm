@@ -18,8 +18,8 @@ N_WARMUP                = 5
 N_RUNS                  = 50
 MAXIMUM_MEMORY          = 128
 FILE_NAME               = "measurements"
-SHUFFLING               = "iterative"
-PARTITIONING            = "naive"
+SHUFFLING               = "none"
+PARTITIONING            = "balanced"
 DataFrames              = Dict[int, pd.DataFrame]
 COLOR_MAP               = {
     "comb": "orange", 
@@ -35,7 +35,7 @@ SBATCH_TIME_LIMIT_MIN   = 45
 # Which algorithms should be run using OpenMP Threads
 # in addition to MPI
 OMP_ALGOS               = [
-    "comb", "drop_at_once_parallel", "drop_parallel"
+    "comb1d", "comb2d", "comb3d", "drop_at_once_parallel", "drop_parallel"
 ]
 
 # Allows us to easily remove data from a graph
@@ -46,10 +46,10 @@ ALGOS_TO_SKIP_WHILE_PLOTTING = [
 LAST_JOB = None
 
 MPI_OPEN_MP_CONFIG = [
-    # {
-    #     "nodes": 16,
-    #     "mpi": 16
-    # },
+     {
+         "nodes": 16,
+         "mpi": 16
+     },
     # {
     #     "nodes": 36,
     #     "mpi": 36
@@ -66,10 +66,10 @@ MPI_OPEN_MP_CONFIG = [
     #     "nodes": 144,
     #     "mpi": 144
     # },
-    {
-        "nodes": 196,
-        "mpi": 196
-    },
+    #{
+    #    "nodes": 196,
+    #    "mpi": 196
+    #},
     # {
     #     "nodes": 32,
     #     "mpi": 32
@@ -93,10 +93,10 @@ MPI_OPEN_MP_CONFIG = [
 ]
 
 def should_skip_run(impl: str, matrix: str, nodes: int) -> bool:
-    if impl == "comb" and matrix == "viscoplastic2" and nodes == 9:
+    if impl == "comb1d" and matrix == "viscoplastic2" and nodes == 9:
         # Segfaults for unknown reason
         return True
-    if impl == "comb" and nodes == 1:
+    if impl == "comb1d" and nodes == 1:
         # Does not work on one node!
         return True
     

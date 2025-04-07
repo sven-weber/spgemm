@@ -14,6 +14,7 @@
 #include <unordered_map>
 #include <vector>
 #include <mpi.h>
+#include <optional>
 
 namespace matrix {
 namespace fmm = fast_matrix_market;
