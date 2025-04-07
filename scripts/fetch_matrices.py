@@ -101,6 +101,27 @@ matrices = {
     "daint_only": True,
     "compute_expected": False
   },
+  "HV15R": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/Fluorem/HV15R.tar.gz",
+    "extract_files": ["HV15R.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("HV15R.mtx"),
+    "daint_only": True,
+    "compute_expected": False
+  },
+  "GAP-twitter": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/GAP/GAP-twitter.tar.gz",
+    "extract_files": ["GAP-twitter.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("GAP-twitter.mtx"),
+    "daint_only": True,
+    "compute_expected": False
+  },
+  "stokes": {
+    "target-url": "https://suitesparse-collection-website.herokuapp.com/MM/VLSI/stokes.tar.gz",
+    "extract_files": ["stokes.mtx"],
+    "post_extract_func": lambda: copy_one_matrix_to_A_and_B("stokes.mtx"),
+    "daint_only": True,
+    "compute_expected": False
+  },
 }
 
 TARGET_PATH = ""

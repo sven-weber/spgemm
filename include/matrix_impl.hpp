@@ -206,8 +206,8 @@ triplet_matrix<T> get_triplets(std::string file_path, bool parallel, bool persis
   if(parallel) {
     std::cout << "STARTING BROADCAST" << std::endl;
     measure_point(measure::triplets_bcast, measure::MeasurementEvent::START);
-    int nnz = tm.vals.size();
-    MPI_Bcast(&nnz, sizeof(int), MPI_BYTE, 0, MPI_COMM_WORLD);
+    midx_t nnz = tm.vals.size();
+    MPI_Bcast(&nnz, sizeof(midx_t), MPI_BYTE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&tm.nrows, sizeof(midx_t), MPI_BYTE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&tm.ncols, sizeof(midx_t), MPI_BYTE, 0, MPI_COMM_WORLD);
     if(rank != 0) {
@@ -215,9 +215,14 @@ triplet_matrix<T> get_triplets(std::string file_path, bool parallel, bool persis
       tm.cols.resize(nnz);
       tm.vals.resize(nnz);
     }
-    MPI_Bcast(tm.rows.data(), sizeof(midx_t)*tm.rows.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(tm.cols.data(), sizeof(midx_t)*tm.cols.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(tm.vals.data(), sizeof(T)*tm.vals.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+    // MPI_Bcast(tm.rows.data(), sizeof(midx_t)*tm.rows.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+    // MPI_Bcast(tm.cols.data(), sizeof(midx_t)*tm.cols.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+    // MPI_Bcast(tm.vals.data(), sizeof(T)*tm.vals.size(), MPI_BYTE, 0, MPI_COMM_WORLD);
+    assert(sizeof(midx_t) == 4);
+    assert(sizeof(T) == 8);
+    MPI_Bcast(tm.rows.data(), tm.rows.size(), MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+    MPI_Bcast(tm.cols.data(), tm.cols.size(), MPI_UNSIGNED, 0, MPI_COMM_WORLD);
+    MPI_Bcast(tm.vals.data(), tm.vals.size(), MPI_DOUBLE, 0, MPI_COMM_WORLD);
     measure_point(measure::triplets_bcast, measure::MeasurementEvent::END);
     std::cout << "FINISHED BROADCAST" << std::endl;
   }
