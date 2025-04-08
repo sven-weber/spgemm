@@ -19,7 +19,7 @@ for impl in ${impls}
 do
 	for mtx in ${matrices}
 	do
-    		mkdir {{ runs_dir }}/{{ n_machines }}_{{ mpi_processes }}_{{ impl }}_{{ matrix }}
-		srun {{ cmd }} ${impl} ${mtx} {{ runs_dir }}/{{ impl }}_{{ matrix }} {{ n_runs }} {{ n_warmup }} {{ shuffling }} {{ partitioning }} {{ parallel_load_str }} {{ persist_str }} {{ matrix_path }}
+    		mkdir {{ runs_dir }}/{{ n_machines }}_{{ mpi_processes }}_${impl}_${mtx}
+		srun {{ cmd }} ${impl} ${mtx} {{ runs_dir }}/{{ n_machines }}_{{ mpi_processes}}_${impl}_${mtx} {{ n_runs }} {{ n_warmup }} {{ shuffling }} {{ partitioning }} {{ parallel_load_str }} {{ persist_str }} {{ matrix_path }}
 	done
 done

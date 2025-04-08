@@ -3,13 +3,15 @@ import pathlib
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
 
-CMD = "./build/dphpc"
-RUNS_DIR = "runs"
 N_WARMUP = 5
 N_RUNS = 50
 SHUFFLING = "none"
 PARTITIONING = "balanced"
 SCRATCH = os.getenv("SCRATCH")
+CMD = "/build/dphpc"
+CMD = os.path.join(SCRATCH, "spgemm/build/dphpc")
+RUNS_DIR = "runs"
+RUNS_DIR = os.path.join(SCRATCH, "spgemm/runs")
 
 cpus_per_machine = 64
 threads_per_mpi = 16
