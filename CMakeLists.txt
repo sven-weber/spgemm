@@ -73,7 +73,7 @@ file(GLOB HEADERS LIST_DIRECTORIES true ${INCLUDE_DIR})
 add_executable(dphpc ${SOURCES})
 target_include_directories(dphpc PRIVATE ${HEADERS})
 
-target_include_directories(dphpc PRIVATE
+target_include_directories(dphpc PRIVATE AFTER
   ${CombBLAS_SOURCE_DIR}/3DSpGEMM
 )
 

@@ -22,7 +22,6 @@ MPI_OPEN_MP_CONFIG = [
 
 def render_batch_script(impls, matrices, mpi, nodes, last_job=None):
     if "comb3d" in impls:
-        assert(len(impls) == 1)
         mpi = mpi*8
 
     processes_per_mpi = (nodes * cpus_per_machine) // mpi
@@ -32,7 +31,7 @@ def render_batch_script(impls, matrices, mpi, nodes, last_job=None):
     matrix_path = os.path.join(SCRATCH, "matrices")
 
     env = Environment(loader=FileSystemLoader("."))
-    template = env.get_template("./scripts/job_template.sh.j2")
+    template = env.get_template("./scripts/job_template2.sh.j2")
     script = template.render(
         cmd=CMD,
         impls=impls,
@@ -53,7 +52,8 @@ def render_batch_script(impls, matrices, mpi, nodes, last_job=None):
         last_job=last_job
     )
 
-    job_path = f"jobs/job_{nodes}_{mpi}{"_comb3d" if "comb3d" in impls else ""}.sh"
+    #job_path = f"jobs/job_{nodes}_{mpi}{"_comb3d" if "comb3d" in impls else ""}.sh"
+    job_path = f"jobs/job_{nodes}_{mpi}{'_comb3d' if 'comb3d' in impls else ''}.sh"
     pathlib.Path("jobs").mkdir(parents=True, exist_ok=True)
     with open(job_path, "w") as f:
         f.write(script)
@@ -62,12 +62,14 @@ def render_batch_script(impls, matrices, mpi, nodes, last_job=None):
 
 def main():
     matrices = ["dielFilterV2real", "stokes", "HV15R", "nlpkkt200", "nlpkkt240", "GAP-twitter"]
+    matrices = '"dielFilterV2real stokes HV15R nlpkkt200 nlpkkt240 GAP-twitter"'
 
     impls = ["comb1d", "comb2d", "drop_parallel"]
+    impls = '"comb1d comb2d drop_parallel"'
     for config in MPI_OPEN_MP_CONFIG:
         render_batch_script(impls, matrices, config["mpi"], config["nodes"])
     
-    impls = ["comb3d"]
+    impls = "comb3d"
     for config in MPI_OPEN_MP_CONFIG:
         render_batch_script(impls, matrices, config["mpi"], config["nodes"])
 

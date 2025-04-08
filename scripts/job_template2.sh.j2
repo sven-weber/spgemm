@@ -1,0 +1,25 @@
+#!/bin/bash
+#SBATCH --time=03:00:00
+#SBATCH --constraint=mc
+#SBATCH --output={{ log_out }}
+#SBATCH --switches={{ switches }}
+#SBATCH -N {{ n_machines }}
+#SBATCH -n {{ mpi_processes }}
+#SBATCH --cpus-per-task={{ processes_per_mpi }}
+#SBATCH -A g34
+{% if last_job %}
+#SBATCH --dependency=afterany:{{ last_job }}
+{% endif %}
+
+impls={{ impls }}
+matrices={{ matrices }}
+
+export OMP_NUM_THREADS={{ processes_per_mpi }}
+for impl in ${impls}
+do
+	for mtx in ${matrices}
+	do
+    		mkdir {{ runs_dir }}/{{ n_machines }}_{{ mpi_processes }}_{{ impl }}_{{ matrix }}
+		srun {{ cmd }} ${impl} ${mtx} {{ runs_dir }}/{{ impl }}_{{ matrix }} {{ n_runs }} {{ n_warmup }} {{ shuffling }} {{ partitioning }} {{ parallel_load_str }} {{ persist_str }} {{ matrix_path }}
+	done
+done
