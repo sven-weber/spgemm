@@ -233,7 +233,7 @@ int main(int argc, char **argv) {
   } else if (algo_name == "comb3d") {
     C_path = C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLAS3DMatrixMultiplication(rank, n_nodes, partitions,
-                                                   A_path, 8);
+                                                   A_path, 4);
   } else {
     std::cerr << "Unknown algorithm type " << algo_name << "\n";
     exit(1);

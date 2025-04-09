@@ -19,17 +19,18 @@ MPI_OPEN_MP_CONFIG = [
     {"nodes": (16 * threads_per_mpi) // cpus_per_machine, "mpi": 16},
     {"nodes": (64 * threads_per_mpi) // cpus_per_machine, "mpi": 64},
     {"nodes": (256 * threads_per_mpi) // cpus_per_machine, "mpi": 256},
-    {"nodes": (512 * threads_per_mpi) // cpus_per_machine, "mpi": 512},
+    #{"nodes": (512 * threads_per_mpi) // cpus_per_machine, "mpi": 512},
 ]
 
 def render_batch_script(impls, matrices, mpi, nodes, last_job=None):
     if "comb3d" in impls:
-        mpi = mpi*8
+        mpi = mpi
 
     processes_per_mpi = (nodes * cpus_per_machine) // mpi
     n_switches = 1 if nodes <= 256 else 2
     date = datetime.now().strftime("%Y-%m-%d-%H%M%S")
-    log_out = f"{RUNS_DIR}/slurm_{date}.out"
+    log_out = f"{RUNS_DIR}/slurm_%x_%j.out"
+    err_out = f"{RUNS_DIR}/slurm_%x_%j.err"
     matrix_path = os.path.join(SCRATCH, "matrices")
 
     env = Environment(loader=FileSystemLoader("."))
@@ -51,6 +52,7 @@ def render_batch_script(impls, matrices, mpi, nodes, last_job=None):
         runs_dir=RUNS_DIR,
         switches=n_switches,
         log_out=log_out,
+        err_out=err_out,
         last_job=last_job
     )
 
@@ -68,12 +70,13 @@ def main():
 
     impls = ["comb1d", "comb2d", "drop_parallel"]
     impls = '"comb1d comb2d drop_parallel"'
+    impls = '"drop_parallel comb1d comb2d comb3d"'
     for config in MPI_OPEN_MP_CONFIG:
         render_batch_script(impls, matrices, config["mpi"], config["nodes"])
     
-    impls = "comb3d"
-    for config in MPI_OPEN_MP_CONFIG:
-        render_batch_script(impls, matrices, config["mpi"], config["nodes"])
+    #impls = "comb3d"
+    #for config in MPI_OPEN_MP_CONFIG:
+    #    render_batch_script(impls, matrices, config["mpi"], config["nodes"])
 
 if __name__ == "__main__":
     main()
