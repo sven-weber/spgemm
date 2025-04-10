@@ -3,8 +3,8 @@ import pathlib
 from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
 
-N_WARMUP = 5
-N_RUNS = 50
+N_WARMUP = 2
+N_RUNS = 10
 SHUFFLING = "none"
 PARTITIONING = "balanced"
 SCRATCH = os.getenv("SCRATCH")
@@ -57,7 +57,7 @@ def render_batch_script(impls, matrices, mpi, nodes, last_job=None):
     )
 
     #job_path = f"jobs/job_{nodes}_{mpi}{"_comb3d" if "comb3d" in impls else ""}.sh"
-    job_path = f"jobs/job_{nodes}_{mpi}{'_comb3d' if 'comb3d' in impls else ''}.sh"
+    job_path = f"jobs/job_{nodes}_{mpi}{'' if 'comb3d' in impls else ''}.sh"
     pathlib.Path("jobs").mkdir(parents=True, exist_ok=True)
     with open(job_path, "w") as f:
         f.write(script)
