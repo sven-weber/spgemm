@@ -63,11 +63,11 @@ partition::Partitions balanced_partition(std::string path_A, midx_t width_B,
                                          int mpi_size) {
   partition::Partitions p(mpi_size);
 
-  matrix::Fields fields = matrix::utils::read_fields(path_A, false, nullptr, nullptr);
+  matrix::Fields fields =
+      matrix::utils::read_fields(path_A, false, nullptr, nullptr);
   midx_t non_zeros_per_partition = fields.non_zeros / mpi_size;
 
   std::vector<midx_t> non_zeros = matrix::get_row_non_zeros<double>(path_A);
-
 
   int non_zero_count = 0;
   int node = 0;
@@ -102,6 +102,52 @@ partition::Partitions balanced_partition(std::string path_A, midx_t width_B,
     int tmp_cols = cols_per_partition + (i < n_extra_col);
     p[i].end_col = curr_col + tmp_cols;
     curr_col += tmp_cols;
+  }
+
+  return p;
+}
+
+partition::Partitions balanced_partition_square(std::string path_A,
+                                                midx_t width_B, int mpi_size) {
+  partition::Partitions p(mpi_size);
+
+  matrix::Fields fields =
+      matrix::utils::read_fields(path_A, false, nullptr, nullptr);
+  midx_t non_zeros_per_partition = fields.non_zeros / mpi_size;
+
+  std::vector<midx_t> non_zeros = matrix::get_row_non_zeros<double>(path_A);
+
+  int non_zero_count = 0;
+  int node = 0;
+  p[node].start_row = 0;
+  measure_point(measure::partition, measure::MeasurementEvent::START);
+  for (size_t row = 0; row < fields.height; row++) {
+    non_zero_count += non_zeros[row];
+
+    if (non_zero_count > non_zeros_per_partition) {
+      std::cout << "Rows: " << row - p[node].start_row
+                << " - Non Zero: " << non_zero_count << std::endl;
+      non_zero_count = 0;
+      p[node].end_row = row;
+      p[node + 1].start_row = row;
+      node++;
+
+      if (node == mpi_size)
+        break;
+    }
+  }
+  std::cout << "Rows: " << fields.height - p[node].start_row
+            << " - Non Zero: " << non_zero_count << std::endl;
+  p[node].end_row = fields.height;
+  measure_point(measure::partition, measure::MeasurementEvent::END);
+
+  int cols_per_partition = width_B / mpi_size;
+  int n_extra_col = width_B % mpi_size;
+  int curr_col = 0;
+
+  for (int i = 0; i < mpi_size; i++) {
+    p[i].start_col = p[i].start_row;
+    p[i].end_col = p[i].end_row;
   }
 
   return p;

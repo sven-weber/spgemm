@@ -148,9 +148,14 @@ int main(int argc, char **argv) {
               << std::endl;
     measure_point(measure::partition, measure::MeasurementEvent::START);
     if (partitioning_algo == "balanced") {
-      partitions = parts::baseline::balanced_partition(A_path, B_fields.width, n_nodes);
+      partitions =
+          parts::baseline::balanced_partition(A_path, B_fields.width, n_nodes);
+    } else if (partitioning_algo == "balanced_square") {
+      partitions = parts::baseline::balanced_partition_square(
+          A_path, B_fields.width, n_nodes);
     } else if (partitioning_algo == "naive") {
-      partitions = parts::baseline::partition(A_fields.height, B_fields.width, n_nodes);
+      partitions =
+          parts::baseline::partition(A_fields.height, B_fields.width, n_nodes);
     } else {
       std::cerr << "Unknown partitioning algorithm type " << partitioning_algo
                 << "\n";
@@ -229,11 +234,11 @@ int main(int argc, char **argv) {
   } else if (algo_name == "comb2d") {
     C_path = C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLAS3DMatrixMultiplication(rank, n_nodes, partitions,
-                                                   A_path, 1);
+                                                     A_path, 1);
   } else if (algo_name == "comb3d") {
     C_path = C_path = utils::format("{}/C.mtx", run_path);
     mult = new mults::CombBLAS3DMatrixMultiplication(rank, n_nodes, partitions,
-                                                   A_path, 4);
+                                                     A_path, 4);
   } else {
     std::cerr << "Unknown algorithm type " << algo_name << "\n";
     exit(1);
