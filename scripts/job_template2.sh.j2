@@ -4,13 +4,14 @@
 #SBATCH --constraint=mc
 #SBATCH -o {{ log_out }}
 #SBATCH -e {{ err_out }}
-#SBATCH --switches={{ switches }}
 #SBATCH -N {{ n_machines }}
 #SBATCH -n {{ mpi_processes }}
+#SBATCH --ntasks-per-node={{ mpi_per_node }}
 #SBATCH --cpus-per-task={{ processes_per_mpi }}
-#SBATCH --mem=0
 #SBATCH -A g34
-#SBATCH --hint=nomultithread
+#SBATCH --sockets-per-node=2
+#SBATCH --cores-per-socket=64
+#SBATCH --threads-per-core=2
 
 {% if last_job %}
 #SBATCH --dependency=afterany:{{ last_job }}
@@ -53,8 +54,9 @@ do
 	for mtx in ${matrices}
 	do
 		echo start ${impl} with matrix ${mtx} on {{ mpi_processes }} at $(date)
-    		mkdir {{ runs_dir }}/{{ n_machines }}_{{ mpi_processes }}_${impl}_${mtx}
-		srun {{ cmd }} ${impl} ${mtx} {{ runs_dir }}/{{ n_machines }}_{{ mpi_processes }}_${impl}_${mtx} {{ n_runs }} {{ n_warmup }} {{ shuffling }} {{ partitioning }} {{ parallel_load_str }} {{ persist_str }} {{ matrix_path }}
+		RDIR={{ runs_dir }}/N_SEC_{{ nsec }}/{{ n_machines }}_{{ mpi_processes }}_${impl}_${mtx}
+    		mkdir -p $RDIR 
+		srun --cpus-per-task=${SLURM_CPUS_PER_TASK} --cpu-bind=verbose {{ cmd }} ${impl} ${mtx} ${RDIR} {{ n_runs }} {{ n_warmup }} {{ shuffling }} {{ partitioning }} {{ parallel_load_str }} {{ persist_str }} {{ matrix_path }}
 		echo finished ${impl} with matrix ${mtx} on {{ mpi_processes }} at $(date)
 	done
 done
