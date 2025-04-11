@@ -10,14 +10,44 @@
 #SBATCH --cpus-per-task={{ processes_per_mpi }}
 #SBATCH --mem=0
 #SBATCH -A g34
+#SBATCH --hint=nomultithread
+
 {% if last_job %}
 #SBATCH --dependency=afterany:{{ last_job }}
 {% endif %}
 
+export FI_CXI_RX_MATCH_MODE=hybrid
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+export OMP_STACKSIZE=8M
+export SRUN_CPUS_PER_TASK=${SLURM_CPUS_PER_TASK}
+
+
+CPU_LIST=$(cat /proc/self/status | grep Cpus_allowed_list | cut -f2)
+echo "CPUs bound by Slurm: $CPU_LIST"
+
+OMP_PLACES_LIST=""
+for item in $(echo $CPU_LIST | tr ',' ' '); do
+	if [[ $item == *-* ]]; then
+		start=${item%-*}
+		end=${item#*-}
+		for ((cpu=start; cpu<=end; cpu++)); do
+			OMP_PLACES_LIST="${OMP_PLACES_LIST}${cpu},"
+		done
+	else
+		OMP_PLACES_LIST="${OMP_PLACES_LIST}${item},"
+	fi
+done
+
+OMP_PLACES_LIST="{${OMP_PLACES_LIST%,}}"
+echo "Setting OMP_PLACES=$OMP_PLACES_LIST"
+
+export OMP_PROC_BIND=true
+export OMP_PLACES=$OMP_PLACES_LIST
+
+
 impls={{ impls }}
 matrices={{ matrices }}
 
-export OMP_NUM_THREADS={{ processes_per_mpi }}
 for impl in ${impls}
 do
 	for mtx in ${matrices}
