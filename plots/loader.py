@@ -20,8 +20,12 @@ def load_algorithm(folder_path: Path) -> str:
         return f.read().strip()
 
 def load_nodes_mpi(folder_path: Path) -> Tuple[int, int]:
-    parts = folder_path.name.split('-')
-    return int(parts[-2]), int(parts[-1])
+    if '_' in folder_path.name:
+        parts = folder_path.name.split('_')
+        return int(parts[0]), int(parts[1])    
+    else:
+        parts = folder_path.name.split('-')
+        return int(parts[-2]), int(parts[-1])
 
 def load_matrix(folder_path: Path) -> str:
     matrix_path = folder_path / "matrix"
@@ -86,10 +90,13 @@ def group_runs(node_dict: Dataframes) -> pd.DataFrame:
     # Return new dataframe with all the functions grouped!
     return pd.concat(result)
 
-def load_multiple_timings(folders: List[Path]) -> Tuple[str, pd.DataFrame]:
+def load_multiple_timings(folders: List[Path], matrix: str) -> Tuple[str, pd.DataFrame]:
     timings_per_algo = {}
     for folder_path in folders:
         # Load algo and initialize
+        if load_matrix(folder_path) != matrix:
+            continue
+
         algo = load_algorithm(folder_path)
         if not algo in timings_per_algo:
             timings_per_algo[algo] = pd.DataFrame()
@@ -103,9 +110,10 @@ def load_multiple_timings(folders: List[Path]) -> Tuple[str, pd.DataFrame]:
         grouped_df['mpi'] = mpi
         timings_per_algo[algo] = pd.concat([timings_per_algo[algo], grouped_df], axis=0)
     
-    matrixes = [load_matrix(folder) for folder in folders]
-    assert all([m1 == m2 for m1 in matrixes for m2 in matrixes])
-    return (matrixes[0], timings_per_algo)
+    if matrix is None:
+        matrixes = [load_matrix(folder) for folder in folders]
+        assert all([m1 == m2 for m1 in matrixes for m2 in matrixes])
+    return (matrixes[0] if matrix is None else matrix, timings_per_algo)
 
 def load_multiple_timings_scalability(folders: List[Path]) -> Tuple[str, pd.DataFrame]:
     timings_per_algo = {}
